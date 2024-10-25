@@ -1,0 +1,6 @@
+database:
+  host: "localhost"
+  port: 3306
+  name: "database_name"
+  user: "username"
+  password: "password"
