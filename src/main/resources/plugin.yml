@@ -1,0 +1,4 @@
+name: LukeVanilla
+version: '1.0-SNAPSHOT'
+main: com.lukehemmin.lukeVanilla.Main
+api-version: '1.21'
