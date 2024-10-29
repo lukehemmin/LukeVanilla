@@ -4,6 +4,7 @@ class DatabaseInitializer(private val database: Database) {
 
     fun createTables() {
         createSecretKeyTable()
+        createPlayerDataTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -13,6 +14,25 @@ class DatabaseInitializer(private val database: Database) {
             statement.executeUpdate(
                 "CREATE TABLE IF NOT EXISTS Secret_Key (" +
                         "Code VARCHAR(30) NOT NULL" +
+                        ")"
+
+
+            )
+        }
+    }
+
+    private fun createPlayerDataTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                "CREATE TABLE IF NOT EXISTS Player_Data (" +
+                        "UUID VARCHAR(36) NOT NULL, " +
+                        "NickName VARCHAR(30) NOT NULL, " +
+                        "NameTag VARCHAR(255), " +
+                        "DiscordID VARCHAR(30), " +
+                        "IsAuth TINYINT(1) NOT NULL, " +
+                        "AuthCode VARCHAR(6), " +
+                        "First_Join TINYINT(1) NOT NULL DEFAULT 1" +
                         ")"
             )
         }
