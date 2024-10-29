@@ -1,3 +1,6 @@
+service:
+  type: "Lobby" # Vanilla or Lobby
+
 database:
   host: "localhost"
   port: 3306
