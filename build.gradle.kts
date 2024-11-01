@@ -39,3 +39,11 @@ tasks.processResources {
         expand(props)
     }
 }
+
+tasks.shadowJar {
+    archiveBaseName.set("LukeVanilla")
+    destinationDirectory.set(file("C:/Users/Administrator/Desktop/server/vanlia_test/plugins"))
+    manifest {
+        attributes(mapOf("Main-Class" to "com.lukehemmin.lukeVanilla.Main"))
+    }
+}
