@@ -5,6 +5,7 @@ class DatabaseInitializer(private val database: Database) {
     fun createTables() {
         createSecretKeyTable()
         createPlayerDataTable()
+        createJoinQuitMessageTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -33,6 +34,20 @@ class DatabaseInitializer(private val database: Database) {
                         "IsAuth TINYINT(1) NOT NULL, " +
                         "AuthCode VARCHAR(6), " +
                         "First_Join TINYINT(1) NOT NULL DEFAULT 1" +
+                        ")"
+            )
+        }
+    }
+
+    private fun createJoinQuitMessageTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                "CREATE TABLE IF NOT EXISTS Join_Quit_Message (" +
+                        "service_type VARCHAR(30) NOT NULL, " +
+                        "message_type VARCHAR(30) NOT NULL, " +
+                        "message TEXT NOT NULL, " +
+                        "PRIMARY KEY (service_type, message_type)" +
                         ")"
             )
         }

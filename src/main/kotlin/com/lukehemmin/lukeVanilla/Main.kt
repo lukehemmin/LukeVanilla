@@ -21,6 +21,11 @@ class Main : JavaPlugin() {
 
         server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this), this)
 
+        // Player_Join_And_Quit_Message 갱신 스케줄러
+        server.scheduler.runTaskTimer(this, Runnable {
+            Player_Join_And_Quit_Message_Listener.updateMessages(database)
+        }, 0L, 1200L) // 60초마다 실행 (1200 ticks)
+
         // Plugin Logic
         logger.info("Plugin enabled")
     }
