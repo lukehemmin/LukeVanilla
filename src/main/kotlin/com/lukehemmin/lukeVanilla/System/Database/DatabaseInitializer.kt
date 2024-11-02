@@ -31,9 +31,10 @@ class DatabaseInitializer(private val database: Database) {
                         "NickName VARCHAR(30) NOT NULL, " +
                         "NameTag VARCHAR(255), " +
                         "DiscordID VARCHAR(30), " +
-                        "IsAuth TINYINT(1) NOT NULL, " +
+                        "IsAuth TINYINT(1) NOT NULL DEFAULT 0, " +
                         "AuthCode VARCHAR(6), " +
-                        "First_Join TINYINT(1) NOT NULL DEFAULT 1" +
+                        "First_Join TINYINT(1) NOT NULL DEFAULT 1, " +
+                        "PRIMARY KEY (UUID)" +
                         ")"
             )
         }
