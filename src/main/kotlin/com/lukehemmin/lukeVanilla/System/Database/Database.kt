@@ -27,4 +27,20 @@ class Database(config: FileConfiguration) {
     }
 
     fun getConnection(): Connection = dataSource.connection
+
+    fun getJoinQuitMessage(serviceType: String, messageType: String): String? {
+        this.getConnection().use { connection ->
+            val statement = connection.prepareStatement(
+                "SELECT message FROM Join_Quit_Message WHERE service_type = ? AND message_type = ?"
+            )
+            statement.setString(1, serviceType)
+            statement.setString(2, messageType)
+            val resultSet = statement.executeQuery()
+            return if (resultSet.next()) {
+                resultSet.getString("message")
+            } else {
+                null
+            }
+        }
+    }
 }
