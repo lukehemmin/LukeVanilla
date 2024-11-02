@@ -3,9 +3,11 @@ package com.lukehemmin.lukeVanilla
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
+import com.lukehemmin.lukeVanlia.lobby.SnowMinigame
 import org.bukkit.plugin.java.JavaPlugin
 
 class Main : JavaPlugin() {
+    private lateinit var snowMinigame: SnowMinigame
     lateinit var database: Database
     private lateinit var serviceType: String
 
@@ -26,6 +28,12 @@ class Main : JavaPlugin() {
             Player_Join_And_Quit_Message_Listener.updateMessages(database)
         }, 0L, 1200L) // 60초마다 실행 (1200 ticks)
 
+        // Register SnowMinigame if serviceType is Lobby
+        if (serviceType == "Lobby") {
+            snowMinigame = SnowMinigame(this)
+            server.pluginManager.registerEvents(snowMinigame, this)
+        }
+
         // Plugin Logic
         logger.info("Plugin enabled")
     }
@@ -35,3 +43,4 @@ class Main : JavaPlugin() {
         logger.info("Plugin disabled")
     }
 }
+
