@@ -5,6 +5,7 @@ import java.util.regex.Pattern
 
 object ColorUtil {
     private val hexPattern = Pattern.compile("&#([A-Fa-f0-9]{6})")
+    private val colorCodePattern = Pattern.compile("&([0-9a-fk-or])")
 
     /**
      * HEX 컬러 코드를 마인크래프트 채팅 형식으로 변환합니다.
@@ -37,6 +38,14 @@ object ColorUtil {
      */
     fun Color.toHex(): String =
         rgbToHex(red, green, blue)
+
+    /**
+     * 표준 마인크래프트 색상 코드를 변환합니다.
+     * 예시: &c -> §c
+     */
+    fun String.translateColorCodes(): String {
+        return this.replace(colorCodePattern.toRegex(), "§$1")
+    }
 
     /**
      * 그라데이션 효과를 만듭니다.
