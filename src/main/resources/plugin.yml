@@ -9,8 +9,16 @@ commands:
     usage: "/nametag <nickname> <nametag>"
     permission: "lukevanilla.nametag"
     permission-message: "You do not have permission to use this command."
+  item:
+    description: "Manage item names and descriptions."
+    usage: "/item <setname|adddesc|removedesc|cleardesc|info>"
+    permission: "lukevanilla.item"
+    permission-message: "You do not have permission to use this command."
 
 permissions:
   lukevanilla.nametag:
     description: "Allows the use of the /nametag command"
+    default: op
+  lukevanilla.item:
+    description: "Allows the use of the /item command"
     default: op
