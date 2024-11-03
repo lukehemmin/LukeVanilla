@@ -2,6 +2,9 @@ package com.lukehemmin.lukeVanilla
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
+import com.lukehemmin.lukeVanilla.System.DiscordAuth.PlayerJoinListener
+import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
+import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import com.lukehemmin.lukeVanlia.lobby.SnowMinigame
 import org.bukkit.plugin.java.JavaPlugin
@@ -10,6 +13,7 @@ class Main : JavaPlugin() {
     private lateinit var snowMinigame: SnowMinigame
     lateinit var database: Database
     private lateinit var serviceType: String
+    private lateinit var nametagManager: NametagManager
 
     override fun onEnable() {
         // DataBase Logic
@@ -33,6 +37,13 @@ class Main : JavaPlugin() {
             snowMinigame = SnowMinigame(this)
             server.pluginManager.registerEvents(snowMinigame, this)
         }
+
+        // DiscordAuth Logic
+        server.pluginManager.registerEvents(PlayerJoinListener(database), this)
+
+        // Nametag System
+        nametagManager = NametagManager(this, database)
+        getCommand("nametag")?.setExecutor(NametagCommand(database, nametagManager))
 
         // Plugin Logic
         logger.info("Plugin enabled")

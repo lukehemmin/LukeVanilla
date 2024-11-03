@@ -2,3 +2,15 @@ name: LukeVanilla
 version: '1.0-SNAPSHOT'
 main: com.lukehemmin.lukeVanilla.Main
 api-version: '1.21'
+
+commands:
+  nametag:
+    description: "플레이어 칭호를 변경할 수 있습니다."
+    usage: "/nametag <nickname> <nametag>"
+    permission: "lukevanilla.nametag"
+    permission-message: "You do not have permission to use this command."
+
+permissions:
+  lukevanilla.nametag:
+    description: "Allows the use of the /nametag command"
+    default: op
