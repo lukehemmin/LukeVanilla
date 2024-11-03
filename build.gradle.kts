@@ -14,12 +14,14 @@ repositories {
     maven("https://oss.sonatype.org/content/groups/public/") {
         name = "sonatype"
     }
+    maven("https://repo.oraxen.com/releases")
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.zaxxer:HikariCP:5.0.1")
+    compileOnly("io.th0rgal:oraxen:1.183.0")
 }
 
 val targetJavaVersion = 21
