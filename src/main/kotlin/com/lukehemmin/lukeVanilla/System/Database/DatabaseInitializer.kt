@@ -6,6 +6,7 @@ class DatabaseInitializer(private val database: Database) {
         createSecretKeyTable()
         createPlayerDataTable()
         createJoinQuitMessageTable()
+        createSettingsTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -49,6 +50,19 @@ class DatabaseInitializer(private val database: Database) {
                         "message_type VARCHAR(30) NOT NULL, " +
                         "message TEXT NOT NULL, " +
                         "PRIMARY KEY (service_type, message_type)" +
+                        ")"
+            )
+        }
+    }
+
+    private fun createSettingsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                "CREATE TABLE IF NOT EXISTS Settings (" +
+                        "setting_type VARCHAR(50) NOT NULL, " +
+                        "setting_value TEXT NOT NULL, " +
+                        "PRIMARY KEY (setting_type)" +
                         ")"
             )
         }
