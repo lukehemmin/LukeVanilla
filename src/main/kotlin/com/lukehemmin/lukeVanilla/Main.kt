@@ -3,6 +3,10 @@ package com.lukehemmin.lukeVanilla
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.DiscordAuth.PlayerJoinListener
+import com.lukehemmin.lukeVanilla.System.Items.DurabilityListener
+import com.lukehemmin.lukeVanilla.System.Items.EnchantmentLimitListener
+import com.lukehemmin.lukeVanilla.System.Items.Halloween_Item
+import com.lukehemmin.lukeVanilla.System.Items.ItemCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
@@ -44,6 +48,12 @@ class Main : JavaPlugin() {
         // Nametag System
         nametagManager = NametagManager(this, database)
         getCommand("nametag")?.setExecutor(NametagCommand(database, nametagManager))
+
+        // Item System
+        getCommand("item")?.setExecutor(ItemCommand())
+        server.pluginManager.registerEvents(DurabilityListener(this), this)
+        server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
+        server.pluginManager.registerEvents(Halloween_Item(), this)
 
         // Plugin Logic
         logger.info("Plugin enabled")
