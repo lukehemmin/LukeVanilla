@@ -11,7 +11,7 @@ import net.md_5.bungee.api.chat.TextComponent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.plugin.java.JavaPlugin
 
-class Player_Join_And_Quit_Message_Listener(private val serviceType: String, private val plugin: JavaPlugin) : Listener {
+class Player_Join_And_Quit_Message_Listener(private val serviceType: String, private val plugin: JavaPlugin, private val database: Database) : Listener {
     companion object {
         private var joinMessages = mutableMapOf<String, String>()
         private var quitMessages = mutableMapOf<String, String>()
@@ -31,6 +31,27 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
     @EventHandler
     fun onPlayerJoin(event: PlayerJoinEvent) {
         val player = event.player
+        val uuid = player.uniqueId.toString()
+
+        // Player_Auth 테이블에서 IsAuth 확인
+        var isAuth = true
+        database.getConnection().use { connection ->
+            val checkAuth = connection.prepareStatement("SELECT IsAuth FROM Player_Auth WHERE UUID = ?")
+            checkAuth.setString(1, uuid)
+            val authResult = checkAuth.executeQuery()
+            if (authResult.next()) {
+                isAuth = authResult.getInt("IsAuth") != 0
+            }
+            authResult.close()
+            checkAuth.close()
+        }
+
+        // 인증되지 않은 플레이어는 접속 메시지 표시 안 함
+        if (!isAuth) {
+            event.joinMessage = null
+            return
+        }
+
         if (serviceType == "Vanilla") {
             // Vanilla Server Join
             val message = if (!player.hasPlayedBefore()) {
@@ -75,6 +96,26 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
     @EventHandler
     fun onPlayerQuit(event: PlayerQuitEvent) {
         val player = event.player
+        val uuid = player.uniqueId.toString()
+
+        // Player_Auth 테이블에서 IsAuth 확인
+        var isAuth = true
+        database.getConnection().use { connection ->
+            val checkAuth = connection.prepareStatement("SELECT IsAuth FROM Player_Auth WHERE UUID = ?")
+            checkAuth.setString(1, uuid)
+            val authResult = checkAuth.executeQuery()
+            if (authResult.next()) {
+                isAuth = authResult.getInt("IsAuth") != 0
+            }
+            authResult.close()
+            checkAuth.close()
+        }
+
+        // 인증되지 않은 플레이어는 퇴장 메시지 표시 안 함
+        if (!isAuth) {
+            event.quitMessage = null
+            return
+        }
 
         val message = if (serviceType == "Vanilla") {
             quitMessages["VanillaServerQuit"]?.replace("{playerName}", player.name)
