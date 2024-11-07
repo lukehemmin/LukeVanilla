@@ -47,6 +47,7 @@ class DatabaseInitializer(private val database: Database) {
                         "UUID VARCHAR(36) NOT NULL, " +
                         "IsAuth TINYINT(1) NOT NULL DEFAULT 0, " +
                         "AuthCode VARCHAR(6), " +
+                        "IsFirst TINYINT(1) NOT NULL DEFAULT 1, " +
                         "PRIMARY KEY (UUID)" +
                         ")"
             )
