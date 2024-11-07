@@ -3,6 +3,7 @@ package com.lukehemmin.lukeVanilla
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.DiscordAuth.PlayerJoinListener
+import com.lukehemmin.lukeVanilla.System.DiscordAuth.PlayerLoginListener
 import com.lukehemmin.lukeVanilla.System.Items.DurabilityListener
 import com.lukehemmin.lukeVanilla.System.Items.EnchantmentLimitListener
 import com.lukehemmin.lukeVanilla.System.Items.Halloween_Item
@@ -10,7 +11,9 @@ import com.lukehemmin.lukeVanilla.System.Items.ItemCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
+import com.lukehemmin.lukeVanlia.commands.mapcommand
 import com.lukehemmin.lukeVanlia.lobby.SnowMinigame
+import com.lukehemmin.lukeVanlia.velocity.infomessage
 import org.bukkit.plugin.java.JavaPlugin
 
 class Main : JavaPlugin() {
@@ -18,6 +21,7 @@ class Main : JavaPlugin() {
     lateinit var database: Database
     private lateinit var serviceType: String
     private lateinit var nametagManager: NametagManager
+
 
     override fun onEnable() {
         // DataBase Logic
@@ -29,7 +33,10 @@ class Main : JavaPlugin() {
         // Read service type from config
         serviceType = config.getString("service.type") ?: "Vanilla"
 
-        server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this), this)
+        // 이벤트 리스너 등록
+        server.pluginManager.registerEvents(PlayerLoginListener(database), this)
+        server.pluginManager.registerEvents(PlayerJoinListener(database), this)
+        server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this, database), this)
 
         // Player_Join_And_Quit_Message 갱신 스케줄러
         server.scheduler.runTaskTimer(this, Runnable {
@@ -54,6 +61,11 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(DurabilityListener(this), this)
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
         server.pluginManager.registerEvents(Halloween_Item(), this)
+
+        // Command System
+        getCommand("infomessage")?.setExecutor(infomessage())
+        getCommand("wleh")?.setExecutor(mapcommand())
+        getCommand("지도")?.setExecutor(mapcommand())
 
         // Plugin Logic
         logger.info("Plugin enabled")
