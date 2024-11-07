@@ -20,10 +20,10 @@ class NametagManager(private val plugin: JavaPlugin, private val database: Datab
     private val playerTeams: MutableMap<UUID, Team> = mutableMapOf()
 
     init {
-        // Register events
+        // 이벤트 등록
         plugin.server.pluginManager.registerEvents(this, plugin)
 
-        // 1분마다 NameTag 값을 새로고침
+        // 1분마다 NameTag 값 새로고침
         plugin.server.scheduler.runTaskTimer(plugin, Runnable {
             refreshNametags()
         }, 0L, 1200L) // 60초마다 실행 (1200 ticks)
@@ -34,12 +34,12 @@ class NametagManager(private val plugin: JavaPlugin, private val database: Datab
         val player = event.player
         val uuid = player.uniqueId
         val connection = database.getConnection()
-        val statement = connection.prepareStatement("SELECT NameTag FROM Player_Data WHERE UUID = ?")
+        val statement = connection.prepareStatement("SELECT Tag FROM Player_NameTag WHERE UUID = ?")
         statement.setString(1, uuid.toString())
         val resultSet = statement.executeQuery()
 
         if (resultSet.next()) {
-            val nameTag = resultSet.getString("NameTag")
+            val nameTag = resultSet.getString("Tag")
             updatePlayerNametag(player, nameTag)
         }
 
@@ -60,12 +60,12 @@ class NametagManager(private val plugin: JavaPlugin, private val database: Datab
         val player = event.player
         val uuid = player.uniqueId
         val connection = database.getConnection()
-        val statement = connection.prepareStatement("SELECT NameTag FROM Player_Data WHERE UUID = ?")
+        val statement = connection.prepareStatement("SELECT Tag FROM Player_NameTag WHERE UUID = ?")
         statement.setString(1, uuid.toString())
         val resultSet = statement.executeQuery()
 
         if (resultSet.next()) {
-            val nameTag = resultSet.getString("NameTag")
+            val nameTag = resultSet.getString("Tag")
             if (nameTag.isNotBlank()) {
                 event.format = "${nameTag.translateColorCodes().translateHexColorCodes()}§f ${player.name} : ${event.message}"
             } else {
@@ -82,12 +82,12 @@ class NametagManager(private val plugin: JavaPlugin, private val database: Datab
         for (player in Bukkit.getOnlinePlayers()) {
             val uuid = player.uniqueId
             val connection = database.getConnection()
-            val statement = connection.prepareStatement("SELECT NameTag FROM Player_Data WHERE UUID = ?")
+            val statement = connection.prepareStatement("SELECT Tag FROM Player_NameTag WHERE UUID = ?")
             statement.setString(1, uuid.toString())
             val resultSet = statement.executeQuery()
 
             if (resultSet.next()) {
-                val nameTag = resultSet.getString("NameTag")
+                val nameTag = resultSet.getString("Tag")
                 updatePlayerNametag(player, nameTag)
             }
 
@@ -99,7 +99,8 @@ class NametagManager(private val plugin: JavaPlugin, private val database: Datab
 
     fun updatePlayerNametag(player: Player, nameTag: String) {
         val team = playerTeams.getOrPut(player.uniqueId) {
-            val newTeam = scoreboard.getTeam(player.uniqueId.toString()) ?: scoreboard.registerNewTeam(player.uniqueId.toString())
+            val newTeam = scoreboard.getTeam(player.uniqueId.toString())
+                ?: scoreboard.registerNewTeam(player.uniqueId.toString())
             newTeam.addEntry(player.name)
             newTeam
         }
