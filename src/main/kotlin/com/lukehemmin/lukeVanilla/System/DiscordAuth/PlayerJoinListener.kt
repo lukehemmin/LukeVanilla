@@ -4,8 +4,6 @@ import com.lukehemmin.lukeVanilla.System.Database.Database
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
-import java.util.*
-import kotlin.random.Random
 
 class PlayerJoinListener(private val database: Database) : Listener {
 
@@ -15,30 +13,49 @@ class PlayerJoinListener(private val database: Database) : Listener {
         val uuid = player.uniqueId.toString()
         val nickname = player.name
 
-        // Player_Data 테이블에서 UUID로 행을 찾음
         val connection = database.getConnection()
-        val statement = connection.prepareStatement("SELECT * FROM Player_Data WHERE UUID = ?")
-        statement.setString(1, uuid)
-        val resultSet = statement.executeQuery()
+
+        // Player_Data 테이블에서 UUID로 행을 찾음
+        val checkPlayerData = connection.prepareStatement("SELECT * FROM Player_Data WHERE UUID = ?")
+        checkPlayerData.setString(1, uuid)
+        val playerDataResult = checkPlayerData.executeQuery()
 
         // 행이 없으면 새로운 행을 추가
-        if (!resultSet.next()) {
-            val authCode = generateAuthCode()
-            val insertStatement = connection.prepareStatement(
-                "INSERT INTO Player_Data (UUID, NickName, NameTag, DiscordID, IsAuth, AuthCode, First_Join) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        if (!playerDataResult.next()) {
+            // Player_Data 테이블에 행 추가
+            val insertPlayerData = connection.prepareStatement(
+                "INSERT INTO Player_Data (UUID, NickName, DiscordID) VALUES (?, ?, ?)"
             )
-            insertStatement.setString(1, uuid)
-            insertStatement.setString(2, nickname)
-            insertStatement.setString(3, "") // NameTag 빈칸
-            insertStatement.setString(4, "") // DiscordID 빈칸
-            insertStatement.setInt(5, 0) // IsAuth 0
-            insertStatement.setString(6, authCode) // AuthCode 6자리 코드
-            insertStatement.setInt(7, 1) // First_Join 1
-            insertStatement.executeUpdate()
+            insertPlayerData.setString(1, uuid)
+            insertPlayerData.setString(2, nickname)
+            insertPlayerData.setString(3, "") // DiscordID 빈칸
+            insertPlayerData.executeUpdate()
+            insertPlayerData.close()
+
+            // Player_Auth 테이블에 행 추가
+            val authCode = generateAuthCode()
+            val insertPlayerAuth = connection.prepareStatement(
+                "INSERT INTO Player_Auth (UUID, IsAuth, AuthCode, IsFirst) VALUES (?, ?, ?, ?)"
+            )
+            insertPlayerAuth.setString(1, uuid)
+            insertPlayerAuth.setInt(2, 0) // IsAuth 0
+            insertPlayerAuth.setString(3, authCode)
+            insertPlayerAuth.setInt(4, 1) // IsFirst 1
+            insertPlayerAuth.executeUpdate()
+            insertPlayerAuth.close()
+
+            // Player_NameTag 테이블에 행 추가
+            val insertPlayerNameTag = connection.prepareStatement(
+                "INSERT INTO Player_NameTag (UUID, Tag) VALUES (?, ?)"
+            )
+            insertPlayerNameTag.setString(1, uuid)
+            insertPlayerNameTag.setString(2, "") // Tag 빈칸
+            insertPlayerNameTag.executeUpdate()
+            insertPlayerNameTag.close()
         }
 
-        resultSet.close()
-        statement.close()
+        playerDataResult.close()
+        checkPlayerData.close()
         connection.close()
     }
 
