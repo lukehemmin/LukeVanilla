@@ -49,9 +49,6 @@ class Main : JavaPlugin() {
             server.pluginManager.registerEvents(snowMinigame, this)
         }
 
-        // DiscordAuth Logic
-        server.pluginManager.registerEvents(PlayerJoinListener(database), this)
-
         // Nametag System
         nametagManager = NametagManager(this, database)
         getCommand("nametag")?.setExecutor(NametagCommand(database, nametagManager))
