@@ -2,10 +2,7 @@ package com.lukehemmin.lukeVanilla
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
-import com.lukehemmin.lukeVanilla.System.Discord.DiscordAuth
-import com.lukehemmin.lukeVanilla.System.Discord.DiscordBot
-import com.lukehemmin.lukeVanilla.System.Discord.PlayerJoinListener
-import com.lukehemmin.lukeVanilla.System.Discord.PlayerLoginListener
+import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Items.DurabilityListener
 import com.lukehemmin.lukeVanilla.System.Items.EnchantmentLimitListener
 import com.lukehemmin.lukeVanilla.System.Items.Halloween_Item
@@ -23,6 +20,7 @@ class Main : JavaPlugin() {
     lateinit var database: Database
     private lateinit var serviceType: String
     private lateinit var nametagManager: NametagManager
+    private lateinit var discordRoleManager: DiscordRoleManager
 
 
     override fun onEnable() {
@@ -35,23 +33,31 @@ class Main : JavaPlugin() {
         // Read service type from config
         serviceType = config.getString("service.type") ?: "Vanilla"
 
-        // 이벤트 리스너 등록
-        server.pluginManager.registerEvents(PlayerLoginListener(database), this)
-        server.pluginManager.registerEvents(PlayerJoinListener(database), this)
-        server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this, database), this)
-
         // Discord Bot 초기화
         val discordToken = database.getSettingValue("DiscordToken")
         if (discordToken != null) {
             val discordBot = DiscordBot()
             discordBot.start(discordToken)
 
+            // DiscordRoleManager 초기화
+            discordRoleManager = DiscordRoleManager(database, discordBot.jda)
+
             // DiscordAuth 초기화 및 리스너 등록
             val discordAuth = DiscordAuth(database, this)
             discordBot.jda.addEventListener(discordAuth)
+
+            // DiscordLeave 초기화 및 리스너 등록
+            val discordLeave = DiscordLeave(database, this, discordBot.jda)
+            discordBot.jda.addEventListener(discordLeave) // 수정된 부분
+            server.pluginManager.registerEvents(discordLeave, this)
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")
         }
+
+        // 이벤트 리스너 등록
+        server.pluginManager.registerEvents(PlayerLoginListener(database), this)
+        server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this, database), this)
+        server.pluginManager.registerEvents(PlayerJoinListener(this, database, discordRoleManager), this) // PlayerJoinListener에 DiscordRoleManager 전달
 
         // Player_Join_And_Quit_Message 갱신 스케줄러
         server.scheduler.runTaskTimer(this, Runnable {
