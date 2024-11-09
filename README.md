@@ -1,4 +1,10 @@
+<div align="center">
 # LukeVanilla
-minecraft 1.20 Plugin
+minecraft 1.21.1 Plugin
+</div>
 
-
+## 💡 TO-DO
+    - [ ] 인게임 내 액자에 이미지 주소로 액자에 이미지를 넣을 수 있도록 함.
+    - [ ] 할로윈 도구 아이템 소유 여부 정보 수집
+    - [ ] 인증 시스템 디스코드 API 요청수를 줄이기 위해 대기시간 추가
+    - [ ] 디스코드 와의 기능 확장. ( 노션 확인 )
