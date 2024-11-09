@@ -2,8 +2,10 @@ package com.lukehemmin.lukeVanilla
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
-import com.lukehemmin.lukeVanilla.System.DiscordAuth.PlayerJoinListener
-import com.lukehemmin.lukeVanilla.System.DiscordAuth.PlayerLoginListener
+import com.lukehemmin.lukeVanilla.System.Discord.DiscordAuth
+import com.lukehemmin.lukeVanilla.System.Discord.DiscordBot
+import com.lukehemmin.lukeVanilla.System.Discord.PlayerJoinListener
+import com.lukehemmin.lukeVanilla.System.Discord.PlayerLoginListener
 import com.lukehemmin.lukeVanilla.System.Items.DurabilityListener
 import com.lukehemmin.lukeVanilla.System.Items.EnchantmentLimitListener
 import com.lukehemmin.lukeVanilla.System.Items.Halloween_Item
@@ -37,6 +39,19 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(PlayerLoginListener(database), this)
         server.pluginManager.registerEvents(PlayerJoinListener(database), this)
         server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this, database), this)
+
+        // Discord Bot 초기화
+        val discordToken = database.getSettingValue("DiscordToken")
+        if (discordToken != null) {
+            val discordBot = DiscordBot()
+            discordBot.start(discordToken)
+
+            // DiscordAuth 초기화 및 리스너 등록
+            val discordAuth = DiscordAuth(database, this)
+            discordBot.jda.addEventListener(discordAuth)
+        } else {
+            logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")
+        }
 
         // Player_Join_And_Quit_Message 갱신 스케줄러
         server.scheduler.runTaskTimer(this, Runnable {
