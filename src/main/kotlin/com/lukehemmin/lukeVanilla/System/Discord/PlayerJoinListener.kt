@@ -1,17 +1,24 @@
 package com.lukehemmin.lukeVanilla.System.Discord
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import org.bukkit.Bukkit
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.plugin.java.JavaPlugin
 
-class PlayerJoinListener(private val database: Database) : Listener {
+class PlayerJoinListener(private val plugin: JavaPlugin, private val database: Database, private val discordRoleManager: DiscordRoleManager) : Listener {
 
     @EventHandler
     fun onPlayerJoin(event: PlayerJoinEvent) {
         val player = event.player
         val uuid = player.uniqueId.toString()
         val nickname = player.name
+
+        // Runnable을 명시적으로 사용
+        Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+            discordRoleManager.checkAndGrantAuthRole(player)
+        }, 20L)
 
         database.getConnection().use { connection ->
             // Player_Data 테이블에서 UUID로 행을 찾음
