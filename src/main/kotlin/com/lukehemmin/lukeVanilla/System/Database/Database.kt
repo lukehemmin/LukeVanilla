@@ -11,7 +11,7 @@ class Database(config: FileConfiguration) {
 
     // 데이터 클래스 추가
     data class AuthRecord(val uuid: String, val isAuth: Boolean)
-    data class PlayerData(val nickname: String, val uuid: String)
+    data class PlayerData(val nickname: String, val uuid: String, val discordId: String?) // discordId 추가
 
     init {
         val host = config.getString("database.host")
@@ -88,7 +88,7 @@ class Database(config: FileConfiguration) {
     }
 
     fun getPlayerDataByUuid(uuid: String): PlayerData? {
-        val query = "SELECT nickname, uuid FROM Player_Data WHERE uuid = ?"
+        val query = "SELECT nickname, uuid, DiscordID FROM Player_Data WHERE uuid = ?"
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, uuid)
@@ -96,7 +96,8 @@ class Database(config: FileConfiguration) {
                 if (result.next()) {
                     return PlayerData(
                         nickname = result.getString("nickname"),
-                        uuid = result.getString("uuid")
+                        uuid = result.getString("uuid"),
+                        discordId = result.getString("DiscordID") // DiscordID 포함
                     )
                 }
             }
@@ -145,5 +146,23 @@ class Database(config: FileConfiguration) {
         return (1..6)
             .map { chars.random() }
             .joinToString("")
+    }
+
+    fun getPlayerDataByDiscordId(discordId: String): PlayerData? {
+        val query = "SELECT nickname, uuid FROM Player_Data WHERE DiscordID = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, discordId)
+                val result = statement.executeQuery()
+                if (result.next()) {
+                    return PlayerData(
+                        nickname = result.getString("nickname"),
+                        uuid = result.getString("uuid"),
+                        discordId = discordId // DiscordID 포함
+                    )
+                }
+            }
+        }
+        return null
     }
 }
