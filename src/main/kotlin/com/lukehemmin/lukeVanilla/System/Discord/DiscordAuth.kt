@@ -44,7 +44,7 @@ class DiscordAuth(
 
         val authCode = message
         val authRecord = database.getAuthRecord(authCode) ?: run {
-            event.channel.sendMessage("인증코드가 올바르지 않습니다.")
+            event.channel.sendMessage(":x: 인증코드가 올바르지 않습니다.")
                 .queue { reply ->
                     // 1분 후 메시지 삭제
                     plugin.server.scheduler.scheduleSyncDelayedTask(plugin, {
@@ -55,7 +55,7 @@ class DiscordAuth(
         }
 
         if (authRecord.isAuth) {
-            event.channel.sendMessage("이미 인증이 완료되었습니다.")
+            event.channel.sendMessage(":white_check_mark: 이미 인증이 완료되었습니다.")
                 .queue { reply ->
                     // 1분 후 메시지 삭제
                     plugin.server.scheduler.scheduleSyncDelayedTask(plugin, {
@@ -71,7 +71,7 @@ class DiscordAuth(
 
             // 플레이어 데이터 가져오기
             val playerData = database.getPlayerDataByUuid(authRecord.uuid) ?: run {
-                event.channel.sendMessage("플레이어 데이터를 찾을 수 없습니다. 관리자에게 문의하세요.").queue()
+                event.channel.sendMessage(":x: 플레이어 데이터를 찾을 수 없습니다. 관리자에게 문의하세요.").queue()
                 return
             }
 
@@ -81,13 +81,13 @@ class DiscordAuth(
             // 역할 부여
             event.guild.retrieveMember(event.author).queue({ member ->
                 val role = event.guild.getRoleById(authRoleId) ?: run {
-                    event.channel.sendMessage("역할을 찾을 수 없습니다. 관리자에게 문의하세요.").queue()
+                    event.channel.sendMessage(":x: 역할을 찾을 수 없습니다. 관리자에게 문의하세요.").queue()
                     return@queue
                 }
 
                 event.guild.addRoleToMember(member, role).queue({
                     // 인증 완료 메시지 전송 및 삭제
-                    event.channel.sendMessage("인증이 완료되었습니다.")
+                    event.channel.sendMessage(":white_check_mark: 인증이 완료되었습니다.")
                         .queue { confirmationMessage ->
                             plugin.server.scheduler.scheduleSyncDelayedTask(plugin, {
                                 confirmationMessage.delete().queue()
@@ -107,7 +107,7 @@ class DiscordAuth(
 
         } catch (e: Exception) {
             e.printStackTrace()
-            event.channel.sendMessage("인증 처리 중 오류가 발생했습니다.").queue()
+            event.channel.sendMessage(":x: 인증 처리 중 오류가 발생했습니다.").queue()
         }
     }
 }
