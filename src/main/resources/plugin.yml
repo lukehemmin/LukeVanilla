@@ -14,6 +14,15 @@ commands:
     usage: "/item <setname|adddesc|removedesc|cleardesc|info>"
     permission: "lukevanilla.item"
     permission-message: "You do not have permission to use this command."
+  infomessage:
+    permission: "lukevanilla.admin"
+    permission-message: "You do not have permission to use this command."
+  wleh:
+    description: "지도 사이트 링크를 표시하는 명령어 입니다."
+    usage: "/wleh 또는 /지도"
+  지도:
+    description: "지도 사이트 링크를 표시하는 명령어 입니다."
+    usage: "/wleh 또는 /지도"
 
 permissions:
   lukevanilla.nametag:
@@ -21,4 +30,7 @@ permissions:
     default: op
   lukevanilla.item:
     description: "Allows the use of the /item command"
+    default: op
+  lukevanilla.admin:
+    description: "Allows the use of all commands"
     default: op

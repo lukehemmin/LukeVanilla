@@ -32,15 +32,33 @@ class NametagCommand(private val database: Database, private val nametagManager:
 
         val uuid = player.uniqueId
         val connection = database.getConnection()
-        val statement = connection.prepareStatement("UPDATE Player_Data SET NameTag = ? WHERE UUID = ?")
-        statement.setString(1, newNametag)
-        statement.setString(2, uuid.toString())
-        statement.executeUpdate()
 
-        statement.close()
+        // Player_NameTag 테이블에서 해당 플레이어의 행이 있는지 확인
+        val checkStatement = connection.prepareStatement("SELECT * FROM Player_NameTag WHERE UUID = ?")
+        checkStatement.setString(1, uuid.toString())
+        val resultSet = checkStatement.executeQuery()
+
+        if (resultSet.next()) {
+            // 행이 있으면 업데이트
+            val updateStatement = connection.prepareStatement("UPDATE Player_NameTag SET Tag = ? WHERE UUID = ?")
+            updateStatement.setString(1, newNametag)
+            updateStatement.setString(2, uuid.toString())
+            updateStatement.executeUpdate()
+            updateStatement.close()
+        } else {
+            // 행이 없으면 삽입
+            val insertStatement = connection.prepareStatement("INSERT INTO Player_NameTag (UUID, Tag) VALUES (?, ?)")
+            insertStatement.setString(1, uuid.toString())
+            insertStatement.setString(2, newNametag)
+            insertStatement.executeUpdate()
+            insertStatement.close()
+        }
+
+        resultSet.close()
+        checkStatement.close()
         connection.close()
 
-        // Update the player's nametag immediately
+        // 플레이어의 Nametag 즉시 업데이트
         nametagManager.updatePlayerNametag(player, newNametag)
 
         sender.sendMessage("§f§l${playerName}§f의 칭호가 ${newNametag.translateColorCodes()}§f 으로 변경되었습니다.")
