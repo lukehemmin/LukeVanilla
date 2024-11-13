@@ -9,10 +9,11 @@ class DatabaseInitializer(private val database: Database) {
         createPlayerNameTagTable()
         createJoinQuitMessageTable()
         createSettingsTable()
+        createHalloweenItemOwnerTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
-    private fun createSecretKeyTable() {
+    private fun createSecretKeyTable() { // 비밀키 테이블
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
             statement.executeUpdate(
@@ -25,7 +26,7 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
-    private fun createPlayerDataTable() {
+    private fun createPlayerDataTable() { // 플레이어 데이터 테이블
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
             statement.executeUpdate(
@@ -39,7 +40,7 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
-    private fun createPlayerAuthTable() {
+    private fun createPlayerAuthTable() { // 플레이어 인증 테이블
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
             statement.executeUpdate(
@@ -54,7 +55,7 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
-    private fun createPlayerNameTagTable() {
+    private fun createPlayerNameTagTable() { // 플레이어 네임태그(칭호) 테이블
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
             statement.executeUpdate(
@@ -67,7 +68,7 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
-    private fun createJoinQuitMessageTable() {
+    private fun createJoinQuitMessageTable() { // 입장, 퇴장 메시지 테이블
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
             statement.executeUpdate(
@@ -81,7 +82,7 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
-    private fun createSettingsTable() {
+    private fun createSettingsTable() { // 설정 테이블
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
             statement.executeUpdate(
@@ -90,6 +91,30 @@ class DatabaseInitializer(private val database: Database) {
                         "setting_value TEXT NOT NULL, " +
                         "PRIMARY KEY (setting_type)" +
                         ")"
+            )
+        }
+    }
+
+    private fun createHalloweenItemOwnerTable() { // 할로윈 아이템 소유자 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Halloween_Item_Owner (
+                UUID VARCHAR(36) PRIMARY KEY,
+                sword TINYINT(1) NOT NULL DEFAULT 0,
+                pickaxe TINYINT(1) NOT NULL DEFAULT 0,
+                axe TINYINT(1) NOT NULL DEFAULT 0,
+                shovel TINYINT(1) NOT NULL DEFAULT 0,
+                hoe TINYINT(1) NOT NULL DEFAULT 0,
+                bow TINYINT(1) NOT NULL DEFAULT 0,
+                fishing_rod TINYINT(1) NOT NULL DEFAULT 0,
+                hammer TINYINT(1) NOT NULL DEFAULT 0,
+                hat TINYINT(1) NOT NULL DEFAULT 0,
+                scythe TINYINT(1) NOT NULL DEFAULT 0,
+                spear TINYINT(1) NOT NULL DEFAULT 0
+            );
+            """.trimIndent()
             )
         }
     }
