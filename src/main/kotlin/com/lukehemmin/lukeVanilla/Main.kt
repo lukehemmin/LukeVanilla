@@ -1,12 +1,11 @@
 package com.lukehemmin.lukeVanilla
 
+import com.lukehemmin.lukeVanilla.System.Command.HalloweenCommandCompleter
+import com.lukehemmin.lukeVanilla.System.Command.HalloweenItemOwnerCommand
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
-import com.lukehemmin.lukeVanilla.System.Items.DurabilityListener
-import com.lukehemmin.lukeVanilla.System.Items.EnchantmentLimitListener
-import com.lukehemmin.lukeVanilla.System.Items.Halloween_Item
-import com.lukehemmin.lukeVanilla.System.Items.ItemCommand
+import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
@@ -84,6 +83,10 @@ class Main : JavaPlugin() {
         getCommand("infomessage")?.setExecutor(infomessage())
         getCommand("wleh")?.setExecutor(mapcommand())
         getCommand("지도")?.setExecutor(mapcommand())
+
+        val halloweenCommand = HalloweenItemOwnerCommand(this)
+        getCommand("할로윈")?.setExecutor(halloweenCommand)
+        getCommand("할로윈")?.tabCompleter = HalloweenCommandCompleter()
 
         // Plugin Logic
         logger.info("Plugin enabled")

@@ -23,6 +23,9 @@ commands:
   지도:
     description: "지도 사이트 링크를 표시하는 명령어 입니다."
     usage: "/wleh 또는 /지도"
+  할로윈:
+    description: "할로윈 아이템 소유 명령어"
+    usage: "/할로윈 아이템 소유"
 
 permissions:
   lukevanilla.nametag:
