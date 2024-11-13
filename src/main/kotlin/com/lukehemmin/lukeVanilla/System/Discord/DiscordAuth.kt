@@ -37,7 +37,35 @@ class DiscordAuth(
         val message = event.message.contentRaw.trim()
 
         // 인증 코드 패턴 확인
-        if (!codePattern.matcher(message).matches()) return
+        if (!codePattern.matcher(message).matches()) {
+            // 사용자의 메시지를 삭제
+            event.message.delete().queue()
+
+            event.channel.sendMessage(":x: 인증코드가 올바르지 않습니다.")
+                .queue { reply ->
+                    // 1분 후 메시지 삭제
+                    plugin.server.scheduler.scheduleSyncDelayedTask(plugin, {
+                        reply.delete().queue()
+                    }, 20 * 60L)
+                }
+            return
+        }
+
+        // DiscordID로 이미 인증된 플레이어가 있는지 확인
+        val existingPlayer = database.getPlayerDataByDiscordId(event.author.id)
+        if (existingPlayer != null) {
+            // 사용자의 메시지를 삭제
+            event.message.delete().queue()
+
+            event.channel.sendMessage(":x: 이미 다른 마인크래프트 계정으로 인증되었습니다.")
+                .queue { reply ->
+                    // 1분 후 메시지 삭제
+                    plugin.server.scheduler.scheduleSyncDelayedTask(plugin, {
+                        reply.delete().queue()
+                    }, 20 * 60L)
+                }
+            return
+        }
 
         // 사용자의 메시지를 삭제
         event.message.delete().queue()
