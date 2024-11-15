@@ -165,4 +165,83 @@ class Database(config: FileConfiguration) {
         }
         return null
     }
+
+    // DiscordVoiceChannelListener 에서 사용할 함수 추가
+    fun getPlayerUUIDByDiscordID(discordId: String): String? {
+        val query = "SELECT UUID FROM Player_Data WHERE DiscordID = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, discordId)
+                val result = statement.executeQuery()
+                if (result.next()) {
+                    return result.getString("UUID")
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Player_NameTag 테이블에서 UUID로 태그를 조회합니다.
+     */
+    fun getPlayerNameTag(uuid: String): String? {
+        val query = "SELECT Tag FROM Player_NameTag WHERE UUID = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, uuid)
+                val result = statement.executeQuery()
+                return if (result.next()) result.getString("Tag") else null
+            }
+        }
+    }
+
+    fun setTitokerMessageEnabled(uuid: String, enabled: Boolean) {
+        getConnection().use { connection ->
+            connection.prepareStatement(
+                """
+            INSERT INTO Titoker_Message_Setting (UUID, IsEnabled) 
+            VALUES (?, ?) 
+            ON DUPLICATE KEY UPDATE IsEnabled = ?
+            """
+            ).use { statement ->
+                statement.setString(1, uuid)
+                statement.setBoolean(2, enabled)
+                statement.setBoolean(3, enabled)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun isTitokerMessageEnabled(uuid: String): Boolean {
+        getConnection().use { connection ->
+            connection.prepareStatement(
+                "SELECT IsEnabled FROM Titoker_Message_Setting WHERE UUID = ?"
+            ).use { statement ->
+                statement.setString(1, uuid)
+                val result = statement.executeQuery()
+                return if (result.next()) result.getBoolean("IsEnabled") else false
+            }
+        }
+    }
+
+    fun getDiscordIDByUUID(uuid: String): String? {
+        getConnection().use { connection ->
+            connection.prepareStatement(
+                "SELECT DiscordID FROM Player_Data WHERE UUID = ?"
+            ).use { statement ->
+                statement.setString(1, uuid)
+                val result = statement.executeQuery()
+                return if (result.next()) result.getString("DiscordID") else null
+            }
+        }
+    }
+
+    /**
+     * 데이터베이스를 닫는 메서드
+     */
+    fun close() {
+        if (!dataSource.isClosed) {
+            dataSource.close()
+        }
+    }
 }

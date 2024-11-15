@@ -2,11 +2,18 @@ name: LukeVanilla
 version: '1.0-SNAPSHOT'
 main: com.lukehemmin.lukeVanilla.Main
 api-version: '1.21'
+author: LukeHemmin
+website: https://github.com/lukehemmin/LukeVanilla
 
 commands:
   nametag:
     description: "플레이어 칭호를 변경할 수 있습니다."
     usage: "/nametag <nickname> <nametag>"
+    permission: "lukevanilla.nametag"
+    permission-message: "You do not have permission to use this command."
+  delnametag:
+    description: "플레이어의 칭호를 제거합니다."
+    usage: "/delnametag <nickname>"
     permission: "lukevanilla.nametag"
     permission-message: "You do not have permission to use this command."
   item:
@@ -23,6 +30,12 @@ commands:
   지도:
     description: "지도 사이트 링크를 표시하는 명령어 입니다."
     usage: "/wleh 또는 /지도"
+  할로윈:
+    description: "할로윈 아이템 소유 명령어"
+    usage: "/할로윈 아이템 소유"
+  티토커메시지:
+    description: "티토커 채팅 메시지를 활성화/비활성화합니다."
+    usage: "/티토커메시지 <보기|끄기>"
 
 permissions:
   lukevanilla.nametag:
