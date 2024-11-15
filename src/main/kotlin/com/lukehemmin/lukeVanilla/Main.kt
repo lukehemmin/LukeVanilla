@@ -2,6 +2,8 @@ package com.lukehemmin.lukeVanilla
 
 import com.lukehemmin.lukeVanilla.System.Command.HalloweenCommandCompleter
 import com.lukehemmin.lukeVanilla.System.Command.HalloweenItemOwnerCommand
+import com.lukehemmin.lukeVanilla.System.Command.TitokerCommandCompleter
+import com.lukehemmin.lukeVanilla.System.Command.TitokerMessageCommand
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
@@ -20,6 +22,7 @@ class Main : JavaPlugin() {
     private lateinit var serviceType: String
     private lateinit var nametagManager: NametagManager
     private lateinit var discordRoleManager: DiscordRoleManager
+    lateinit var discordBot: DiscordBot // 추가된 라인
 
 
     override fun onEnable() {
@@ -49,6 +52,12 @@ class Main : JavaPlugin() {
             val discordLeave = DiscordLeave(database, this, discordBot.jda)
             discordBot.jda.addEventListener(discordLeave) // 수정된 부분
             server.pluginManager.registerEvents(discordLeave, this)
+
+            // DiscordVoiceChannelListener 초기화 및 리스너 등록
+            discordBot.jda.addEventListener(DiscordVoiceChannelListener(this))
+
+            // 티토커 채팅 리스너 등록
+            discordBot.jda.addEventListener(TitokerChatListener(this))
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")
         }
@@ -71,7 +80,9 @@ class Main : JavaPlugin() {
 
         // Nametag System
         nametagManager = NametagManager(this, database)
-        getCommand("nametag")?.setExecutor(NametagCommand(database, nametagManager))
+        val nametagCommand = NametagCommand(database, nametagManager)
+        getCommand("nametag")?.setExecutor(nametagCommand)
+        getCommand("delnametag")?.setExecutor(nametagCommand)
 
         // Item System
         getCommand("item")?.setExecutor(ItemCommand())
@@ -88,12 +99,26 @@ class Main : JavaPlugin() {
         getCommand("할로윈")?.setExecutor(halloweenCommand)
         getCommand("할로윈")?.tabCompleter = HalloweenCommandCompleter()
 
+        // 티토커 메시지 명령어 등록
+        getCommand("티토커메시지")?.setExecutor(TitokerMessageCommand(this))
+        getCommand("티토커메시지")?.tabCompleter = TitokerCommandCompleter()
+
         // Plugin Logic
         logger.info("Plugin enabled")
     }
 
     override fun onDisable() {
         // Plugin shutdown logic
+
+        // Discord 봇 종료
+        if (::discordBot.isInitialized) {
+            discordBot.jda.shutdown()
+        }
+
+        // 데이터베이스 종료
+        if (::database.isInitialized) {
+            database.close()
+        }
         logger.info("Plugin disabled")
     }
 }
