@@ -10,6 +10,7 @@ class DatabaseInitializer(private val database: Database) {
         createJoinQuitMessageTable()
         createSettingsTable()
         createHalloweenItemOwnerTable()
+        createTitokerMessageSettingTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -148,6 +149,20 @@ class DatabaseInitializer(private val database: Database) {
                 spear TINYINT(1) NOT NULL DEFAULT 0
             );
             """.trimIndent()
+            )
+        }
+    }
+
+    private fun createTitokerMessageSettingTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Titoker_Message_Setting (
+                UUID VARCHAR(36) PRIMARY KEY,
+                IsEnabled BOOLEAN DEFAULT false
+            )
+            """
             )
         }
     }
