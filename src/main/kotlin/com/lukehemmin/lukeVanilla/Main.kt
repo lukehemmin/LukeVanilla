@@ -1,9 +1,6 @@
 package com.lukehemmin.lukeVanilla
 
-import com.lukehemmin.lukeVanilla.System.Command.HalloweenCommandCompleter
-import com.lukehemmin.lukeVanilla.System.Command.HalloweenItemOwnerCommand
-import com.lukehemmin.lukeVanilla.System.Command.TitokerCommandCompleter
-import com.lukehemmin.lukeVanilla.System.Command.TitokerMessageCommand
+import com.lukehemmin.lukeVanilla.System.Command.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
@@ -89,11 +86,13 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(DurabilityListener(this), this)
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
         server.pluginManager.registerEvents(Halloween_Item(), this)
+        server.pluginManager.registerEvents(TransparentFrame(), this)
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
         getCommand("wleh")?.setExecutor(mapcommand())
         getCommand("지도")?.setExecutor(mapcommand())
+        getCommand("투명액자")?.setExecutor(TransparentFrameCommand())
 
         val halloweenCommand = HalloweenItemOwnerCommand(this)
         getCommand("할로윈")?.setExecutor(halloweenCommand)

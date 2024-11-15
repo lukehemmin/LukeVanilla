@@ -36,6 +36,10 @@ commands:
   티토커메시지:
     description: "티토커 채팅 메시지를 활성화/비활성화합니다."
     usage: "/티토커메시지 <보기|끄기>"
+  투명액자:
+    description: "투명 액자를 받습니다"
+    usage: "/투명액자"
+    permission: "lukevanilla.transparentframe"
 
 permissions:
   lukevanilla.nametag:
@@ -46,4 +50,7 @@ permissions:
     default: op
   lukevanilla.admin:
     description: "Allows the use of all commands"
+    default: op
+  lukevanilla.transparentframe:
+    description: "투명 액자 명령어 사용 권한"
     default: op
