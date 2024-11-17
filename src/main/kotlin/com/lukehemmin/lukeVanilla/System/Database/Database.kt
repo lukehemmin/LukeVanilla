@@ -236,6 +236,22 @@ class Database(config: FileConfiguration) {
         }
     }
 
+    fun setSetting(settingType: String, settingValue: String) {
+        val query = """
+        INSERT INTO Settings (setting_type, setting_value) 
+        VALUES (?, ?) 
+        ON DUPLICATE KEY UPDATE setting_value = ?
+        """
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, settingType)
+                statement.setString(2, settingValue)
+                statement.setString(3, settingValue)
+                statement.executeUpdate()
+            }
+        }
+    }
+
     /**
      * 데이터베이스를 닫는 메서드
      */
@@ -243,5 +259,9 @@ class Database(config: FileConfiguration) {
         if (!dataSource.isClosed) {
             dataSource.close()
         }
+    }
+
+    fun isDataSourceClosed(): Boolean {
+        return dataSource.isClosed
     }
 }
