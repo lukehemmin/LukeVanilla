@@ -7,6 +7,7 @@ import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
+import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import com.lukehemmin.lukeVanlia.commands.mapcommand
 import com.lukehemmin.lukeVanlia.lobby.SnowMinigame
@@ -35,7 +36,7 @@ class Main : JavaPlugin() {
         // Discord Bot 초기화
         val discordToken = database.getSettingValue("DiscordToken")
         if (discordToken != null) {
-            val discordBot = DiscordBot()
+            discordBot = DiscordBot()
             discordBot.start(discordToken)
 
             // DiscordRoleManager 초기화
@@ -58,6 +59,11 @@ class Main : JavaPlugin() {
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")
         }
+
+        // Discord Bot 초기화 부분 아래에 추가
+        val supportSystem = SupportSystem(discordBot, database)
+        discordBot.jda.addEventListener(supportSystem)
+        supportSystem.setupSupportChannel()
 
         // 이벤트 리스너 등록
         server.pluginManager.registerEvents(PlayerLoginListener(database), this)
@@ -102,15 +108,21 @@ class Main : JavaPlugin() {
         getCommand("티토커메시지")?.setExecutor(TitokerMessageCommand(this))
         getCommand("티토커메시지")?.tabCompleter = TitokerCommandCompleter()
 
+        // NoExplosionListener 초기화 및 등록
+        val listener = NoExplosionListener(this)
+        server.pluginManager.registerEvents(listener, this)
+
         // Plugin Logic
         logger.info("Plugin enabled")
     }
 
     override fun onDisable() {
-        // Plugin shutdown logic
-
-        // Discord 봇 종료
+        // Discord 봇 리스너들을 먼저 제거
         if (::discordBot.isInitialized) {
+            discordBot.jda.registeredListeners.forEach {
+                discordBot.jda.removeEventListener(it)
+            }
+            // Discord 봇 종료
             discordBot.jda.shutdown()
         }
 
@@ -118,6 +130,7 @@ class Main : JavaPlugin() {
         if (::database.isInitialized) {
             database.close()
         }
+
         logger.info("Plugin disabled")
     }
 }

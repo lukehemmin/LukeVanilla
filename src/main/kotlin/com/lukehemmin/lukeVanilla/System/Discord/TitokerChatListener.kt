@@ -11,36 +11,44 @@ import java.util.regex.Pattern
 class TitokerChatListener(private val plugin: Main) : ListenerAdapter() {
 
     override fun onMessageReceived(event: MessageReceivedEvent) {
-        // 티토커 채널 ID 가져오기
-        val titokerChannelId = plugin.database.getSettingValue("TTS_Channel") ?: return
+        try {
+            if (plugin.database.isDataSourceClosed()) {
+                return
+            }
 
-        // 메시지가 티토커 채널에서 온 것이 아니면 무시
-        if (event.channel.id != titokerChannelId) return
+            // 티토커 채널 ID 가져오기
+            val titokerChannelId = plugin.database.getSettingValue("TTS_Channel") ?: return
 
-        // 티토커 본인의 메시지면 무시, 미니쿠다 무시
-        if (event.author.id == "941683178920378439" || event.author.id == "595258464729825290") return
+            // 메시지가 티토커 채널에서 온 것이 아니면 무시
+            if (event.channel.id != titokerChannelId) return
 
-        // 멤버의 표시 이름 가져오기
-        val displayName = event.member?.let { getDisplayName(it) } ?: event.author.name
+            // 티토커 본인의 메시지면 무시, 미니쿠다 무시
+            if (event.author.id == "941683178920378439" || event.author.id == "595258464729825290") return
 
-        // 메시지에서 이모지 변환
-        val parsedMessage = replaceEmojis(event.message.contentDisplay)
+            // 멤버의 표시 이름 가져오기
+            val displayName = event.member?.let { getDisplayName(it) } ?: event.author.name
 
-        // 메시지 전송
-        val formattedMessage = "&7&l[티토커 채팅] &f$displayName &7&l: &f$parsedMessage".translateColorCodes()
+            // 메시지에서 이모지 변환
+            val parsedMessage = replaceEmojis(event.message.contentDisplay)
 
-        // 활성화된 플레이어들에게만 메시지 전송
-        Bukkit.getOnlinePlayers().forEach { player ->
-            if (plugin.database.isTitokerMessageEnabled(player.uniqueId.toString())) {
-                // 해당 플레이어가 티토커와 같은 음성채널에 있는지 확인
-                val playerDiscordId = plugin.database.getDiscordIDByUUID(player.uniqueId.toString())
-                if (playerDiscordId != null) {
-                    val member = event.guild.getMemberById(playerDiscordId)
-                    if (member?.voiceState?.channel?.members?.any { it.id == "941683178920378439" } == true) {
-                        player.sendMessage(formattedMessage)
+            // 메시지 전송
+            val formattedMessage = "&7&l[티토커 채팅] &f$displayName &7&l: &f$parsedMessage".translateColorCodes()
+
+            // 활성화된 플레이어들에게만 메시지 전송
+            Bukkit.getOnlinePlayers().forEach { player ->
+                if (plugin.database.isTitokerMessageEnabled(player.uniqueId.toString())) {
+                    // 해당 플레이어가 티토커와 같은 음성채널에 있는지 확인
+                    val playerDiscordId = plugin.database.getDiscordIDByUUID(player.uniqueId.toString())
+                    if (playerDiscordId != null) {
+                        val member = event.guild.getMemberById(playerDiscordId)
+                        if (member?.voiceState?.channel?.members?.any { it.id == "941683178920378439" } == true) {
+                            player.sendMessage(formattedMessage)
+                        }
                     }
                 }
             }
+        } catch (e: Exception) {
+            plugin.logger.warning("Error in TitokerChatListener: ${e.message}")
         }
     }
 
