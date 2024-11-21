@@ -11,6 +11,7 @@ class DatabaseInitializer(private val database: Database) {
         createSettingsTable()
         createHalloweenItemOwnerTable()
         createTitokerMessageSettingTable()
+        createSupportChatLinkTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -163,6 +164,23 @@ class DatabaseInitializer(private val database: Database) {
                 IsEnabled BOOLEAN DEFAULT false
             )
             """
+            )
+        }
+    }
+
+    private fun createSupportChatLinkTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS SupportChatLink (
+                UUID VARCHAR(36) NOT NULL,
+                SupportID VARCHAR(20) NOT NULL,
+                CaseClose TINYINT(1) NOT NULL DEFAULT 0,
+                MessageLink TEXT,
+                PRIMARY KEY (UUID)
+            )
+            """.trimIndent()
             )
         }
     }
