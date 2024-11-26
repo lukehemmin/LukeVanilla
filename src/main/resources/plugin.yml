@@ -1,7 +1,7 @@
 name: LukeVanilla
 version: '1.0-SNAPSHOT'
 main: com.lukehemmin.lukeVanilla.Main
-api-version: '1.21'
+api-version: '1.21.3'
 author: LukeHemmin
 website: https://github.com/lukehemmin/LukeVanilla
 
