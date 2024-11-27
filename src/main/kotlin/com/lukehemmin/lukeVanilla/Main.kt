@@ -62,7 +62,9 @@ class Main : JavaPlugin() {
 
         // Discord Bot 초기화 부분 아래에 추가
         val supportSystem = SupportSystem(discordBot, database)
+        val supportCaseListener = SupportCaseListener(database, discordBot) // 추가
         discordBot.jda.addEventListener(supportSystem)
+        discordBot.jda.addEventListener(supportCaseListener) // 추가
         supportSystem.setupSupportChannel()
 
         // 이벤트 리스너 등록
