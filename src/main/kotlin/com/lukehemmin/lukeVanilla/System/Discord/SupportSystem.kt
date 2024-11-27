@@ -11,6 +11,13 @@ import java.awt.Color
 
 class SupportSystem(private val discordBot: DiscordBot, private val database: Database) : ListenerAdapter() {
 
+    private val supportCaseListener: SupportCaseListener
+
+    init {
+        supportCaseListener = SupportCaseListener(database, discordBot)
+        discordBot.jda.addEventListener(supportCaseListener)
+    }
+
     fun setupSupportChannel() {
         val channelId = database.getSettingValue("SystemChannel")
         if (channelId != null) {
@@ -59,23 +66,6 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
             }
     }
 
-    private fun createSupportMessage(channel: TextChannel) {
-        val embed = EmbedBuilder()
-            .setTitle("고객지원")
-            .setDescription("아래 버튼을 눌러 원하는 지원을 선택하세요.")
-            .setColor(Color.BLUE)
-            .build()
-
-        val buttons = listOf(
-            Button.primary("my_info", "내 정보"),
-            Button.secondary("admin_support", "관리자 문의")
-        )
-
-        channel.sendMessageEmbeds(embed)
-            .setComponents(ActionRow.of(buttons))
-            .queue()
-    }
-
     override fun onButtonInteraction(event: ButtonInteractionEvent) {
         when (event.componentId) {
             "my_info" -> {
@@ -84,7 +74,9 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
             }
             "admin_support" -> {
                 // 관리자 문의 버튼 처리
-                event.reply("관리자 문의 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
+                //event.reply("관리자 문의 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
+                val modal = SupportCaseModal.create()
+                event.replyModal(modal).queue()
             }
         }
     }
