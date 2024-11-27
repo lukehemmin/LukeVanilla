@@ -11,13 +11,6 @@ import java.awt.Color
 
 class SupportSystem(private val discordBot: DiscordBot, private val database: Database) : ListenerAdapter() {
 
-    private val supportCaseListener: SupportCaseListener
-
-    init {
-        supportCaseListener = SupportCaseListener(database, discordBot)
-        discordBot.jda.addEventListener(supportCaseListener)
-    }
-
     fun setupSupportChannel() {
         val channelId = database.getSettingValue("SystemChannel")
         if (channelId != null) {
@@ -71,12 +64,6 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
             "my_info" -> {
                 // 내 정보 버튼 처리
                 event.reply("내 정보 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
-            }
-            "admin_support" -> {
-                // 관리자 문의 버튼 처리
-                //event.reply("관리자 문의 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
-                val modal = SupportCaseModal.create()
-                event.replyModal(modal).queue()
             }
         }
     }
