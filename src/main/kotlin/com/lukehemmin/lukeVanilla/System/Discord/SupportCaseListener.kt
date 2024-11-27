@@ -8,17 +8,31 @@ import net.dv8tion.jda.api.interactions.components.text.TextInput
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle
 import net.dv8tion.jda.api.interactions.modals.Modal
 
-class SupportCaseListener(
-    private val database: Database,
-    private val discordBot: DiscordBot
-) : ListenerAdapter() {
+class SupportCaseListener(private val database: Database, private val discordBot: DiscordBot) : ListenerAdapter() {
 
     private val supportCaseManager = SupportCaseManager(database, discordBot)
 
     override fun onButtonInteraction(event: ButtonInteractionEvent) {
-        if (event.componentId == "admin_support") {
-            val modal = SupportCaseModal.create()
-            event.replyModal(modal).queue()
+        when {
+            event.componentId == "admin_support" -> {
+                val modal = SupportCaseModal.create()
+                event.replyModal(modal).queue()
+            }
+            event.componentId.startsWith("close_case:") -> {
+                val caseId = event.componentId.substringAfter("close_case:")
+                val channel = event.channel.asTextChannel()
+
+                try {
+                    supportCaseManager.closeSupportCase(channel, caseId)
+                    event.reply("문의가 종료되었습니다.")
+                        .setEphemeral(true)
+                        .queue()
+                } catch (e: Exception) {
+                    event.reply("문의 종료 중 오류가 발생했습니다: ${e.message}")
+                        .setEphemeral(true)
+                        .queue()
+                }
+            }
         }
     }
 
