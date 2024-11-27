@@ -8,6 +8,8 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import net.dv8tion.jda.api.Permission
+import net.dv8tion.jda.api.interactions.components.ActionRow
+import net.dv8tion.jda.api.interactions.components.buttons.Button
 
 class SupportCaseManager(
     private val database: Database,
@@ -57,20 +59,27 @@ class SupportCaseManager(
         // Support 카테고리 조회
         val supportCategory = getSupportCategory(discordBot.jda)
 
+        // guild 참조를 먼저 가져옴
+        val guild = supportCategory.guild
+
         // 채널 생성
-        val supportChannel = supportCategory.createTextChannel("문의 케이스 $fullSupportCaseId").complete()
+        val supportChannel = supportCategory.createTextChannel("문의-케이스-$fullSupportCaseId")
+            .addMemberPermissionOverride(
+                discordId.toLong(),
+                listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND),
+                null
+            )
+            .addRolePermissionOverride(
+                guild.publicRole.idLong,  // @everyone 역할
+                null,
+                listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)
+            )
+            .complete()
 
-        // 사용자에게 채널 권한 부여
-        val member = supportChannel.guild.getMemberById(discordId)
-        member?.let {
-            supportChannel.upsertPermissionOverride(it)
-                .setAllowed(
-                    Permission.VIEW_CHANNEL,  // 채널 보기 권한
-                    Permission.MESSAGE_SEND   // 메시지 보내기 권한
-                ).queue()
-        }
+        val buttons = ActionRow.of(
+            Button.danger("close_case:$fullSupportCaseId", "문의 종료")
+        )
 
-        // 채널에 초기 문의 내용 전송
         val embedMessage = supportChannel.sendMessageEmbeds(
             EmbedBuilder()
                 .setTitle("문의 케이스 $fullSupportCaseId")
@@ -78,7 +87,7 @@ class SupportCaseManager(
                 .addField("설명", supportDescription, false)
                 .setTimestamp(java.time.Instant.now())
                 .build()
-        ).complete()
+        ).setComponents(buttons).complete()
 
         // 데이터베이스에 정보 저장
         database.getConnection().use { connection ->
@@ -107,5 +116,31 @@ class SupportCaseManager(
         // 카테고리 조회
         return jda.getCategoryById(supportCategoryId)
             ?: throw IllegalStateException("ID: $supportCategoryId 에 해당하는 Support 카테고리를 찾을 수 없습니다.")
+    }
+
+    fun closeSupportCase(channel: TextChannel, caseId: String) {
+        // 아카이브 카테고리 ID 조회
+        val archiveCategoryId = database.getSettingValue("SupportArchiveCategoryId")
+            ?: throw IllegalStateException("아카이브 카테고리 ID를 찾을 수 없습니다.")
+
+        val archiveCategory = discordBot.jda.getCategoryById(archiveCategoryId)
+            ?: throw IllegalStateException("아카이브 카테고리를 찾을 수 없습니다.")
+
+        // 모든 멤버의 권한 제거
+        channel.memberPermissionOverrides.forEach { override ->
+            override.delete().queue()
+        }
+
+        // 채널을 아카이브 카테고리로 이동
+        channel.manager.setParent(archiveCategory).queue()
+
+        // DB 상태 업데이트
+        database.getConnection().use { connection ->
+            val statement = connection.prepareStatement(
+                "UPDATE SupportChatLink SET CaseClose = 1 WHERE SupportID = ?"
+            )
+            statement.setString(1, caseId)
+            statement.executeUpdate()
+        }
     }
 }
