@@ -8,6 +8,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.hanging.HangingBreakByEntityEvent
+import org.bukkit.event.hanging.HangingBreakEvent
 import org.bukkit.event.hanging.HangingPlaceEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.inventory.ItemStack
@@ -98,6 +99,25 @@ class TransparentFrame : Listener {
             itemFrame.remove()
 
             // 아이템 드롭
+            itemFrame.world.dropItemNaturally(itemFrame.location, createTransparentFrame())
+            // 액자 안의 아이템도 드롭
+            if (itemFrame.item.type != Material.AIR) {
+                itemFrame.world.dropItemNaturally(itemFrame.location, itemFrame.item.clone())
+            }
+        }
+    }
+
+    @EventHandler
+    fun onFrameBreakByBlock(event: HangingBreakEvent) {
+        if (event is HangingBreakByEntityEvent) return
+
+        val itemFrame = event.entity as? ItemFrame ?: return
+
+        if (isTransparentItemFrame(itemFrame)) {
+            event.isCancelled = true
+            itemFrame.remove()
+
+            // 수정된 부분: 투명 액자 아이템을 드롭
             itemFrame.world.dropItemNaturally(itemFrame.location, createTransparentFrame())
             // 액자 안의 아이템도 드롭
             if (itemFrame.item.type != Material.AIR) {
