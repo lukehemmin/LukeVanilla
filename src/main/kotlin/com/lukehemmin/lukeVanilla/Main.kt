@@ -13,6 +13,7 @@ import com.lukehemmin.lukeVanlia.commands.mapcommand
 import com.lukehemmin.lukeVanlia.lobby.SnowMinigame
 import com.lukehemmin.lukeVanlia.velocity.infomessage
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.concurrent.TimeUnit
 
 class Main : JavaPlugin() {
     private lateinit var snowMinigame: SnowMinigame
@@ -119,21 +120,31 @@ class Main : JavaPlugin() {
     }
 
     override fun onDisable() {
-        // Discord 봇 리스너들을 먼저 제거
-        if (::discordBot.isInitialized) {
-            discordBot.jda.registeredListeners.forEach {
-                discordBot.jda.removeEventListener(it)
+        try {
+            // Discord 봇 종료를 먼저 실행
+            if (::discordBot.isInitialized) {
+                // 모든 리스너 제거
+                discordBot.jda.registeredListeners.forEach {
+                    discordBot.jda.removeEventListener(it)
+                }
+
+                // JDA 인스턴스 종료를 기다림
+                discordBot.jda.shutdown()
+                // 최대 5초 동안 종료 대기
+                if (!discordBot.jda.awaitShutdown(5, TimeUnit.SECONDS)) {
+                    logger.warning("Discord 봇이 정상적으로 종료되지 않았습니다.")
+                }
             }
-            // Discord 봇 종료
-            discordBot.jda.shutdown()
-        }
+        } catch (e: Exception) {
+            logger.severe("Discord 봇 종료 중 오류 발생: ${e.message}")
+        } finally {
+            // 데이터베이스 종료
+            if (::database.isInitialized) {
+                database.close()
+            }
 
-        // 데이터베이스 종료
-        if (::database.isInitialized) {
-            database.close()
+            logger.info("Plugin disabled")
         }
-
-        logger.info("Plugin disabled")
     }
 }
 
