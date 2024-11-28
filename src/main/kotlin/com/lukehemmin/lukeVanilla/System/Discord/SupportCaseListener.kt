@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter
 import net.dv8tion.jda.api.interactions.components.text.TextInput
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle
 import net.dv8tion.jda.api.interactions.modals.Modal
+import java.util.concurrent.TimeUnit
 
 class SupportCaseListener(private val database: Database, private val discordBot: DiscordBot) : ListenerAdapter() {
 
@@ -66,11 +67,15 @@ class SupportCaseListener(private val database: Database, private val discordBot
             if (supportChannelLink != null) {
                 event.reply("문의가 접수되었습니다. 채널 링크: $supportChannelLink")
                     .setEphemeral(true)
-                    .queue()
+                    .queue { interactionHook ->
+                        interactionHook.deleteOriginal().queueAfter(1, TimeUnit.MINUTES)
+                    }
             } else {
-                event.reply("문의 생성 중 오류가 발생했습니다.")
+                event.reply("열려 있는 문의가 최대 3개입니다.\n기존 문의를 종료한 후 다시 시도해주세요.")
                     .setEphemeral(true)
-                    .queue()
+                    .queue { interactionHook ->
+                        interactionHook.deleteOriginal().queueAfter(1, TimeUnit.MINUTES)
+                    }
             }
         }
     }
