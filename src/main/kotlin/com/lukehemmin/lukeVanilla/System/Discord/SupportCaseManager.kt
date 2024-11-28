@@ -52,14 +52,30 @@ class SupportCaseManager(
         supportTitle: String,
         supportDescription: String
     ): String? {
+        // 해당 사용자의 열려 있는 문의 개수 확인
+        val openCasesCount = database.getConnection().use { connection ->
+            val statement = connection.prepareStatement(
+                "SELECT COUNT(*) FROM SupportChatLink WHERE UUID = ? AND CaseClose = 0"
+            )
+            statement.setString(1, uuid)
+            val resultSet = statement.executeQuery()
+            if (resultSet.next()) {
+                resultSet.getInt(1)
+            } else {
+                0
+            }
+        }
+
+        // 열려 있는 문의 개수가 3개 이상이면 문의 생성 중단
+        if (openCasesCount >= 3) {
+            // 문의 생성 불가
+            return null
+        }
+
         // 문의 케이스 ID 생성
         val supportCaseId = generateSupportCaseId()
         val fullSupportCaseId = "#$supportCaseId"
-
-        // Support 카테고리 조회
         val supportCategory = getSupportCategory(discordBot.jda)
-
-        // guild 참조를 먼저 가져옴
         val guild = supportCategory.guild
 
         // 채널 생성
