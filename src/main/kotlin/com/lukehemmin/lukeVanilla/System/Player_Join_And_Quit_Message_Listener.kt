@@ -118,7 +118,8 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
             }, 60L)
         } else if (serviceType == "Lobby") {
             // Lobby Server Join
-            joinMessages["VanillaServerJoin"]?.replace("{playerName}", player.name)
+            val message = joinMessages["LobbyServerJoin"]?.replace("{playerName}", player.name)
+            event.joinMessage = message
 
             val player = event.player
             val playerName = player.name
