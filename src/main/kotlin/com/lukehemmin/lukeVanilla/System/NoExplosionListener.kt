@@ -1,14 +1,13 @@
 package com.lukehemmin.lukeVanilla.System
 
 import org.bukkit.World
-import org.bukkit.entity.Boat
-import org.bukkit.entity.Creeper
-import org.bukkit.entity.TNTPrimed
+import org.bukkit.entity.*
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityExplodeEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.block.BlockExplodeEvent
+import org.bukkit.event.entity.EntityChangeBlockEvent
 import org.bukkit.event.hanging.HangingBreakEvent
 import org.bukkit.event.hanging.HangingBreakByEntityEvent
 import org.bukkit.event.vehicle.VehicleDestroyEvent
@@ -22,10 +21,11 @@ class NoExplosionListener(private val plugin: JavaPlugin) : Listener {
 
     @EventHandler
     fun onEntityExplode(event: EntityExplodeEvent) {
-        if (isExplosionAllowedWorld(event.location.world!!)) return // 네더와 엔더에서는 폭발 허용
+        if (isExplosionAllowedWorld(event.location.world!!)) return
 
         val entity = event.entity
-        if (entity is Creeper || entity is TNTPrimed) {
+        // Wither와 WitherSkull 추가
+        if (entity is Creeper || entity is TNTPrimed || entity is Wither || entity is WitherSkull) {
             event.isCancelled = true
             event.blockList().clear()
             plugin.logger.info("Cancelled explosion from ${entity.type} in ${event.location.world?.name}")
@@ -43,10 +43,11 @@ class NoExplosionListener(private val plugin: JavaPlugin) : Listener {
 
     @EventHandler
     fun onEntityDamageByEntity(event: EntityDamageByEntityEvent) {
-        if (isExplosionAllowedWorld(event.entity.world)) return // 네더와 엔더에서는 데미지 허용
+        if (isExplosionAllowedWorld(event.entity.world)) return
 
         val damager = event.damager
-        if (damager is TNTPrimed || damager is Creeper) {
+        // Wither와 WitherSkull에 의한 데미지 취소
+        if (damager is TNTPrimed || damager is Creeper || damager is Wither || damager is WitherSkull) {
             event.isCancelled = true
             plugin.logger.info("Cancelled damage to ${event.entityType} from ${damager.type} in ${event.entity.world.name}")
         }
@@ -64,10 +65,11 @@ class NoExplosionListener(private val plugin: JavaPlugin) : Listener {
 
     @EventHandler
     fun onHangingBreakByEntity(event: HangingBreakByEntityEvent) {
-        if (isExplosionAllowedWorld(event.entity.world)) return // 네더와 엔더에서는 파괴 허용
+        if (isExplosionAllowedWorld(event.entity.world)) return
 
         val remover = event.remover
-        if (remover is TNTPrimed || remover is Creeper) {
+        // Wither와 WitherSkull 추가
+        if (remover is TNTPrimed || remover is Creeper || remover is Wither || remover is WitherSkull) {
             event.isCancelled = true
             plugin.logger.info("Cancelled hanging entity break by ${remover.type} at ${event.entity.location}")
         }
@@ -80,16 +82,24 @@ class NoExplosionListener(private val plugin: JavaPlugin) : Listener {
 
         if (!isExplosionAllowedWorld(vehicle.world)) {
             if (attacker == null) {
-                // TNT나 크리퍼의 폭발로 인한 간접적인 파괴
                 if (vehicle is Boat) {
                     event.isCancelled = true
                     plugin.logger.info("Cancelled boat destruction due to explosion at ${vehicle.location}")
                 }
-            } else if (attacker is TNTPrimed || attacker is Creeper) {
-                // TNT 엔티티나 크리퍼에 의한 직접적인 파괴
+            } else if (attacker is TNTPrimed || attacker is Creeper || attacker is Wither || attacker is WitherSkull) {
                 event.isCancelled = true
                 plugin.logger.info("Cancelled vehicle destruction by ${attacker.type} at ${vehicle.location}")
             }
+        }
+    }
+
+    @EventHandler
+    fun onEntityChangeBlock(event: EntityChangeBlockEvent) {
+        if (isExplosionAllowedWorld(event.block.world)) return
+
+        if (event.entity is Wither) {
+            event.isCancelled = true
+            plugin.logger.info("Cancelled Wither block destruction at ${event.block.location}")
         }
     }
 }
