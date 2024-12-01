@@ -96,6 +96,7 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
         server.pluginManager.registerEvents(Halloween_Item(), this)
         server.pluginManager.registerEvents(TransparentFrame(), this)
+        server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
