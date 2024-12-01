@@ -20,7 +20,16 @@ class TransparentFrame : Listener {
     private val glowingItems = setOf(
         "star_white",
         "star_red",
-        "star_yellow"
+        "star_yellow",
+        "star_green",
+        "moon_white",
+        "moon_red",
+        "moon_yellow",
+        "moon_green",
+        "ball_white",
+        "ball_red",
+        "ball_yellow",
+        "ball_green"
     )
 
     companion object {
