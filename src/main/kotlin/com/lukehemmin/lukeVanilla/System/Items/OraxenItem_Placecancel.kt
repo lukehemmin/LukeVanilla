@@ -29,7 +29,11 @@ class OraxenItem_Placecancel : Listener {
         // 할로윈 아이템
         "halloween_hat",
         "halloween_chest",
-        "halloween_key"
+        "halloween_key",
+        // 크리스마스 아이템
+        "merry_christmas_head",
+        "merry_christmas_wings",
+        "merry_christmas_key"
     )
 
     @EventHandler
