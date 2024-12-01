@@ -104,6 +104,10 @@ class Main : JavaPlugin() {
         getCommand("지도")?.setExecutor(mapcommand())
         getCommand("투명액자")?.setExecutor(TransparentFrameCommand())
 
+        getCommand("pl")?.setExecutor(plcommandcancel())
+        getCommand("plugins")?.setExecutor(plcommandcancel())
+        getCommand("lukeplugininfo")?.setExecutor(plcommandcancel())
+
         val halloweenCommand = HalloweenItemOwnerCommand(this)
         getCommand("할로윈")?.setExecutor(halloweenCommand)
         getCommand("할로윈")?.tabCompleter = HalloweenCommandCompleter()
