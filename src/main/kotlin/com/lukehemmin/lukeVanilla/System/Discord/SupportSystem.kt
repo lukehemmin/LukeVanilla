@@ -48,7 +48,8 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
 
         val buttons = listOf(
             Button.primary("my_info", "내 정보"),
-            Button.secondary("admin_support", "관리자 문의")
+            Button.secondary("admin_support", "관리자 문의"),
+            Button.success("halloween_info", "할로윈 아이템 등록 정보")
         )
 
         channel.sendMessageEmbeds(embed)
@@ -59,32 +60,21 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
             }
     }
 
-    private fun createSupportMessage(channel: TextChannel) {
-        val embed = EmbedBuilder()
-            .setTitle("고객지원")
-            .setDescription("아래 버튼을 눌러 원하는 지원을 선택하세요.")
-            .setColor(Color.BLUE)
-            .build()
-
-        val buttons = listOf(
-            Button.primary("my_info", "내 정보"),
-            Button.secondary("admin_support", "관리자 문의")
-        )
-
-        channel.sendMessageEmbeds(embed)
-            .setComponents(ActionRow.of(buttons))
-            .queue()
-    }
-
     override fun onButtonInteraction(event: ButtonInteractionEvent) {
         when (event.componentId) {
             "my_info" -> {
                 // 내 정보 버튼 처리
                 event.reply("내 정보 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
             }
-            "admin_support" -> {
-                // 관리자 문의 버튼 처리
-                event.reply("관리자 문의 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
+            "halloween_info" -> {
+                val halloweenViewer = HalloweenItemViewer(database)
+                halloweenViewer.createItemInfoEmbed(event.user.id)
+                    .onSuccess { embed ->
+                        event.replyEmbeds(embed).setEphemeral(true).queue()
+                    }
+                    .onFailure { error ->
+                        event.reply(error.message ?: "오류가 발생했습니다.").setEphemeral(true).queue()
+                    }
             }
         }
     }

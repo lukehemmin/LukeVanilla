@@ -178,7 +178,7 @@ class DatabaseInitializer(private val database: Database) {
                 SupportID VARCHAR(20) NOT NULL,
                 CaseClose TINYINT(1) NOT NULL DEFAULT 0,
                 MessageLink TEXT,
-                PRIMARY KEY (UUID)
+                PRIMARY KEY (SupportID)
             )
             """.trimIndent()
             )

@@ -1,19 +1,37 @@
 package com.lukehemmin.lukeVanilla.System.Items
 
+import io.th0rgal.oraxen.api.OraxenItems
 import org.bukkit.ChatColor
 import org.bukkit.Material
 import org.bukkit.entity.ItemFrame
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
+import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.hanging.HangingBreakByEntityEvent
+import org.bukkit.event.hanging.HangingBreakEvent
 import org.bukkit.event.hanging.HangingPlaceEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 
 class TransparentFrame : Listener {
+    private val glowingItems = setOf(
+        "star_white",
+        "star_red",
+        "star_yellow",
+        "star_green",
+        "moon_white",
+        "moon_red",
+        "moon_yellow",
+        "moon_green",
+        "ball_white",
+        "ball_red",
+        "ball_yellow",
+        "ball_green"
+    )
+
     companion object {
         private const val TRANSPARENT_FRAME_KEY = "transparent_frame"
 
@@ -55,17 +73,34 @@ class TransparentFrame : Listener {
     @EventHandler
     fun onFrameItemChange(event: PlayerInteractEntityEvent) {
         val itemFrame = event.rightClicked as? ItemFrame ?: return
+        val block = itemFrame.location.block
+
         if (isTransparentItemFrame(itemFrame)) {
             // 다음 틱에 상태 확인
             org.bukkit.Bukkit.getScheduler().runTaskLater(
                 org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(TransparentFrame::class.java),
                 Runnable {
-//                    println("[디버그] 액자 상태 변경:")
-//                    println("- 아이템: ${itemFrame.item.type}")
-//                    println("- 보이기 상태: ${itemFrame.isVisible}")
-
                     val hasItem = itemFrame.item.type != Material.AIR
                     itemFrame.isVisible = !hasItem
+
+                    // Oraxen 아이템 체크 및 빛 설정
+                    if (hasItem && OraxenItems.exists(itemFrame.item)) {
+                        val oraxenId = OraxenItems.getIdByItem(itemFrame.item)
+                        if (oraxenId in glowingItems) {
+                            block.type = Material.LIGHT
+                            val lightBlock = block.blockData as org.bukkit.block.data.type.Light
+                            lightBlock.level = 15
+                            block.blockData = lightBlock
+                        } else {
+                            if (block.type == Material.LIGHT) {
+                                block.type = Material.AIR
+                            }
+                        }
+                    } else {
+                        if (block.type == Material.LIGHT) {
+                            block.type = Material.AIR
+                        }
+                    }
                 },
                 1L
             )
@@ -78,6 +113,12 @@ class TransparentFrame : Listener {
         val player = event.damager as? Player ?: return
 
         if (isTransparentItemFrame(itemFrame)) {
+            // 액자가 부서질 때 빛 제거
+            val block = itemFrame.location.block
+            if (block.type == Material.LIGHT) {
+                block.type = Material.AIR
+            }
+
             org.bukkit.Bukkit.getScheduler().runTaskLater(
                 org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(TransparentFrame::class.java),
                 Runnable {
@@ -98,6 +139,31 @@ class TransparentFrame : Listener {
             itemFrame.remove()
 
             // 아이템 드롭
+            itemFrame.world.dropItemNaturally(itemFrame.location, createTransparentFrame())
+            // 액자 안의 아이템도 드롭
+            if (itemFrame.item.type != Material.AIR) {
+                itemFrame.world.dropItemNaturally(itemFrame.location, itemFrame.item.clone())
+            }
+        }
+    }
+
+    @EventHandler
+    fun onFrameBreakByBlock(event: HangingBreakEvent) {
+        if (event is HangingBreakByEntityEvent) return
+
+        val itemFrame = event.entity as? ItemFrame ?: return
+
+        if (isTransparentItemFrame(itemFrame)) {
+            event.isCancelled = true
+            itemFrame.remove()
+
+            // 빛 제거 로직 추가
+            val block = itemFrame.location.block
+            if (block.type == Material.LIGHT) {
+                block.type = Material.AIR
+            }
+
+            // 수정된 부분: 투명 액자 아이템을 드롭
             itemFrame.world.dropItemNaturally(itemFrame.location, createTransparentFrame())
             // 액자 안의 아이템도 드롭
             if (itemFrame.item.type != Material.AIR) {

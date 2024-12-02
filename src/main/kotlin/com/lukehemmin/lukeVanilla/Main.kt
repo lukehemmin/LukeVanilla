@@ -13,6 +13,7 @@ import com.lukehemmin.lukeVanlia.commands.mapcommand
 import com.lukehemmin.lukeVanlia.lobby.SnowMinigame
 import com.lukehemmin.lukeVanlia.velocity.infomessage
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.concurrent.TimeUnit
 
 class Main : JavaPlugin() {
     private lateinit var snowMinigame: SnowMinigame
@@ -62,7 +63,9 @@ class Main : JavaPlugin() {
 
         // Discord Bot 초기화 부분 아래에 추가
         val supportSystem = SupportSystem(discordBot, database)
+        val supportCaseListener = SupportCaseListener(database, discordBot) // 추가
         discordBot.jda.addEventListener(supportSystem)
+        discordBot.jda.addEventListener(supportCaseListener) // 추가
         supportSystem.setupSupportChannel()
 
         // 이벤트 리스너 등록
@@ -93,12 +96,17 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
         server.pluginManager.registerEvents(Halloween_Item(), this)
         server.pluginManager.registerEvents(TransparentFrame(), this)
+        server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
         getCommand("wleh")?.setExecutor(mapcommand())
         getCommand("지도")?.setExecutor(mapcommand())
         getCommand("투명액자")?.setExecutor(TransparentFrameCommand())
+
+        getCommand("pl")?.setExecutor(plcommandcancel())
+        getCommand("plugins")?.setExecutor(plcommandcancel())
+        getCommand("lukeplugininfo")?.setExecutor(plcommandcancel())
 
         val halloweenCommand = HalloweenItemOwnerCommand(this)
         getCommand("할로윈")?.setExecutor(halloweenCommand)
@@ -117,21 +125,31 @@ class Main : JavaPlugin() {
     }
 
     override fun onDisable() {
-        // Discord 봇 리스너들을 먼저 제거
-        if (::discordBot.isInitialized) {
-            discordBot.jda.registeredListeners.forEach {
-                discordBot.jda.removeEventListener(it)
+        try {
+            // Discord 봇 종료를 먼저 실행
+            if (::discordBot.isInitialized) {
+                // 모든 리스너 제거
+                discordBot.jda.registeredListeners.forEach {
+                    discordBot.jda.removeEventListener(it)
+                }
+
+                // JDA 인스턴스 종료를 기다림
+                discordBot.jda.shutdown()
+                // 최대 5초 동안 종료 대기
+                if (!discordBot.jda.awaitShutdown(5, TimeUnit.SECONDS)) {
+                    logger.warning("Discord 봇이 정상적으로 종료되지 않았습니다.")
+                }
             }
-            // Discord 봇 종료
-            discordBot.jda.shutdown()
-        }
+        } catch (e: Exception) {
+            logger.severe("Discord 봇 종료 중 오류 발생: ${e.message}")
+        } finally {
+            // 데이터베이스 종료
+            if (::database.isInitialized) {
+                database.close()
+            }
 
-        // 데이터베이스 종료
-        if (::database.isInitialized) {
-            database.close()
+            logger.info("Plugin disabled")
         }
-
-        logger.info("Plugin disabled")
     }
 }
 

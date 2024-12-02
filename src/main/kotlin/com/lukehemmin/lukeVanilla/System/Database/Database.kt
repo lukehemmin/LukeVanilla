@@ -252,6 +252,32 @@ class Database(config: FileConfiguration) {
         }
     }
 
+    data class SupportCase(
+        val supportId: String,
+        val messageLink: String
+    )
+
+    fun getOpenSupportCases(uuid: String): List<SupportCase> {
+        val openCases = mutableListOf<SupportCase>()
+
+        getConnection().use { connection ->
+            val statement = connection.prepareStatement(
+                "SELECT SupportID, MessageLink FROM SupportChatLink WHERE UUID = ? AND CaseClose = 0"
+            )
+            statement.setString(1, uuid)
+            val resultSet = statement.executeQuery()
+            while (resultSet.next()) {
+                val supportId = resultSet.getString("SupportID")
+                val messageLink = resultSet.getString("MessageLink")
+                openCases.add(SupportCase(supportId, messageLink))
+            }
+            resultSet.close()
+            statement.close()
+        }
+
+        return openCases
+    }
+
     /**
      * 데이터베이스를 닫는 메서드
      */

@@ -70,14 +70,56 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
                 joinMessage?.split("\n")?.forEach { line ->
                     player.sendMessage(line.translateHexColorCodes())
                 }
-                val mapLink = TextComponent("             §a§l[클릭하여 지도사이트로 이동]")
+
+                // 열려있는 문의가 있는지 확인하고 메시지 전송
+                val openCases = database.getOpenSupportCases(uuid)
+                if (openCases.isNotEmpty()) {
+                    openCases.forEach { case ->
+                        val supportId = case.supportId  // 예: "#000006"
+                        val messageLink = case.messageLink
+
+                        val messageText = "      §a§l[문의] §f§l$supportId 케이스가 §a§l열려있습니다. §f§l[디스코드로 보러가기]"
+                        val totalLength = messageText.length
+
+                        // "[디스코드로 보러가기]" 부분의 인덱스 찾기
+                        val linkText = "[디스코드로 보러가기]"
+                        val startIndex = messageText.indexOf(linkText)
+                        val endIndex = startIndex + linkText.length
+
+                        if (startIndex == -1) {
+                            // 링크 텍스트가 없으면 전체 메시지를 그냥 보냄
+                            player.sendMessage(messageText.translateHexColorCodes())
+                        } else {
+                            // "디스코드로 보러가기" 부분만 클릭 이벤트 설정
+                            val beforeLink = messageText.substring(0, startIndex)
+                            val clickableLink = TextComponent(messageText.substring(startIndex, endIndex)).apply {
+                                clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, messageLink)
+                                hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+                                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+                                    arrayOf(TextComponent("§a§l클릭하여 디스코드 채널로 이동"))
+                                )
+                            }
+                            val afterLink = messageText.substring(endIndex)
+
+                            // 메시지 구성
+                            player.spigot().sendMessage(
+                                TextComponent(beforeLink),
+                                clickableLink,
+                                TextComponent(afterLink)
+                            )
+                        }
+                    }
+                }
+
+                val mapLink = TextComponent("                       §a§l[클릭하여 지도사이트로 이동]")
                 mapLink.clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, "https://map.mine.lukehemmin.com/")
                 player.spigot().sendMessage(mapLink)
                 player.sendMessage("")
             }, 60L)
         } else if (serviceType == "Lobby") {
             // Lobby Server Join
-            joinMessages["VanillaServerJoin"]?.replace("{playerName}", player.name)
+            val message = joinMessages["LobbyServerJoin"]?.replace("{playerName}", player.name)
+            event.joinMessage = message
 
             val player = event.player
             val playerName = player.name
