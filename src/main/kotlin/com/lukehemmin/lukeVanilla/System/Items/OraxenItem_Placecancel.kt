@@ -33,7 +33,41 @@ class OraxenItem_Placecancel : Listener {
         // 크리스마스 아이템
         "merry_christmas_head",
         "merry_christmas_wings",
-        "merry_christmas_key"
+        "merry_christmas_key",
+        // 크리스마스 장식 아이템
+        "gingerbread_man_item",
+        "reindeer_item",
+        "santa_item",
+        "nutcracker_item",
+        "snowman_item",
+        "elf_item",
+        "holly_leaf",
+        "xmas_wreath",
+        "xmas_tree",
+        "xmas_bell",
+        "candy_cane_red",
+        "candy_cane_green",
+        "xmas_sock_red",
+        "xmas_sock_yellow",
+        "xmas_sock_green",
+        "star_white",
+        "star_red",
+        "star_yellow",
+        "star_green",
+        "moon_white",
+        "moon_red",
+        "moon_yellow",
+        "moon_green",
+        "ball_white",
+        "ball_red",
+        "ball_yellow",
+        "ball_green",
+        "gift_red_small",
+        "gift_red_tall",
+        "gift_red_large",
+        "gift_green_small",
+        "gift_green_tall",
+        "gift_green_large"
     )
 
     @EventHandler
