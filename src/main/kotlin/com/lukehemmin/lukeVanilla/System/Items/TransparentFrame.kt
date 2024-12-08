@@ -1,6 +1,6 @@
 package com.lukehemmin.lukeVanilla.System.Items
 
-import io.th0rgal.oraxen.api.OraxenItems
+import com.nexomc.nexo.api.NexoItems
 import org.bukkit.ChatColor
 import org.bukkit.Material
 import org.bukkit.entity.ItemFrame
@@ -83,10 +83,10 @@ class TransparentFrame : Listener {
                     val hasItem = itemFrame.item.type != Material.AIR
                     itemFrame.isVisible = !hasItem
 
-                    // Oraxen 아이템 체크 및 빛 설정
-                    if (hasItem && OraxenItems.exists(itemFrame.item)) {
-                        val oraxenId = OraxenItems.getIdByItem(itemFrame.item)
-                        if (oraxenId in glowingItems) {
+                    // Nexo 아이템 체크 및 빛 설정
+                    if (hasItem && NexoItems.exists(itemFrame.item)) {
+                        val NexoId = NexoItems.idFromItem(itemFrame.item)
+                        if (NexoId in glowingItems) {
                             block.type = Material.LIGHT
                             val lightBlock = block.blockData as org.bukkit.block.data.type.Light
                             lightBlock.level = 15

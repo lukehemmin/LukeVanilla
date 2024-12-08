@@ -2,7 +2,7 @@ package com.lukehemmin.lukeVanilla.System.Command
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
-import io.th0rgal.oraxen.api.OraxenItems
+import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Bukkit
 import org.bukkit.NamespacedKey
 import org.bukkit.command.Command
@@ -32,8 +32,8 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
 
         val item = player.inventory.itemInMainHand
 
-        // 아이템이 Oraxen 아이템인지 확인
-        if (!OraxenItems.exists(item)) {
+        // 아이템이 Nexo 아이템인지 확인
+        if (!NexoItems.exists(item)) {
             player.sendMessage("이 아이템은 등록 가능한 할로윈 아이템이 아닙니다.")
             return true
         }
@@ -67,8 +67,11 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
             return true
         }
 
-        // 아이템의 Oraxen ID 가져오기
-        val oraxenId = OraxenItems.getIdByItem(item)
+        // 아이템의 Nexo ID 가져오기
+        val NexoId = NexoItems.idFromItem(item) ?: run {
+            player.sendMessage("아이템 ID를 찾을 수 없습니다.")
+            return true
+        }
 
         // 할로윈 아이템 목록
         val validIds = listOf(
@@ -85,7 +88,7 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
             "halloween_spear"
         )
 
-        if (!validIds.contains(oraxenId)) {
+        if (!validIds.contains(NexoId)) {
             player.sendMessage("이 아이템은 등록 가능한 할로윈 아이템이 아닙니다.")
             return true
         }
@@ -93,8 +96,10 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
         // 데이터베이스 업데이트 (비동기 작업)
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             database.getConnection().use { connection ->
+
+
                 val uuid = player.uniqueId.toString()
-                val columnName = getColumnName(oraxenId)
+                val columnName = getColumnName(NexoId)
 
                 // UUID로 행 검색
                 val selectStmt = connection.prepareStatement("SELECT * FROM Halloween_Item_Owner WHERE UUID = ?")
@@ -123,8 +128,8 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
         return true
     }
 
-    private fun getColumnName(oraxenId: String): String {
-        return when (oraxenId) {
+    private fun getColumnName(NexoId: String): String {
+        return when (NexoId) {
             "halloween_sword" -> "sword"
             "halloween_pickaxe" -> "pickaxe"
             "halloween_axe" -> "axe"
