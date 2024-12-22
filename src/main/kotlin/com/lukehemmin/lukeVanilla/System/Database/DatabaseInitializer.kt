@@ -12,6 +12,7 @@ class DatabaseInitializer(private val database: Database) {
         createHalloweenItemOwnerTable()
         createTitokerMessageSettingTable()
         createSupportChatLinkTable()
+        createNextseasonItemTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -180,6 +181,22 @@ class DatabaseInitializer(private val database: Database) {
                 MessageLink TEXT,
                 PRIMARY KEY (SupportID)
             )
+            """.trimIndent()
+            )
+        }
+    }
+
+    private fun createNextseasonItemTable() { // 다음 시즌 아이템 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Nextseason_Item (
+                UUID VARCHAR(36) NOT NULL,
+                Item_Type VARCHAR(50) NOT NULL,
+                Item_Data TEXT,
+                PRIMARY KEY (UUID)
+            );
             """.trimIndent()
             )
         }
