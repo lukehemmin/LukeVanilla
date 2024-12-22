@@ -12,6 +12,7 @@ import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import com.lukehemmin.lukeVanlia.commands.mapcommand
 import com.lukehemmin.lukeVanlia.lobby.SnowMinigame
 import com.lukehemmin.lukeVanlia.velocity.infomessage
+import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 
@@ -22,6 +23,7 @@ class Main : JavaPlugin() {
     private lateinit var nametagManager: NametagManager
     private lateinit var discordRoleManager: DiscordRoleManager
     lateinit var discordBot: DiscordBot // 추가된 라인
+    lateinit var nextSeasonGUI: NextSeasonItemGUI
 
 
     override fun onEnable() {
@@ -97,6 +99,7 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(Halloween_Item(), this)
         server.pluginManager.registerEvents(TransparentFrame(), this)
         server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
+        server.pluginManager.registerEvents(hscroll(), this)
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
@@ -119,6 +122,13 @@ class Main : JavaPlugin() {
         // NoExplosionListener 초기화 및 등록
         val listener = NoExplosionListener(this)
         server.pluginManager.registerEvents(listener, this)
+
+        // NextSeasonItemGUI 부분 다음 시즌 가져갈 아이템
+        val nextSeasonGUI = NextSeasonItemGUI(this, database) // GUI 및 명령어 초기화
+        getCommand("openNextSeasonGUI")?.setExecutor(nextSeasonGUI) // 명령어 등록
+
+        // Christmas_sword 이벤트 리스너 등록
+        Christmas_sword(this)
 
         // Plugin Logic
         logger.info("Plugin enabled")
