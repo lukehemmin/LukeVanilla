@@ -1,7 +1,7 @@
 name: LukeVanilla
 version: '1.0-SNAPSHOT'
 main: com.lukehemmin.lukeVanilla.Main
-api-version: '1.21.3'
+api-version: '1.21.4'
 author: LukeHemmin
 website: https://github.com/lukehemmin/LukeVanilla
 
@@ -40,6 +40,9 @@ commands:
     description: "투명 액자를 받습니다"
     usage: "/투명액자"
     permission: "lukevanilla.transparentframe"
+  opennextseasongui:
+    description: "다음 시즌에 가져갈 아이템을 넣을 GUI를 엽니다."
+    usage: "/opennextseasongui"
   pl:
   plugins:
   lukeplugininfo:
