@@ -47,8 +47,7 @@ tasks.processResources {
 
 tasks.shadowJar {
     archiveBaseName.set("LukeVanilla")
-    //destinationDirectory.set(file("C:/Users/Administrator/Desktop/server/vanlia_test/plugins"))
-    destinationDirectory.set(file("/Users/lukehemmin/Desktop/plugin_devlop/plugins"))
+    destinationDirectory.set(file(""))
     manifest {
         attributes(mapOf("Main-Class" to "com.lukehemmin.lukeVanilla.Main"))
     }
