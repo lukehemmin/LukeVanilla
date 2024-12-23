@@ -194,7 +194,7 @@ class DatabaseInitializer(private val database: Database) {
             CREATE TABLE IF NOT EXISTS Nextseason_Item (
                 UUID VARCHAR(36) NOT NULL,
                 Item_Type VARCHAR(50) NOT NULL,
-                Item_Data TEXT,
+                Item_Data LONGTEXT,
                 PRIMARY KEY (UUID)
             );
             """.trimIndent()
