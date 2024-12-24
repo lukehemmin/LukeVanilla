@@ -31,8 +31,8 @@ commands:
     description: "지도 사이트 링크를 표시하는 명령어 입니다."
     usage: "/wleh 또는 /지도"
   할로윈:
-    description: "할로윈 아이템 소유 명령어"
-    usage: "/할로윈 아이템 소유"
+    description: "할로윈 아이템 명령어"
+    usage: "/할로윈 아이템"
   티토커메시지:
     description: "티토커 채팅 메시지를 활성화/비활성화합니다."
     usage: "/티토커메시지 <보기|끄기>"
