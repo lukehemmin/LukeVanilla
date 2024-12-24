@@ -60,20 +60,47 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
             }
     }
 
+//    override fun onButtonInteraction(event: ButtonInteractionEvent) {
+//        when (event.componentId) {
+//            "my_info" -> {
+//                // 내 정보 버튼 처리
+//                event.reply("내 정보 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
+//            }
+//            "halloween_info" -> {
+//                val halloweenViewer = HalloweenItemViewer(database)
+//                halloweenViewer.createItemInfoEmbed(event.user.id)
+//                    .onSuccess { embed ->
+//                        event.replyEmbeds(embed).setEphemeral(true).queue()
+//                    }
+//                    .onFailure { error ->
+//                        event.reply(error.message ?: "오류가 발생했습니다.").setEphemeral(true).queue()
+//                    }
+//            }
+//        }
+//    }
+
     override fun onButtonInteraction(event: ButtonInteractionEvent) {
+        event.deferReply(true).queue() // 먼저 응답 대기 상태를 전송
+
         when (event.componentId) {
             "my_info" -> {
-                // 내 정보 버튼 처리
-                event.reply("내 정보 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
+                // 실제 로직 수행 후
+                event.hook.sendMessage("내 정보 기능은 아직 구현 중입니다.")
+                    .setEphemeral(true)
+                    .queue()
             }
             "halloween_info" -> {
                 val halloweenViewer = HalloweenItemViewer(database)
                 halloweenViewer.createItemInfoEmbed(event.user.id)
                     .onSuccess { embed ->
-                        event.replyEmbeds(embed).setEphemeral(true).queue()
+                        event.hook.sendMessageEmbeds(embed)
+                            .setEphemeral(true)
+                            .queue()
                     }
                     .onFailure { error ->
-                        event.reply(error.message ?: "오류가 발생했습니다.").setEphemeral(true).queue()
+                        event.hook.sendMessage(error.message ?: "오류가 발생했습니다.")
+                            .setEphemeral(true)
+                            .queue()
                     }
             }
         }
