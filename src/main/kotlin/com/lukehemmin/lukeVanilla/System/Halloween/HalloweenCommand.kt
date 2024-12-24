@@ -19,7 +19,10 @@ class HalloweenCommand(private val plugin: Main) : CommandExecutor {
                         when (args[1]) {
                             "소유" -> {
                                 // '아이템 소유' 명령어 처리
-                                return halloweenItemOwnerCommand.onCommand(sender, command, label, args.copyOfRange(2, args.size))
+                                // return halloweenItemOwnerCommand.onCommand(sender, command, label, args.copyOfRange(2, args.size))
+                                // 비활성화된 명령어이므로 안내 메시지를 출력하고 종료합니다.
+                                sender.sendMessage("해당 명령어는 현재 사용할 수 없습니다.")
+                                return true
                             }
                             "받기" -> {
                                 // '아이템 받기' 명령어 처리

@@ -17,7 +17,7 @@ class HalloweenCommandCompleter : TabCompleter {
                 if (it.startsWith(args[0])) completions.add(it)
             }
         } else if (args.size == 2 && args[0] == "아이템") {
-            listOf("소유", "받기", "목록").forEach {
+            listOf("받기", "목록", "소유").forEach {
                 if (it.startsWith(args[1])) completions.add(it)
             }
         }
