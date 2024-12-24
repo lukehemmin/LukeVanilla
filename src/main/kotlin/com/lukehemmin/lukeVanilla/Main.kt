@@ -4,8 +4,7 @@ import com.lukehemmin.lukeVanilla.System.Command.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
-import com.lukehemmin.lukeVanilla.System.Halloween.HalloweenCommandCompleter
-import com.lukehemmin.lukeVanilla.System.Halloween.HalloweenItemOwnerCommand
+import com.lukehemmin.lukeVanilla.System.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
@@ -112,8 +111,9 @@ class Main : JavaPlugin() {
         getCommand("plugins")?.setExecutor(plcommandcancel())
         getCommand("lukeplugininfo")?.setExecutor(plcommandcancel())
 
-        val halloweenCommand = HalloweenItemOwnerCommand(this)
-        getCommand("할로윈")?.setExecutor(halloweenCommand)
+
+        server.pluginManager.registerEvents(HalloweenGUIListener(this), this)
+        getCommand("할로윈")?.setExecutor(HalloweenCommand(this))
         getCommand("할로윈")?.tabCompleter = HalloweenCommandCompleter()
 
         // 티토커 메시지 명령어 등록

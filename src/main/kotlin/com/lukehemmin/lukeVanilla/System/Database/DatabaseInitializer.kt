@@ -13,6 +13,7 @@ class DatabaseInitializer(private val database: Database) {
         createTitokerMessageSettingTable()
         createSupportChatLinkTable()
         createNextseasonItemTable()
+        createHalloweenItemReceiveTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -196,6 +197,30 @@ class DatabaseInitializer(private val database: Database) {
                 Item_Type VARCHAR(50) NOT NULL,
                 Item_Data LONGTEXT,
                 PRIMARY KEY (UUID)
+            );
+            """.trimIndent()
+            )
+        }
+    }
+
+    private fun createHalloweenItemReceiveTable() { // 할로윈 아이템 수령 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Halloween_Item_Receive (
+                UUID VARCHAR(36) PRIMARY KEY,
+                sword TINYINT(1) NOT NULL DEFAULT 0,
+                pickaxe TINYINT(1) NOT NULL DEFAULT 0,
+                axe TINYINT(1) NOT NULL DEFAULT 0,
+                shovel TINYINT(1) NOT NULL DEFAULT 0,
+                hoe TINYINT(1) NOT NULL DEFAULT 0,
+                bow TINYINT(1) NOT NULL DEFAULT 0,
+                fishing_rod TINYINT(1) NOT NULL DEFAULT 0,
+                hammer TINYINT(1) NOT NULL DEFAULT 0,
+                hat TINYINT(1) NOT NULL DEFAULT 0,
+                scythe TINYINT(1) NOT NULL DEFAULT 0,
+                spear TINYINT(1) NOT NULL DEFAULT 0
             );
             """.trimIndent()
             )
