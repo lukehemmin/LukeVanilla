@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanilla.System.Command
+package com.lukehemmin.lukeVanilla.System.Halloween
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
