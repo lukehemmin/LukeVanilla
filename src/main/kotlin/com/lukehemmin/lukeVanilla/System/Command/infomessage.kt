@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanlia.velocity
+package com.lukehemmin.lukeVanilla.System.Command
 
 import net.md_5.bungee.api.chat.ClickEvent
 import net.md_5.bungee.api.chat.ComponentBuilder
