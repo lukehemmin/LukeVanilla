@@ -24,7 +24,7 @@ class Main : JavaPlugin() {
     private lateinit var discordRoleManager: DiscordRoleManager
     lateinit var discordBot: DiscordBot // 추가된 라인
     lateinit var nextSeasonGUI: NextSeasonItemGUI
-
+    private lateinit var economyManager: EconomyManager
 
     override fun onEnable() {
         // DataBase Logic
@@ -129,6 +129,11 @@ class Main : JavaPlugin() {
 
         // Christmas_sword 이벤트 리스너 등록
         Christmas_sword(this)
+
+        // 돈 이코노미 시스템
+        economyManager = EconomyManager(database)
+        getCommand("돈")?.setExecutor(MoneyCommand(economyManager))
+        getCommand("ehs")?.setExecutor(MoneyCommand(economyManager))
 
         // Plugin Logic
         logger.info("Plugin enabled")

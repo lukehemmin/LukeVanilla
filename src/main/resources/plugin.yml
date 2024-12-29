@@ -46,6 +46,14 @@ commands:
   pl:
   plugins:
   lukeplugininfo:
+  돈:
+    description: 돈 관련 명령어
+    usage: /돈 [보내기 <플레이어> <금액>|도움말]
+    aliases: [ money ]
+  ehs:
+    description: 돈 관련 명령어
+    usage: /ehs [보내기 <플레이어> <금액>|도움말]
+    aliases: [ 돈 ]
 
 permissions:
   lukevanilla.nametag:
