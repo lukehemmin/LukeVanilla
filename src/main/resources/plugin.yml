@@ -54,6 +54,10 @@ commands:
     description: 돈 관련 명령어
     usage: /ehs [보내기 <플레이어> <금액>|도움말]
     aliases: [ 돈 ]
+  상점:
+    description: 상점 명령어
+    usage: /<command> [생성|수정|가격]
+    permission: lukevanilla.shop.admin
 
 permissions:
   lukevanilla.nametag:
@@ -72,3 +76,6 @@ permissions:
     default: false
   bukkit.command.pl:
     default: false
+  lukevanilla.shop.admin:
+    description: "상점 명령어를 사용할 수 있는 권한"
+    default: op

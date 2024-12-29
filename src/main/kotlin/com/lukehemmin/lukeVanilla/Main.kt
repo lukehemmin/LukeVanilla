@@ -13,6 +13,10 @@ import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
+import com.lukehemmin.lukeVanilla.System.Shop.PriceEditManager
+import com.lukehemmin.lukeVanilla.System.Shop.ShopCommand
+import com.lukehemmin.lukeVanilla.System.Shop.ShopListener
+import com.lukehemmin.lukeVanilla.System.Shop.ShopManager
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 
@@ -24,7 +28,9 @@ class Main : JavaPlugin() {
     private lateinit var discordRoleManager: DiscordRoleManager
     lateinit var discordBot: DiscordBot // 추가된 라인
     lateinit var nextSeasonGUI: NextSeasonItemGUI
-    private lateinit var economyManager: EconomyManager
+    lateinit var economyManager: EconomyManager
+//    lateinit var shopManager: ShopManager
+//    lateinit var priceEditManager: PriceEditManager // 추가
 
     override fun onEnable() {
         // DataBase Logic
@@ -124,8 +130,8 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(listener, this)
 
         // NextSeasonItemGUI 부분 다음 시즌 가져갈 아이템
-        val nextSeasonGUI = NextSeasonItemGUI(this, database) // GUI 및 명령어 초기화
-        getCommand("openNextSeasonGUI")?.setExecutor(nextSeasonGUI) // 명령어 등록
+        nextSeasonGUI = NextSeasonItemGUI(this, database)
+        getCommand("openNextSeasonGUI")?.setExecutor(nextSeasonGUI)
 
         // Christmas_sword 이벤트 리스너 등록
         Christmas_sword(this)
@@ -134,6 +140,23 @@ class Main : JavaPlugin() {
         economyManager = EconomyManager(database)
         getCommand("돈")?.setExecutor(MoneyCommand(economyManager))
         getCommand("ehs")?.setExecutor(MoneyCommand(economyManager))
+
+//        // 상점 시스템 초기화
+//        shopManager = ShopManager(database)
+//
+//        // PriceEditManager 초기화
+//        priceEditManager = PriceEditManager(shopManager)
+//
+//        // ShopCommand 초기화 및 등록
+//        val shopCommand = ShopCommand(database, shopManager, priceEditManager)
+//        this.getCommand("상점")?.setExecutor(shopCommand)
+//
+//        // ShopListener 초기화 및 등록
+//        val shopListener = ShopListener(database, shopManager, economyManager, priceEditManager)
+//        server.pluginManager.registerEvents(shopListener, this)
+//
+//        // PriceEditManager 이벤트 리스너 등록
+//        server.pluginManager.registerEvents(priceEditManager, this)
 
         // Plugin Logic
         logger.info("Plugin enabled")

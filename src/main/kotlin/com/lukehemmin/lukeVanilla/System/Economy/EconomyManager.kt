@@ -1,9 +1,7 @@
-// EconomyManager.kt
 package com.lukehemmin.lukeVanilla.System.Economy
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import org.bukkit.entity.Player
-import java.util.UUID
 
 class EconomyManager(private val database: Database) {
     init {
@@ -21,46 +19,50 @@ class EconomyManager(private val database: Database) {
     }
 
     fun getBalance(player: Player): Double {
-        val connection = database.getConnection()
-        connection.prepareStatement("SELECT balance FROM player_balance WHERE uuid = ?").use { statement ->
-            statement.setString(1, player.uniqueId.toString())
-            val resultSet = statement.executeQuery()
-            if (resultSet.next()) {
-                return resultSet.getDouble("balance")
+        val uuid = player.uniqueId.toString()
+        var balance = 0.0
+        database.getConnection().use { connection ->
+            connection.prepareStatement("SELECT balance FROM player_balance WHERE uuid = ?").use { stmt ->
+                stmt.setString(1, uuid)
+                stmt.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        balance = rs.getDouble("balance")
+                    } else {
+                        connection.prepareStatement("INSERT INTO player_balance (uuid, balance) VALUES (?, ?)").use { insertStmt ->
+                            insertStmt.setString(1, uuid)
+                            insertStmt.setDouble(2, 0.0)
+                            insertStmt.executeUpdate()
+                        }
+                    }
+                }
             }
         }
-        connection.close()
-        // 계정이 없으면 생성
-        setBalance(player, 0.0)
-        return 0.0
-    }
-
-    fun setBalance(player: Player, amount: Double) {
-        val connection = database.getConnection()
-        connection.prepareStatement("""
-            INSERT INTO player_balance (uuid, balance) 
-            VALUES (?, ?) 
-            ON DUPLICATE KEY UPDATE balance = ?
-        """).use { statement ->
-            statement.setString(1, player.uniqueId.toString())
-            statement.setDouble(2, amount)
-            statement.setDouble(3, amount)
-            statement.executeUpdate()
-        }
-        connection.close()
-    }
-
-    fun addBalance(player: Player, amount: Double) {
-        val currentBalance = getBalance(player)
-        setBalance(player, currentBalance + amount)
+        return balance
     }
 
     fun removeBalance(player: Player, amount: Double): Boolean {
         val currentBalance = getBalance(player)
-        if (currentBalance >= amount) {
-            setBalance(player, currentBalance - amount)
-            return true
+        return if (currentBalance >= amount) {
+            updateBalance(player, currentBalance - amount)
+            true
+        } else {
+            false
         }
-        return false
+    }
+
+    fun addBalance(player: Player, amount: Double) {
+        val currentBalance = getBalance(player)
+        updateBalance(player, currentBalance + amount)
+    }
+
+    private fun updateBalance(player: Player, newBalance: Double) {
+        val uuid = player.uniqueId.toString()
+        database.getConnection().use { connection ->
+            val stmt = connection.prepareStatement("UPDATE player_balance SET balance = ? WHERE uuid = ?")
+            stmt.setDouble(1, newBalance)
+            stmt.setString(2, uuid)
+            stmt.executeUpdate()
+            stmt.close()
+        }
     }
 }

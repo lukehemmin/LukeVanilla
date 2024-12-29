@@ -129,7 +129,17 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
 //                )
 //                player.spigot().sendMessage(halloweenItemRegisterMessage)
 //
-//                player.sendMessage("")
+                player.sendMessage("")
+
+                val halloweenItemRegisterMessage = TextComponent("                       §6§l[할로윈 아이템 스크롤 받기]")
+                halloweenItemRegisterMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/할로윈 아이템 받기")
+                halloweenItemRegisterMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+                    arrayOf(TextComponent("§a§l클릭하여 할로윈 아이템 스크롤을 받으세요"))
+                )
+                player.spigot().sendMessage(halloweenItemRegisterMessage)
+
+                player.sendMessage("")
 
                 val mapLink = TextComponent("                       §a§l[클릭하여 지도사이트로 이동]")
                 mapLink.clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, "https://map.mine.lukehemmin.com/")
