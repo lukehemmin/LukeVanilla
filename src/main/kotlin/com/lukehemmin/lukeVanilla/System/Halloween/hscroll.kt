@@ -24,7 +24,7 @@ class hscroll : Listener {
         "h_hoe_scroll" to ScrollTransformation("halloween_hoe", Material.NETHERITE_HOE),
         "h_bow_scroll" to ScrollTransformation("halloween_bow", Material.BOW),
         "h_rod_scroll" to ScrollTransformation("halloween_fishing_rod", Material.FISHING_ROD),
-        "h_hammer_scroll" to ScrollTransformation("halloween_hammer", Material.DIAMOND_PICKAXE), // Material.MACE 대신 적절한 Material 사용
+        "h_hammer_scroll" to ScrollTransformation("halloween_hammer", Material.MACE),
         "h_hat_scroll" to ScrollTransformation("halloween_hat", Material.LEATHER_HELMET),
         "h_scythe_scroll" to ScrollTransformation("halloween_scythe", Material.NETHERITE_SWORD),
         "h_spear_scroll" to ScrollTransformation("halloween_spear", Material.NETHERITE_SWORD)
