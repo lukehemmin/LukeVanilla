@@ -64,11 +64,10 @@ class Main : JavaPlugin() {
         }
 
         // Discord Bot 초기화 부분 아래에 추가
-        val supportSystem = SupportSystem(discordBot, database)
-        val supportCaseListener = SupportCaseListener(database, discordBot) // 추가
-        discordBot.jda.addEventListener(supportSystem)
-        discordBot.jda.addEventListener(supportCaseListener) // 추가
-        supportSystem.setupSupportChannel()
+        discordBot.jda.addEventListener(
+            SupportSystem(discordBot, database),
+            SupportCaseListener(database, discordBot)
+        )
 
         // 이벤트 리스너 등록
         server.pluginManager.registerEvents(PlayerLoginListener(database), this)

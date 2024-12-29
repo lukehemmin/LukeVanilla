@@ -4,9 +4,6 @@ import com.lukehemmin.lukeVanilla.System.Database.Database
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
-import net.dv8tion.jda.api.interactions.components.text.TextInput
-import net.dv8tion.jda.api.interactions.components.text.TextInputStyle
-import net.dv8tion.jda.api.interactions.modals.Modal
 import java.util.concurrent.TimeUnit
 
 class SupportCaseListener(private val database: Database, private val discordBot: DiscordBot) : ListenerAdapter() {
@@ -34,6 +31,21 @@ class SupportCaseListener(private val database: Database, private val discordBot
                         .queue()
                 }
             }
+            event.componentId == "halloween_info" -> {
+                event.deferReply(true).queue()
+                val halloweenViewer = HalloweenItemViewer(database)
+                halloweenViewer.createItemInfoEmbed(event.user.id)
+                    .onSuccess { embed ->
+                        event.hook.sendMessageEmbeds(embed)
+                            .setEphemeral(true)
+                            .queue()
+                    }
+                    .onFailure { error ->
+                        event.hook.sendMessage(error.message ?: "오류가 발생했습니다.")
+                            .setEphemeral(true)
+                            .queue()
+                    }
+            }
         }
     }
 
@@ -47,7 +59,6 @@ class SupportCaseListener(private val database: Database, private val discordBot
                 return
             }
 
-            // 사용자의 Discord ID 조회
             val discordId = event.user.id
             val playerData = database.getPlayerDataByDiscordId(discordId)
 
@@ -56,7 +67,6 @@ class SupportCaseListener(private val database: Database, private val discordBot
                 return
             }
 
-            // 문의 케이스 생성
             val supportChannelLink = supportCaseManager.createSupportCase(
                 uuid = playerData.uuid,
                 discordId = discordId,
