@@ -1,17 +1,22 @@
 package com.lukehemmin.lukeVanilla
 
+import com.lukehemmin.lukeVanilla.Lobby.SnowMinigame
 import com.lukehemmin.lukeVanilla.System.Command.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
+import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
+import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
+import com.lukehemmin.lukeVanilla.System.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
-import com.lukehemmin.lukeVanlia.commands.mapcommand
-import com.lukehemmin.lukeVanlia.lobby.SnowMinigame
-import com.lukehemmin.lukeVanlia.velocity.infomessage
+import com.lukehemmin.lukeVanilla.System.Shop.PriceEditManager
+import com.lukehemmin.lukeVanilla.System.Shop.ShopCommand
+import com.lukehemmin.lukeVanilla.System.Shop.ShopListener
+import com.lukehemmin.lukeVanilla.System.Shop.ShopManager
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 
@@ -22,7 +27,10 @@ class Main : JavaPlugin() {
     private lateinit var nametagManager: NametagManager
     private lateinit var discordRoleManager: DiscordRoleManager
     lateinit var discordBot: DiscordBot // 추가된 라인
-
+    lateinit var nextSeasonGUI: NextSeasonItemGUI
+    lateinit var economyManager: EconomyManager
+//    lateinit var shopManager: ShopManager
+//    lateinit var priceEditManager: PriceEditManager // 추가
 
     override fun onEnable() {
         // DataBase Logic
@@ -62,11 +70,10 @@ class Main : JavaPlugin() {
         }
 
         // Discord Bot 초기화 부분 아래에 추가
-        val supportSystem = SupportSystem(discordBot, database)
-        val supportCaseListener = SupportCaseListener(database, discordBot) // 추가
-        discordBot.jda.addEventListener(supportSystem)
-        discordBot.jda.addEventListener(supportCaseListener) // 추가
-        supportSystem.setupSupportChannel()
+        discordBot.jda.addEventListener(
+            SupportSystem(discordBot, database),
+            SupportCaseListener(database, discordBot)
+        )
 
         // 이벤트 리스너 등록
         server.pluginManager.registerEvents(PlayerLoginListener(database), this)
@@ -97,6 +104,7 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(Halloween_Item(), this)
         server.pluginManager.registerEvents(TransparentFrame(), this)
         server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
+        server.pluginManager.registerEvents(hscroll(), this)
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
@@ -108,8 +116,9 @@ class Main : JavaPlugin() {
         getCommand("plugins")?.setExecutor(plcommandcancel())
         getCommand("lukeplugininfo")?.setExecutor(plcommandcancel())
 
-        val halloweenCommand = HalloweenItemOwnerCommand(this)
-        getCommand("할로윈")?.setExecutor(halloweenCommand)
+
+        server.pluginManager.registerEvents(HalloweenGUIListener(this), this)
+        getCommand("할로윈")?.setExecutor(HalloweenCommand(this))
         getCommand("할로윈")?.tabCompleter = HalloweenCommandCompleter()
 
         // 티토커 메시지 명령어 등록
@@ -119,6 +128,35 @@ class Main : JavaPlugin() {
         // NoExplosionListener 초기화 및 등록
         val listener = NoExplosionListener(this)
         server.pluginManager.registerEvents(listener, this)
+
+        // NextSeasonItemGUI 부분 다음 시즌 가져갈 아이템
+        nextSeasonGUI = NextSeasonItemGUI(this, database)
+        getCommand("openNextSeasonGUI")?.setExecutor(nextSeasonGUI)
+
+        // Christmas_sword 이벤트 리스너 등록
+        Christmas_sword(this)
+
+        // 돈 이코노미 시스템
+        economyManager = EconomyManager(database)
+        getCommand("돈")?.setExecutor(MoneyCommand(economyManager))
+        getCommand("ehs")?.setExecutor(MoneyCommand(economyManager))
+
+//        // 상점 시스템 초기화
+//        shopManager = ShopManager(database)
+//
+//        // PriceEditManager 초기화
+//        priceEditManager = PriceEditManager(shopManager)
+//
+//        // ShopCommand 초기화 및 등록
+//        val shopCommand = ShopCommand(database, shopManager, priceEditManager)
+//        this.getCommand("상점")?.setExecutor(shopCommand)
+//
+//        // ShopListener 초기화 및 등록
+//        val shopListener = ShopListener(database, shopManager, economyManager, priceEditManager)
+//        server.pluginManager.registerEvents(shopListener, this)
+//
+//        // PriceEditManager 이벤트 리스너 등록
+//        server.pluginManager.registerEvents(priceEditManager, this)
 
         // Plugin Logic
         logger.info("Plugin enabled")
@@ -152,4 +190,3 @@ class Main : JavaPlugin() {
         }
     }
 }
-

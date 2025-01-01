@@ -1,10 +1,9 @@
-package com.lukehemmin.lukeVanilla.System.Items
+package com.lukehemmin.lukeVanilla.System.Halloween
 
 import io.th0rgal.oraxen.api.OraxenItems
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockPlaceEvent
-import org.bukkit.inventory.ItemStack
 
 class Halloween_Item : Listener {
     @EventHandler

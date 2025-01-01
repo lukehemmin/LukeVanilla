@@ -11,20 +11,27 @@ import java.awt.Color
 
 class SupportSystem(private val discordBot: DiscordBot, private val database: Database) : ListenerAdapter() {
 
+    override fun onButtonInteraction(event: ButtonInteractionEvent) {
+        if (event.componentId == "my_info") {
+            event.deferReply(true).queue()
+            event.hook.sendMessage("내 정보 기능은 아직 구현 중입니다.")
+                .setEphemeral(true)
+                .queue()
+        }
+        // 다른 버튼은 여기서 처리하지 않음
+    }
+
     fun setupSupportChannel() {
         val channelId = database.getSettingValue("SystemChannel")
         if (channelId != null) {
             val channel = discordBot.jda.getTextChannelById(channelId)
             channel?.let {
-                // 기존 메시지 ID 확인
                 val messageId = database.getSettingValue("SupportMessageId")
                 if (messageId != null) {
                     try {
-                        // 기존 메시지가 있는지 확인
                         channel.retrieveMessageById(messageId).queue(
                             { /* 메시지가 존재하면 아무것도 하지 않음 */ },
                             {
-                                // 메시지가 없으면 새로 생성
                                 createAndSaveSupportMessage(channel)
                             }
                         )
@@ -32,7 +39,6 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
                         createAndSaveSupportMessage(channel)
                     }
                 } else {
-                    // 저장된 메시지 ID가 없으면 새로 생성
                     createAndSaveSupportMessage(channel)
                 }
             }
@@ -55,27 +61,7 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
         channel.sendMessageEmbeds(embed)
             .setComponents(ActionRow.of(buttons))
             .queue { message ->
-                // 새 메시지 ID를 데이터베이스에 저장
                 database.setSetting("SupportMessageId", message.id)
             }
-    }
-
-    override fun onButtonInteraction(event: ButtonInteractionEvent) {
-        when (event.componentId) {
-            "my_info" -> {
-                // 내 정보 버튼 처리
-                event.reply("내 정보 기능은 아직 구현 중입니다.").setEphemeral(true).queue()
-            }
-            "halloween_info" -> {
-                val halloweenViewer = HalloweenItemViewer(database)
-                halloweenViewer.createItemInfoEmbed(event.user.id)
-                    .onSuccess { embed ->
-                        event.replyEmbeds(embed).setEphemeral(true).queue()
-                    }
-                    .onFailure { error ->
-                        event.reply(error.message ?: "오류가 발생했습니다.").setEphemeral(true).queue()
-                    }
-            }
-        }
     }
 }

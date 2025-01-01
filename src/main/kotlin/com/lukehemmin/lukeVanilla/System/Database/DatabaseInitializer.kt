@@ -12,6 +12,9 @@ class DatabaseInitializer(private val database: Database) {
         createHalloweenItemOwnerTable()
         createTitokerMessageSettingTable()
         createSupportChatLinkTable()
+        createNextseasonItemTable()
+        createHalloweenItemReceiveTable()
+//        createShopsTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -182,6 +185,79 @@ class DatabaseInitializer(private val database: Database) {
             )
             """.trimIndent()
             )
+        }
+    }
+
+    private fun createNextseasonItemTable() { // 다음 시즌 아이템 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Nextseason_Item (
+                UUID VARCHAR(36) NOT NULL,
+                Item_Type VARCHAR(50) NOT NULL,
+                Item_Data LONGTEXT,
+                PRIMARY KEY (UUID)
+            );
+            """.trimIndent()
+            )
+        }
+    }
+
+    private fun createHalloweenItemReceiveTable() { // 할로윈 아이템 수령 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Halloween_Item_Receive (
+                UUID VARCHAR(36) PRIMARY KEY,
+                sword TINYINT(1) NOT NULL DEFAULT 0,
+                pickaxe TINYINT(1) NOT NULL DEFAULT 0,
+                axe TINYINT(1) NOT NULL DEFAULT 0,
+                shovel TINYINT(1) NOT NULL DEFAULT 0,
+                hoe TINYINT(1) NOT NULL DEFAULT 0,
+                bow TINYINT(1) NOT NULL DEFAULT 0,
+                fishing_rod TINYINT(1) NOT NULL DEFAULT 0,
+                hammer TINYINT(1) NOT NULL DEFAULT 0,
+                hat TINYINT(1) NOT NULL DEFAULT 0,
+                scythe TINYINT(1) NOT NULL DEFAULT 0,
+                spear TINYINT(1) NOT NULL DEFAULT 0
+            );
+            """.trimIndent()
+            )
+        }
+    }
+
+    private fun createShopsTable() { // 상점 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS shops (
+                    name VARCHAR(50) PRIMARY KEY,
+                    npc_id INT NOT NULL,
+                    world VARCHAR(50) NOT NULL,
+                    x DOUBLE NOT NULL,
+                    y DOUBLE NOT NULL,
+                    z DOUBLE NOT NULL,
+                    gui_lines INT NOT NULL DEFAULT 3
+                );
+                """
+            )
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS shop_items (
+                    shop_name VARCHAR(50) NOT NULL,
+                    slot INT NOT NULL,
+                    item_uuid VARCHAR(36) NOT NULL,
+                    buy_price DECIMAL(20, 2) DEFAULT 0,
+                    sell_price DECIMAL(20, 2) DEFAULT 0,
+                    PRIMARY KEY (shop_name, slot),
+                    FOREIGN KEY (shop_name) REFERENCES shops(name) ON DELETE CASCADE
+                );
+                """
+            )
+            statement.close()
         }
     }
 }

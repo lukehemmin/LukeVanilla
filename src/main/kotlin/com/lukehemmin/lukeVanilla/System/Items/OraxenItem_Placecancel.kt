@@ -26,6 +26,18 @@ class OraxenItem_Placecancel : Listener {
         "snowmanhat",
         // 커스텀 아이템
         "scroll",
+        "h_scroll",
+        "h_sword_scroll",
+        "h_pickaxe_scroll",
+        "h_axe_scroll",
+        "h_shovel_scroll",
+        "h_hoe_scroll",
+        "h_bow_scroll",
+        "h_rod_scroll",
+        "h_hammer_scroll",
+        "h_hat_scroll",
+        "h_scythe_scroll",
+        "h_spear_scroll",
         // 할로윈 아이템
         "halloween_hat",
         "halloween_chest",

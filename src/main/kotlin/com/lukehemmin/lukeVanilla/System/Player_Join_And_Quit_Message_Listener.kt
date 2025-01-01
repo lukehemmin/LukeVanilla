@@ -111,6 +111,36 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
                     }
                 }
 
+//                val nextSeasonItemMessage = TextComponent("                     §a§l[다음 시즌에 가져갈 아이템 넣기]")
+//                nextSeasonItemMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/opennextseasongui")
+//                nextSeasonItemMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+//                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+//                    arrayOf(TextComponent("§a§l클릭하여 아이템을 추가하세요"))
+//                )
+//                player.spigot().sendMessage(nextSeasonItemMessage)
+//
+//                player.sendMessage("")
+//
+//                val halloweenItemRegisterMessage = TextComponent("                            §6§l[할로윈 아이템 등록]")
+//                halloweenItemRegisterMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/할로윈 아이템 소유")
+//                halloweenItemRegisterMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+//                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+//                    arrayOf(TextComponent("§a§l인벤토리에 아이템을 넣고 클릭하여 등록하세요"))
+//                )
+//                player.spigot().sendMessage(halloweenItemRegisterMessage)
+//
+                player.sendMessage("")
+
+                val halloweenItemRegisterMessage = TextComponent("                       §6§l[할로윈 아이템 스크롤 받기]")
+                halloweenItemRegisterMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/할로윈 아이템 받기")
+                halloweenItemRegisterMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+                    arrayOf(TextComponent("§a§l클릭하여 할로윈 아이템 스크롤을 받으세요"))
+                )
+                player.spigot().sendMessage(halloweenItemRegisterMessage)
+
+                player.sendMessage("")
+
                 val mapLink = TextComponent("                       §a§l[클릭하여 지도사이트로 이동]")
                 mapLink.clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, "https://map.mine.lukehemmin.com/")
                 player.spigot().sendMessage(mapLink)

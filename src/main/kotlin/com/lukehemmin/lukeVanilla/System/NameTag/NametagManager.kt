@@ -64,16 +64,15 @@ class NametagManager(private val plugin: JavaPlugin, private val database: Datab
         statement.setString(1, uuid.toString())
         val resultSet = statement.executeQuery()
 
-        // 이벤트의 기본 포맷을 취소하고 커스텀 포맷 적용
         event.format = if (resultSet.next()) {
             val nameTag = resultSet.getString("Tag")
             if (nameTag.isNotBlank()) {
-                "${nameTag.translateColorCodes().translateHexColorCodes()}§f ${player.name} : ${event.message}"
+                "${nameTag.translateColorCodes().translateHexColorCodes()}§f ${player.name} : %2\$s"
             } else {
-                "${player.name} : ${event.message}"
+                "${player.name} : %2\$s"
             }
         } else {
-            "${player.name} : ${event.message}"
+            "${player.name} : %2\$s"
         }
 
         resultSet.close()
