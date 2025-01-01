@@ -32,6 +32,10 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+            
+      # gradlew 스크립트에 실행 권한 부여
+      - name: Make gradlew executable
+        run: chmod +x gradlew
 
       - name: Build with Gradle (ShadowJar)
         run: ./gradlew shadowJar
