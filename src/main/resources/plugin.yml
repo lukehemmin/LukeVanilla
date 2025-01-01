@@ -31,8 +31,8 @@ commands:
     description: "지도 사이트 링크를 표시하는 명령어 입니다."
     usage: "/wleh 또는 /지도"
   할로윈:
-    description: "할로윈 아이템 소유 명령어"
-    usage: "/할로윈 아이템 소유"
+    description: "할로윈 아이템 명령어"
+    usage: "/할로윈 아이템"
   티토커메시지:
     description: "티토커 채팅 메시지를 활성화/비활성화합니다."
     usage: "/티토커메시지 <보기|끄기>"
@@ -46,6 +46,18 @@ commands:
   pl:
   plugins:
   lukeplugininfo:
+  돈:
+    description: 돈 관련 명령어
+    usage: /돈 [보내기 <플레이어> <금액>|도움말]
+    aliases: [ money ]
+  ehs:
+    description: 돈 관련 명령어
+    usage: /ehs [보내기 <플레이어> <금액>|도움말]
+    aliases: [ 돈 ]
+  상점:
+    description: 상점 명령어
+    usage: /<command> [생성|수정|가격]
+    permission: lukevanilla.shop.admin
 
 permissions:
   lukevanilla.nametag:
@@ -64,3 +76,6 @@ permissions:
     default: false
   bukkit.command.pl:
     default: false
+  lukevanilla.shop.admin:
+    description: "상점 명령어를 사용할 수 있는 권한"
+    default: op

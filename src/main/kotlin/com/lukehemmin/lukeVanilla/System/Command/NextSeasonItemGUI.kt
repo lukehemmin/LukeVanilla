@@ -1,4 +1,4 @@
-// NextSeasonItemGUI.kt
+// NextSeasonItemGUI.kt (변경된 serializeItem 및 deserializeItem 메서드 사용)
 package com.lukehemmin.lukeVanilla.System.Command
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
@@ -9,6 +9,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryAction
 import org.bukkit.event.inventory.InventoryClickEvent
+import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
@@ -16,6 +17,11 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.Base64
+import java.io.ByteArrayOutputStream
+import java.io.ObjectOutputStream
+import java.io.ByteArrayInputStream
+import java.io.ObjectInputStream
 
 class NextSeasonItemGUI(private val plugin: JavaPlugin, private val database: Database) : Listener, CommandExecutor {
 
@@ -71,7 +77,7 @@ class NextSeasonItemGUI(private val plugin: JavaPlugin, private val database: Da
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
         // GUI의 제목이 아닌 경우 무시
-        if (event.view.title != "다음 시즌에 가져갈 아이템을 넣어주세요!") return
+        if (event.view.title != "다음 시즌 아이템 추가") return
 
         val clickedInventory = event.clickedInventory
         val topInventory = event.view.topInventory
@@ -93,21 +99,31 @@ class NextSeasonItemGUI(private val plugin: JavaPlugin, private val database: Da
                 InventoryAction.PLACE_ONE -> {
                     val currentItem = event.cursor
                     if (currentItem != null && currentItem.type != Material.AIR) {
+                        // 특정 아이템(셸커 상자) 방지
+                        if (currentItem.type.toString().endsWith("_SHULKER_BOX")) { // 모든 색상의 셸커 상자 포함
+                            player.sendMessage("§c셸커 상자는 이 슬롯에 넣을 수 없습니다.")
+                            event.isCancelled = true
+                            return
+                        }
+
                         // 한 개의 아이템만 허용
                         if (topInventory.getItem(13) != null && topInventory.getItem(13)?.type != Material.AIR) {
                             player.sendMessage("이미 아이템이 설정되어 있습니다.")
                             event.isCancelled = true
                             return
                         }
+
                         // 아이템을 중앙 슬롯에 배치
                         val itemToPlace = currentItem.clone().apply { amount = 1 }
                         topInventory.setItem(13, itemToPlace)
+
                         // 커서에서 아이템 하나 제거
                         if (currentItem.amount > 1) {
                             event.setCursor(currentItem.clone().apply { amount = currentItem.amount - 1 })
                         } else {
                             event.setCursor(ItemStack(Material.AIR))
                         }
+
                         // 메시지 변경
                         player.sendMessage("아이템이 GUI에 추가되었습니다. 저장하려면 초록색 버튼을 클릭해주세요.")
                         event.isCancelled = true
@@ -120,7 +136,7 @@ class NextSeasonItemGUI(private val plugin: JavaPlugin, private val database: Da
                     if (item != null && item.type != Material.AIR) {
                         // 아이템을 플레이어 인벤토리로 되돌리기
                         player.inventory.addItem(item.clone())
-                        topInventory.setItem(13, null)
+                        topInventory.setItem(13, ItemStack(Material.AIR))
                         player.sendMessage("다음 시즌에 가져갈 아이템이 제거되었습니다.")
                         event.isCancelled = true
                     }
@@ -149,6 +165,31 @@ class NextSeasonItemGUI(private val plugin: JavaPlugin, private val database: Da
         }
     }
 
+    @EventHandler
+    fun onInventoryClose(event: InventoryCloseEvent) {
+        if (event.view.title != "다음 시즌 아이템 추가") return
+
+        val player = event.player as Player
+        val inventory = event.inventory
+        val itemInCenter = inventory.getItem(13)
+
+        if (itemInCenter != null && itemInCenter.type != Material.AIR) {
+            // 플레이어 인벤토리에 아이템을 추가 시도
+            val remaining = player.inventory.addItem(itemInCenter)
+            if (remaining.isNotEmpty()) {
+                // 인벤토리가 가득 찬 경우, 플레이어 주변에 아이템 드롭
+                remaining.values.forEach { item ->
+                    player.world.dropItemNaturally(player.location, item)
+                }
+                player.sendMessage("인벤토리가 가득 찼습니다. 아이템을 주변에 드롭했습니다.")
+            } else {
+                player.sendMessage("GUI를 닫으면서 중앙 슬롯의 아이템이 인벤토리로 반환되었습니다.")
+            }
+            // 중앙 슬롯 비우기
+            inventory.setItem(13, ItemStack(Material.AIR))
+        }
+    }
+
     private fun isItemRegistered(uuid: String): Boolean {
         return try {
             database.getConnection().use { connection ->
@@ -169,6 +210,7 @@ class NextSeasonItemGUI(private val plugin: JavaPlugin, private val database: Da
     }
 
     private fun saveNextSeasonItem(uuid: String, item: ItemStack): Boolean {
+        val serializedItem = serializeItem(item)
         return try {
             database.getConnection().use { connection ->
                 val query = """
@@ -181,7 +223,7 @@ class NextSeasonItemGUI(private val plugin: JavaPlugin, private val database: Da
                 val preparedStatement = connection.prepareStatement(query)
                 preparedStatement.setString(1, uuid)
                 preparedStatement.setString(2, item.type.name)
-                preparedStatement.setString(3, serializeItem(item))
+                preparedStatement.setString(3, serializedItem)
                 preparedStatement.executeUpdate()
                 true
             }
@@ -191,16 +233,31 @@ class NextSeasonItemGUI(private val plugin: JavaPlugin, private val database: Da
         }
     }
 
-    private fun serializeItem(item: ItemStack): String {
-        // 아이템을 JSON으로 직렬화하는 로직을 구현하세요.
-        // 여기서는 간단히 아이템 타입과 이름, 로어만 직렬화합니다.
-        val serialized = StringBuilder()
-        serialized.append(item.type.name).append(";")
-        if (item.hasItemMeta()) {
-            val meta = item.itemMeta
-            serialized.append(meta.displayName ?: "").append(";")
-            serialized.append(meta.lore?.joinToString("\n") ?: "")
+    private fun deserializeItem(data: String): ItemStack? {
+        return try {
+            val bytes = Base64.getDecoder().decode(data)
+            val byteStream = ByteArrayInputStream(bytes)
+            val objectStream = ObjectInputStream(byteStream)
+            val map = objectStream.readObject() as Map<String, Any>
+            objectStream.close()
+            ItemStack.deserialize(map)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
-        return serialized.toString()
+    }
+
+    private fun serializeItem(item: ItemStack): String {
+        return try {
+            val serializedMap = item.serialize()
+            val byteStream = ByteArrayOutputStream()
+            val objectStream = ObjectOutputStream(byteStream)
+            objectStream.writeObject(serializedMap)
+            objectStream.close()
+            Base64.getEncoder().encodeToString(byteStream.toByteArray())
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ""
+        }
     }
 }

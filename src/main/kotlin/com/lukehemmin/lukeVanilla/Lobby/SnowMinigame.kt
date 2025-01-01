@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanlia.lobby
+package com.lukehemmin.lukeVanilla.Lobby
 
 import org.bukkit.*
 import org.bukkit.enchantments.Enchantment

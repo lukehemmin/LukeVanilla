@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanilla.System.Command
+package com.lukehemmin.lukeVanilla.System.Halloween
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
@@ -124,10 +124,14 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
         val player = sender
 
         // 인자가 "아이템"과 "소유"인지 확인
-        if (args.size != 2 || args[0] != "아이템" || args[1] != "소유") {
+        // args 배열이 비어있어야 합니다.
+        if (args.isNotEmpty()) {
             player.sendMessage("사용법: /할로윈 아이템 소유")
             return true
         }
+
+        // 처리한 아이템 종류를 추적하기 위한 집합
+        val processedItems = mutableSetOf<String>()
 
         // 등록 결과를 저장할 리스트
         val registeredItems = mutableListOf<String>()
@@ -144,6 +148,14 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
                             return@forEach
                         }
 
+                        // 이미 처리한 아이템이면 건너뜀
+                        if (processedItems.contains(oraxenId)) {
+                            return@forEach
+                        }
+
+                        // 처리한 아이템으로 추가
+                        processedItems.add(oraxenId)
+
                         // 이미 소유자가 있는 경우
                         if (meta.persistentDataContainer.has(ownerKey, PersistentDataType.STRING)) {
                             val ownerUuid = meta.persistentDataContainer.get(ownerKey, PersistentDataType.STRING)
@@ -152,7 +164,6 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
                             if (ownerUuid == player.uniqueId.toString()) {
                                 database.getConnection().use { connection ->
                                     val columnName = getColumnName(oraxenId)
-
                                     val checkItemStmt = connection.prepareStatement(
                                         "SELECT 1 FROM Halloween_Item_Owner WHERE UUID = ? AND $columnName = 1"
                                     )

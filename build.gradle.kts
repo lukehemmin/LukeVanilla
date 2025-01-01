@@ -15,6 +15,12 @@ repositories {
         name = "sonatype"
     }
     maven("https://repo.oraxen.com/releases")
+    maven("https://maven.citizensnpcs.co/repo") {
+        name = "citizens-repo"
+    }
+    maven("https://jitpack.io") {
+        name = "LoneLibs"
+    }
 }
 
 dependencies {
@@ -25,7 +31,9 @@ dependencies {
     implementation ("com.vdurmont:emoji-java:5.1.1")
     compileOnly("io.th0rgal:oraxen:1.186.0")
     implementation("net.dv8tion:JDA:5.2.1")
+    compileOnly("net.citizensnpcs:citizens-main:2.0.37-SNAPSHOT")
     //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
+    compileOnly("com.github.LoneDev6:API-ItemsAdder:3.6.3-beta-14")
 }
 
 val targetJavaVersion = 21

@@ -118,14 +118,24 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
 //                    arrayOf(TextComponent("§a§l클릭하여 아이템을 추가하세요"))
 //                )
 //                player.spigot().sendMessage(nextSeasonItemMessage)
-
+//
+//                player.sendMessage("")
+//
+//                val halloweenItemRegisterMessage = TextComponent("                            §6§l[할로윈 아이템 등록]")
+//                halloweenItemRegisterMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/할로윈 아이템 소유")
+//                halloweenItemRegisterMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+//                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+//                    arrayOf(TextComponent("§a§l인벤토리에 아이템을 넣고 클릭하여 등록하세요"))
+//                )
+//                player.spigot().sendMessage(halloweenItemRegisterMessage)
+//
                 player.sendMessage("")
 
-                val halloweenItemRegisterMessage = TextComponent("                            §6§l[할로윈 아이템 등록]")
-                halloweenItemRegisterMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/할로윈 아이템 소유")
+                val halloweenItemRegisterMessage = TextComponent("                       §6§l[할로윈 아이템 스크롤 받기]")
+                halloweenItemRegisterMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/할로윈 아이템 받기")
                 halloweenItemRegisterMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
                     net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
-                    arrayOf(TextComponent("§a§l인벤토리에 아이템을 넣고 클릭하여 등록하세요"))
+                    arrayOf(TextComponent("§a§l클릭하여 할로윈 아이템 스크롤을 받으세요"))
                 )
                 player.spigot().sendMessage(halloweenItemRegisterMessage)
 

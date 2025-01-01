@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanilla.System.Items
+package com.lukehemmin.lukeVanilla.System.Halloween
 
 import io.th0rgal.oraxen.api.OraxenItems
 import org.bukkit.Material
@@ -47,6 +47,14 @@ class hscroll : Listener {
 
             // 클릭한 아이템이 변환할 대상 마테리얼인지 확인
             if (clicked != null && clicked.type == transformation.targetMaterial) {
+
+                // 클릭한 아이템이 Oraxen 아이템인지 확인
+                if (OraxenItems.exists(clicked)) {
+                    // 클릭한 아이템이 Oraxen 아이템인 경우 변환하지 않음
+                    player.sendMessage("&c이 아이템에는 스크롤을 사용할 수 없습니다.")
+                    return
+                }
+
                 // 기본 동작 취소
                 event.isCancelled = true
 
@@ -57,12 +65,13 @@ class hscroll : Listener {
                 val newOraxenItem = OraxenItems.getItemById(transformation.targetItemId)?.build()
                 if (newOraxenItem == null) {
                     // 변환할 아이템을 찾을 수 없는 경우 종료
+                    player.sendMessage("변환할 아이템을 찾을 수 없습니다.")
                     return
                 }
 
                 // 기존 인챈트 복사
                 for ((enchantment, level) in enchantments) {
-                    newOraxenItem.addEnchantment(enchantment, level)
+                    newOraxenItem.addUnsafeEnchantment(enchantment, level)
                 }
 
                 // 클릭된 슬롯에 새로운 아이템 설정

@@ -50,7 +50,7 @@ class Christmas_sword(val plugin: JavaPlugin) : Listener {
 
             // 아이템 교체
             killer.inventory.setItemInMainHand(newItemBuilder)
-            killer.sendMessage("축하합니다! 당신의 검이 업그레이드되었습니다.")
+            killer.sendMessage("크리스마스 검이 대검으로 바뀌었어요!")
             plugin.logger.info("merry_christmas_sword가 merry_christmas_greatsword로 업그레이드되었습니다.")
         }
     }
