@@ -33,6 +33,7 @@ LukeVanilla는 Minecraft 1.21.4 버전을 위한 플러그인입니다.
 
 ## 라이선스
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 LICENSE 파일을 참조하세요.
+**주의:** 이미지의 무단 사용은 저작권법에 의해 금지됩니다.
 ```
 MIT License
 
@@ -55,6 +56,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
 ```
 
 ## 문의
