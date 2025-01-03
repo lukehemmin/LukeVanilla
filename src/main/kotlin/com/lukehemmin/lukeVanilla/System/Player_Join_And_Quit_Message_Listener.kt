@@ -129,6 +129,7 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
 //                )
 //                player.spigot().sendMessage(halloweenItemRegisterMessage)
 //
+                player.sendMessage("§a§l새해 복 많이 받으세요~")
                 player.sendMessage("")
 
                 val halloweenItemRegisterMessage = TextComponent("                       §6§l[할로윈 아이템 스크롤 받기]")
