@@ -38,6 +38,7 @@ class OraxenItem_Placecancel : Listener {
         "h_hat_scroll",
         "h_scythe_scroll",
         "h_spear_scroll",
+        "creaking_bark",
         // 할로윈 아이템
         "halloween_hat",
         "halloween_chest",
