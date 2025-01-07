@@ -125,6 +125,9 @@ class Main : JavaPlugin() {
         getCommand("티토커메시지")?.setExecutor(TitokerMessageCommand(this))
         getCommand("티토커메시지")?.tabCompleter = TitokerCommandCompleter()
 
+        // RefreshMessagesCommand 등록
+        getCommand("refreshmessages")?.setExecutor(RefreshMessagesCommand(this))
+
         // NoExplosionListener 초기화 및 등록
         val listener = NoExplosionListener(this)
         server.pluginManager.registerEvents(listener, this)
@@ -140,6 +143,9 @@ class Main : JavaPlugin() {
         economyManager = EconomyManager(database)
         getCommand("돈")?.setExecutor(MoneyCommand(economyManager))
         getCommand("ehs")?.setExecutor(MoneyCommand(economyManager))
+
+        // Reload 명령어 등록
+        getCommand("lukereload")?.setExecutor(ReloadCommand(this))
 
 //        // 상점 시스템 초기화
 //        shopManager = ShopManager(database)

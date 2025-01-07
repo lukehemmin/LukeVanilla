@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.bukkit.configuration.file.FileConfiguration
 import java.sql.Connection
+import java.util.*
 
 class Database(config: FileConfiguration) {
     private val hikariConfig: HikariConfig = HikariConfig()
@@ -277,7 +278,7 @@ class Database(config: FileConfiguration) {
 
         return openCases
     }
-
+    
     /**
      * 데이터베이스를 닫는 메서드
      */
