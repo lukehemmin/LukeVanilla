@@ -4,6 +4,10 @@ main: com.lukehemmin.lukeVanilla.Main
 api-version: '1.21.4'
 author: LukeHemmin
 website: https://github.com/lukehemmin/LukeVanilla
+#depend:
+softdepend:
+  - Oraxen
+  - Citizens
 
 commands:
   nametag:
@@ -58,6 +62,15 @@ commands:
     description: 상점 명령어
     usage: /<command> [생성|수정|가격]
     permission: lukevanilla.shop.admin
+  refreshmessages:
+    description: 접속 및 퇴장 메시지를 갱신합니다.
+    usage: /refreshmessages
+    permission: lukevanilla.refreshmessages
+  lukereload:
+    description: 플러그인을 재시작합니다.
+    usage: /lukereload
+    permission: lukevanilla.reload
+    permission-message: 이 명령어를 사용할 권한이 없습니다.
 
 permissions:
   lukevanilla.nametag:
@@ -78,4 +91,10 @@ permissions:
     default: false
   lukevanilla.shop.admin:
     description: "상점 명령어를 사용할 수 있는 권한"
+    default: op
+  lukevanilla.refreshmessages:
+    description: "접속 및 퇴장 메시지를 갱신할 수 있는 권한"
+    default: op
+  lukevanilla.reload:
+    description: "플러그인을 재시작할 수 있는 권한"
     default: op
