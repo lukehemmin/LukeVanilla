@@ -32,6 +32,9 @@ dependencies {
     compileOnly("net.citizensnpcs:citizens-main:2.0.37-SNAPSHOT")
     //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
     compileOnly("com.github.LoneDev6:API-ItemsAdder:3.6.3-beta-14")
+    compileOnly("com.github.Gecolay.GSit:GSit:1.13.0") {
+        exclude(group = "com.github.Gecolay")
+    }
     compileOnly("com.github.Gecolay.GSit:core:1.13.0") {
         exclude(group = "com.github.Gecolay")
     }

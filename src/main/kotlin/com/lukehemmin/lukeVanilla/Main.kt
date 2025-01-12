@@ -9,6 +9,7 @@ import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
 import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
 import com.lukehemmin.lukeVanilla.System.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
+import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
 import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
@@ -157,6 +158,9 @@ class Main : JavaPlugin() {
 
         // Plugin Logic
         logger.info("Plugin enabled")
+
+        // NPCSitPreventer 등록
+        server.pluginManager.registerEvents(NPCSitPreventer(this), this)
     }
 
     override fun onDisable() {
