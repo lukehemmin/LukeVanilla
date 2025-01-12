@@ -61,7 +61,7 @@ tasks.shadowJar {
     destinationDirectory.set(
         if (isCI) file("build/libs")
         else
-            file("C:/Users/Administrator/Desktop/server/테스트1.21.4/plugins")
+            file("C:/Users/Administrator/Desktop/server/테스트1.21.4/20250111/plugins")
 //            file("/Users/lukehemmin/Desktop/Devlop/plugin_devlop/plugins")
     )
     manifest {
