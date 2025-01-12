@@ -1,10 +1,10 @@
+// Database.kt
 package com.lukehemmin.lukeVanilla.System.Database
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.bukkit.configuration.file.FileConfiguration
 import java.sql.Connection
-import java.util.*
 
 class Database(config: FileConfiguration) {
     private val hikariConfig: HikariConfig = HikariConfig()
@@ -15,18 +15,22 @@ class Database(config: FileConfiguration) {
     data class PlayerData(val nickname: String, val uuid: String, val discordId: String?) // discordId 추가
 
     init {
-        val host = config.getString("database.host")
+        val host = config.getString("database.host") ?: throw IllegalArgumentException("Database host not specified in config.")
         val port = config.getInt("database.port")
-        val dbName = config.getString("database.name")
-        val user = config.getString("database.user")
-        val password = config.getString("database.password")
+        val dbName = config.getString("database.name") ?: throw IllegalArgumentException("Database name not specified in config.")
+        val user = config.getString("database.user") ?: throw IllegalArgumentException("Database user not specified in config.")
+        val password = config.getString("database.password") ?: throw IllegalArgumentException("Database password not specified in config.")
 
-        hikariConfig.jdbcUrl = "jdbc:mysql://$host:$port/$dbName"
+        hikariConfig.jdbcUrl = "jdbc:mysql://$host:$port/$dbName?useSSL=false&serverTimezone=UTC"
         hikariConfig.username = user
         hikariConfig.password = password
         hikariConfig.addDataSourceProperty("cachePrepStmts", "true")
         hikariConfig.addDataSourceProperty("prepStmtCacheSize", "250")
         hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+        hikariConfig.maximumPoolSize = 10
+        hikariConfig.minimumIdle = 5
+        hikariConfig.idleTimeout = 30000
+        hikariConfig.maxLifetime = 1800000
 
         dataSource = HikariDataSource(hikariConfig)
     }
@@ -34,17 +38,18 @@ class Database(config: FileConfiguration) {
     fun getConnection(): Connection = dataSource.connection
 
     fun getJoinQuitMessage(serviceType: String, messageType: String): String? {
-        this.getConnection().use { connection ->
-            val statement = connection.prepareStatement(
-                "SELECT message FROM Join_Quit_Message WHERE service_type = ? AND message_type = ?"
-            )
-            statement.setString(1, serviceType)
-            statement.setString(2, messageType)
-            val resultSet = statement.executeQuery()
-            return if (resultSet.next()) {
-                resultSet.getString("message")
-            } else {
-                null
+        val query = "SELECT message FROM Join_Quit_Message WHERE service_type = ? AND message_type = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, serviceType)
+                statement.setString(2, messageType)
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        resultSet.getString("message")
+                    } else {
+                        null
+                    }
+                }
             }
         }
     }
@@ -54,8 +59,13 @@ class Database(config: FileConfiguration) {
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, settingType)
-                val result = statement.executeQuery()
-                return if (result.next()) result.getString("setting_value") else null
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        resultSet.getString("setting_value")
+                    } else {
+                        null
+                    }
+                }
             }
         }
     }
@@ -65,16 +75,18 @@ class Database(config: FileConfiguration) {
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, authCode)
-                val result = statement.executeQuery()
-                if (result.next()) {
-                    return AuthRecord(
-                        uuid = result.getString("UUID"),
-                        isAuth = result.getBoolean("IsAuth")
-                    )
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        AuthRecord(
+                            uuid = resultSet.getString("UUID"),
+                            isAuth = resultSet.getBoolean("IsAuth")
+                        )
+                    } else {
+                        null
+                    }
                 }
             }
         }
-        return null
     }
 
     fun updateAuthStatus(authCode: String, isAuth: Boolean) {
@@ -93,17 +105,19 @@ class Database(config: FileConfiguration) {
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, uuid)
-                val result = statement.executeQuery()
-                if (result.next()) {
-                    return PlayerData(
-                        nickname = result.getString("nickname"),
-                        uuid = result.getString("uuid"),
-                        discordId = result.getString("DiscordID") // DiscordID 포함
-                    )
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        PlayerData(
+                            nickname = resultSet.getString("nickname"),
+                            uuid = resultSet.getString("uuid"),
+                            discordId = resultSet.getString("DiscordID")
+                        )
+                    } else {
+                        null
+                    }
                 }
             }
         }
-        return null
     }
 
     fun updateDiscordId(uuid: String, discordId: String) {
@@ -118,27 +132,25 @@ class Database(config: FileConfiguration) {
     }
 
     fun ensurePlayerAuth(uuid: String): String {
+        val selectQuery = "SELECT AuthCode FROM Player_Auth WHERE UUID = ?"
+        val insertQuery = "INSERT INTO Player_Auth (UUID, IsAuth, AuthCode) VALUES (?, ?, ?)"
         getConnection().use { connection ->
-            // Player_Auth 테이블에서 UUID로 행을 찾음
-            connection.prepareStatement("SELECT AuthCode FROM Player_Auth WHERE UUID = ?").use { checkAuth ->
-                checkAuth.setString(1, uuid)
-                checkAuth.executeQuery().use { authResult ->
-                    if (authResult.next()) {
-                        // 기존 AuthCode 반환
-                        return authResult.getString("AuthCode")
-                    } else {
-                        // 행이 없으면 새로운 행 생성
-                        val authCode = generateAuthCode()
-                        connection.prepareStatement("INSERT INTO Player_Auth (UUID, IsAuth, AuthCode) VALUES (?, ?, ?)").use { insertAuth ->
-                            insertAuth.setString(1, uuid)
-                            insertAuth.setInt(2, 0)
-                            insertAuth.setString(3, authCode)
-                            insertAuth.executeUpdate()
-                        }
-                        return authCode
+            connection.prepareStatement(selectQuery).use { selectStmt ->
+                selectStmt.setString(1, uuid)
+                selectStmt.executeQuery().use { resultSet ->
+                    if (resultSet.next()) {
+                        return resultSet.getString("AuthCode")
                     }
                 }
             }
+            val authCode = generateAuthCode()
+            connection.prepareStatement(insertQuery).use { insertStmt ->
+                insertStmt.setString(1, uuid)
+                insertStmt.setBoolean(2, false)
+                insertStmt.setString(3, authCode)
+                insertStmt.executeUpdate()
+            }
+            return authCode
         }
     }
 
@@ -154,17 +166,19 @@ class Database(config: FileConfiguration) {
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, discordId)
-                val result = statement.executeQuery()
-                if (result.next()) {
-                    return PlayerData(
-                        nickname = result.getString("nickname"),
-                        uuid = result.getString("uuid"),
-                        discordId = discordId // DiscordID 포함
-                    )
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        PlayerData(
+                            nickname = resultSet.getString("nickname"),
+                            uuid = resultSet.getString("uuid"),
+                            discordId = discordId
+                        )
+                    } else {
+                        null
+                    }
                 }
             }
         }
-        return null
     }
 
     // DiscordVoiceChannelListener 에서 사용할 함수 추가
@@ -173,13 +187,15 @@ class Database(config: FileConfiguration) {
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, discordId)
-                val result = statement.executeQuery()
-                if (result.next()) {
-                    return result.getString("UUID")
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        resultSet.getString("UUID")
+                    } else {
+                        null
+                    }
                 }
             }
         }
-        return null
     }
 
     /**
@@ -190,21 +206,25 @@ class Database(config: FileConfiguration) {
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, uuid)
-                val result = statement.executeQuery()
-                return if (result.next()) result.getString("Tag") else null
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        resultSet.getString("Tag")
+                    } else {
+                        null
+                    }
+                }
             }
         }
     }
 
     fun setTitokerMessageEnabled(uuid: String, enabled: Boolean) {
-        getConnection().use { connection ->
-            connection.prepareStatement(
-                """
+        val query = """
             INSERT INTO Titoker_Message_Setting (UUID, IsEnabled) 
             VALUES (?, ?) 
             ON DUPLICATE KEY UPDATE IsEnabled = ?
-            """
-            ).use { statement ->
+        """
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
                 statement.setString(1, uuid)
                 statement.setBoolean(2, enabled)
                 statement.setBoolean(3, enabled)
@@ -214,34 +234,42 @@ class Database(config: FileConfiguration) {
     }
 
     fun isTitokerMessageEnabled(uuid: String): Boolean {
+        val query = "SELECT IsEnabled FROM Titoker_Message_Setting WHERE UUID = ?"
         getConnection().use { connection ->
-            connection.prepareStatement(
-                "SELECT IsEnabled FROM Titoker_Message_Setting WHERE UUID = ?"
-            ).use { statement ->
+            connection.prepareStatement(query).use { statement ->
                 statement.setString(1, uuid)
-                val result = statement.executeQuery()
-                return if (result.next()) result.getBoolean("IsEnabled") else false
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        resultSet.getBoolean("IsEnabled")
+                    } else {
+                        false
+                    }
+                }
             }
         }
     }
 
     fun getDiscordIDByUUID(uuid: String): String? {
+        val query = "SELECT DiscordID FROM Player_Data WHERE UUID = ?"
         getConnection().use { connection ->
-            connection.prepareStatement(
-                "SELECT DiscordID FROM Player_Data WHERE UUID = ?"
-            ).use { statement ->
+            connection.prepareStatement(query).use { statement ->
                 statement.setString(1, uuid)
-                val result = statement.executeQuery()
-                return if (result.next()) result.getString("DiscordID") else null
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        resultSet.getString("DiscordID")
+                    } else {
+                        null
+                    }
+                }
             }
         }
     }
 
     fun setSetting(settingType: String, settingValue: String) {
         val query = """
-        INSERT INTO Settings (setting_type, setting_value) 
-        VALUES (?, ?) 
-        ON DUPLICATE KEY UPDATE setting_value = ?
+            INSERT INTO Settings (setting_type, setting_value) 
+            VALUES (?, ?) 
+            ON DUPLICATE KEY UPDATE setting_value = ?
         """
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
@@ -260,25 +288,22 @@ class Database(config: FileConfiguration) {
 
     fun getOpenSupportCases(uuid: String): List<SupportCase> {
         val openCases = mutableListOf<SupportCase>()
-
+        val query = "SELECT SupportID, MessageLink FROM SupportChatLink WHERE UUID = ? AND CaseClose = 0"
         getConnection().use { connection ->
-            val statement = connection.prepareStatement(
-                "SELECT SupportID, MessageLink FROM SupportChatLink WHERE UUID = ? AND CaseClose = 0"
-            )
-            statement.setString(1, uuid)
-            val resultSet = statement.executeQuery()
-            while (resultSet.next()) {
-                val supportId = resultSet.getString("SupportID")
-                val messageLink = resultSet.getString("MessageLink")
-                openCases.add(SupportCase(supportId, messageLink))
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, uuid)
+                statement.executeQuery().use { resultSet ->
+                    while (resultSet.next()) {
+                        val supportId = resultSet.getString("SupportID")
+                        val messageLink = resultSet.getString("MessageLink")
+                        openCases.add(SupportCase(supportId, messageLink))
+                    }
+                }
             }
-            resultSet.close()
-            statement.close()
         }
-
         return openCases
     }
-    
+
     /**
      * 데이터베이스를 닫는 메서드
      */

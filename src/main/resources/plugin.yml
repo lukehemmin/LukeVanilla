@@ -60,8 +60,8 @@ commands:
     aliases: [ 돈 ]
   상점:
     description: 상점 명령어
-    usage: /<command> [생성|수정|가격]
-    permission: lukevanilla.shop.admin
+    usage: /상점 <생성|수정> [인자]
+    permission: lukevanilla.shop
   refreshmessages:
     description: 접속 및 퇴장 메시지를 갱신합니다.
     usage: /refreshmessages
@@ -89,8 +89,8 @@ permissions:
     default: false
   bukkit.command.pl:
     default: false
-  lukevanilla.shop.admin:
-    description: "상점 명령어를 사용할 수 있는 권한"
+  lukevanilla.shop:
+    description: 상점 명령어를 사용할 수 있는 권한
     default: op
   lukevanilla.refreshmessages:
     description: "접속 및 퇴장 메시지를 갱신할 수 있는 권한"
