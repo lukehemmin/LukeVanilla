@@ -14,7 +14,7 @@ class DatabaseInitializer(private val database: Database) {
         createSupportChatLinkTable()
         createNextseasonItemTable()
         createHalloweenItemReceiveTable()
-//        createShopsTable()
+        createShopsTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -230,34 +230,34 @@ class DatabaseInitializer(private val database: Database) {
 
     private fun createShopsTable() { // 상점 테이블
         database.getConnection().use { connection ->
-            val statement = connection.createStatement()
-            statement.executeUpdate(
-                """
-                CREATE TABLE IF NOT EXISTS shops (
-                    name VARCHAR(50) PRIMARY KEY,
-                    npc_id INT NOT NULL,
-                    world VARCHAR(50) NOT NULL,
-                    x DOUBLE NOT NULL,
-                    y DOUBLE NOT NULL,
-                    z DOUBLE NOT NULL,
-                    gui_lines INT NOT NULL DEFAULT 3
-                );
-                """
-            )
-            statement.executeUpdate(
-                """
-                CREATE TABLE IF NOT EXISTS shop_items (
-                    shop_name VARCHAR(50) NOT NULL,
-                    slot INT NOT NULL,
-                    item_uuid VARCHAR(36) NOT NULL,
-                    buy_price DECIMAL(20, 2) DEFAULT 0,
-                    sell_price DECIMAL(20, 2) DEFAULT 0,
-                    PRIMARY KEY (shop_name, slot),
-                    FOREIGN KEY (shop_name) REFERENCES shops(name) ON DELETE CASCADE
-                );
-                """
-            )
-            statement.close()
+            connection.createStatement().use { statement ->
+                // shops 테이블 생성
+                statement.executeUpdate(
+                    """
+                    CREATE TABLE IF NOT EXISTS shops (
+                        name VARCHAR(255) PRIMARY KEY,
+                        npc_id INT NOT NULL,
+                        `rows` INT DEFAULT 3
+                    );
+                    """
+                )
+
+                // shop_items 테이블 생성
+                statement.executeUpdate(
+                    """
+                    CREATE TABLE IF NOT EXISTS shop_items (
+                        shop_name VARCHAR(255) NOT NULL,
+                        slot INT NOT NULL,
+                        item_type VARCHAR(255),
+                        item_meta VARCHAR(255),
+                        buy_price DECIMAL(20, 2),
+                        sell_price DECIMAL(20, 2),
+                        PRIMARY KEY (shop_name, slot),
+                        FOREIGN KEY (shop_name) REFERENCES shops(name) ON DELETE CASCADE
+                    );
+                    """
+                )
+            }
         }
     }
 }
