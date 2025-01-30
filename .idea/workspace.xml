@@ -1,28 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AIAssistantCustomInstructionsStorage">
+    <option name="instructions">
+      <map>
+        <entry key="AIAssistant.VCS.GenerateCommitMessage">
+          <value>
+            <AIAssistantStoredInstruction>
+              <option name="actionId" value="AIAssistant.VCS.GenerateCommitMessage" />
+              <option name="content" value="Avoid overly verbose descriptions or unnecessary details.&#10;Start with a short sentence in imperative form, no more than 50 characters long.&#10;Then leave an empty line and continue with a more detailed explanation.&#10;Write only one sentence for the first part,and write the detailed explanation extensively.&#10;Always respond in Korean" />
+            </AIAssistantStoredInstruction>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/PriceSettingSession.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/Shop.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopGUI.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopGUIListener.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopPriceListener.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules/LukeVanilla.main.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/LukeVanilla.main.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/Database.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/Database.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/DatabaseInitializer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/DatabaseInitializer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/PriceEditManager.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopCommand.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopCommand.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopListener.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopListener.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopManager.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Shop/ShopManager.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/plugin.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/plugin.yml" afterDir="false" />
-    </list>
+    <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="채팅 메시지 포맷 및 이벤트 처리 개선&#10;&#10;이제 플레이어 채팅 메시지가 Adventure API를 사용해 구성되며, 클릭하여 귓속말을 보내거나 호버 시 추가 정보를 표시할 수 있도록 향상되었습니다. 또한 기존 이벤트 포맷 설정을 대체하여 메시지 전송 방식이 수정되었습니다." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -107,6 +103,9 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/Database.kt" root0="FORCE_HIGHLIGHTING" />
   </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 8
 }</component>
@@ -138,7 +137,7 @@
     "project.structure.last.edited": "Project",
     "project.structure.proportion": "0.0",
     "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "editor.preferences.folding",
+    "settings.editor.selected.configurable": "ml.llm.AIAssistantPromptsLibrary",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -278,11 +277,58 @@
       <workItem from="1736263536348" duration="4871000" />
       <workItem from="1736663397964" duration="1587000" />
       <workItem from="1736665156754" duration="144000" />
-      <workItem from="1736665317156" duration="1787000" />
+      <workItem from="1736665317156" duration="18735000" />
     </task>
+    <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
+      <option name="closed" value="true" />
+      <created>1736682073857</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1736682073857</updated>
+    </task>
+    <task id="LOCAL-00002" summary="의존성 추가 및 NPC 관련 기능 수정&#10;&#10;GSit 의존성을 추가하고, NPC와 상호 작용시 발생하던 GSit 관련 충돌을 제거하였습니다. 또한 ShopListener와 NPCSitPreventer 클래스의 동작을 개선하였습니다.">
+      <option name="closed" value="true" />
+      <created>1736682169041</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1736682169041</updated>
+    </task>
+    <task id="LOCAL-00003" summary="의존성 추가 및 NPC 상호 작용 개선&#10;&#10;GSit 의존성을 추가하고, NPC와의 상호 작용 시 발생하던 충돌을 해결하기 위해 NPCSitPreventer를 구현하였습니다. 이 클래스는 GSit과 Citizens NPC 간의 상호 작용을 관리하여 플레이어가 NPC 클릭 시 불필요한 앉기 이벤트를 방지합니다. ShopListener에서도 GSit 관련 코드를 제거하여 상호 작용 로직을 간소화하였고, 전반적인 코드 구조와 성능을 개선하였습니다.">
+      <option name="closed" value="true" />
+      <created>1736682554701</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1736682554701</updated>
+    </task>
+    <task id="LOCAL-00004" summary="채팅 메시지 포맷 및 이벤트 처리 개선&#10;&#10;이제 플레이어 채팅 메시지가 Adventure API를 사용해 구성되며, 클릭하여 귓속말을 보내거나 호버 시 추가 정보를 표시할 수 있도록 향상되었습니다. 또한 기존 이벤트 포맷 설정을 대체하여 메시지 전송 방식이 수정되었습니다.">
+      <option name="closed" value="true" />
+      <created>1736695763120</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1736695763120</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance." />
+    <MESSAGE value="의존성 추가 및 NPC 관련 기능 수정&#10;&#10;GSit 의존성을 추가하고, NPC와 상호 작용시 발생하던 GSit 관련 충돌을 제거하였습니다. 또한 ShopListener와 NPCSitPreventer 클래스의 동작을 개선하였습니다." />
+    <MESSAGE value="Add NPCSitPreventer and improve GSit integration&#10;&#10;Integrated GSit functionality by adding NPCSitPreventer to resolve NPC interaction issues, updated dependencies, and removed redundant GSit handling in ShopListener for better clarity and performance." />
+    <MESSAGE value="의존성 추가 및 NPC 앉기 방지 기능 구현&#10;&#10;GSit 의존성을 추가하고, NPC와의 상호작용에서 GSit 충돌 문제를 해결하기 위해 NPCSitPreventer 클래스를 새로 작성했습니다. 또한 ShopListener의 코드를 간소화하여 NPC 상호작용 로직을 최적화했습니다." />
+    <MESSAGE value="의존성 추가 및 NPC 상호 작용 개선&#10;&#10;GSit 의존성을 추가하고, NPC와의 상호 작용 시 발생하던 충돌을 해결하기 위해 NPCSitPreventer를 구현하였습니다. 이 클래스는 GSit과 Citizens NPC 간의 상호 작용을 관리하여 플레이어가 NPC 클릭 시 불필요한 앉기 이벤트를 방지합니다. ShopListener에서도 GSit 관련 코드를 제거하여 상호 작용 로직을 간소화하였고, 전반적인 코드 구조와 성능을 개선하였습니다." />
+    <MESSAGE value="NPC 관련 상호작용 개선 및 네임태그 채팅 수정&#10;&#10;GSit 의존성을 추가하고 NPCSitPreventer를 구현하여 NPC와의 상호작용 문제를 해결했습니다. 이로 인해 플레이어가 NPC를 클릭 시 발생하던 불필요한 앉기 이벤트를 방지합니다. 또한, ShopListener에서 불필요한 GSit 관련 코드를 제거하여 상호작용 로직을 간소화하고 성능을 개선했습니다. 추가로 NametagManager의 채팅 처리가 개선되었으며, 플레이어 이름 클릭 시 메시지 전송이 가능하도록 인터랙션 기능을 추가하였습니다." />
+    <MESSAGE value="채팅 메시지 포맷 및 이벤트 처리 개선&#10;&#10;이제 플레이어 채팅 메시지가 Adventure API를 사용해 구성되며, 클릭하여 귓속말을 보내거나 호버 시 추가 정보를 표시할 수 있도록 향상되었습니다. 또한 기존 이벤트 포맷 설정을 대체하여 메시지 전송 방식이 수정되었습니다." />
+    <option name="LAST_COMMIT_MESSAGE" value="채팅 메시지 포맷 및 이벤트 처리 개선&#10;&#10;이제 플레이어 채팅 메시지가 Adventure API를 사용해 구성되며, 클릭하여 귓속말을 보내거나 호버 시 추가 정보를 표시할 수 있도록 향상되었습니다. 또한 기존 이벤트 포맷 설정을 대체하여 메시지 전송 방식이 수정되었습니다." />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>
