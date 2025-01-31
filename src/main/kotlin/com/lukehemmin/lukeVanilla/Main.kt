@@ -25,10 +25,11 @@ class Main : JavaPlugin() {
     private lateinit var nametagManager: NametagManager
     private lateinit var discordRoleManager: DiscordRoleManager
     lateinit var discordBot: DiscordBot // 추가된 라인
+    private lateinit var itemRestoreLogger: ItemRestoreLogger
     lateinit var nextSeasonGUI: NextSeasonItemGUI
     lateinit var economyManager: EconomyManager
-    lateinit var shopManager: ShopManager
-    lateinit var shopPriceListener: ShopPriceListener
+//    lateinit var shopManager: ShopManager
+//    lateinit var shopPriceListener: ShopPriceListener
 //    lateinit var shopManager: ShopManager
 //    lateinit var priceEditManager: PriceEditManager // 추가
 
@@ -65,6 +66,9 @@ class Main : JavaPlugin() {
 
             // 티토커 채팅 리스너 등록
             discordBot.jda.addEventListener(TitokerChatListener(this))
+
+            // ItemRestoreLogger 초기화
+            itemRestoreLogger = ItemRestoreLogger(database, this, discordBot.jda)
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")
         }
@@ -116,6 +120,10 @@ class Main : JavaPlugin() {
         getCommand("plugins")?.setExecutor(plcommandcancel())
         getCommand("lukeplugininfo")?.setExecutor(plcommandcancel())
 
+        // ItemRestoreCommand 초기화 부분 수정
+        val itemRestoreCommand = ItemRestoreCommand(itemRestoreLogger)
+        getCommand("아이템복구")?.setExecutor(itemRestoreCommand)
+        server.pluginManager.registerEvents(itemRestoreCommand, this)
 
         server.pluginManager.registerEvents(HalloweenGUIListener(this), this)
         getCommand("할로윈")?.setExecutor(HalloweenCommand(this))
@@ -147,14 +155,14 @@ class Main : JavaPlugin() {
         // Reload 명령어 등록
         getCommand("lukereload")?.setExecutor(ReloadCommand(this))
 
-        // 상점 시스템 초기화
-        shopManager = ShopManager(this, database, economyManager)
-
-        // 명령어 등록
-        getCommand("상점")?.setExecutor(ShopCommand(shopManager))
-
-        // 리스너 등록
-        server.pluginManager.registerEvents(ShopGUIListener(shopManager, ShopPriceListener(shopManager)), this)
+//        // 상점 시스템 초기화
+//        shopManager = ShopManager(this, database, economyManager)
+//
+//        // 명령어 등록
+//        getCommand("상점")?.setExecutor(ShopCommand(shopManager))
+//
+//        // 리스너 등록
+//        server.pluginManager.registerEvents(ShopGUIListener(shopManager, ShopPriceListener(shopManager)), this)
 
         // Plugin Logic
         logger.info("Plugin enabled")

@@ -3,7 +3,7 @@ package com.lukehemmin.lukeVanilla.System.Halloween
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
-import io.th0rgal.oraxen.api.OraxenItems
+import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Material
@@ -80,7 +80,10 @@ class HalloweenGUIListener(private val plugin: Main) : Listener {
                         // 아이템 지급은 메인 스레드에서 수행
                         Bukkit.getScheduler().runTask(plugin, Runnable {
                             // 플레이어에게 스크롤 아이템 지급
-                            val scrollItem = OraxenItems.getItemById(scrollId).build()
+                            val scrollItem = NexoItems.itemFromId(scrollId)?.build() ?: run {
+                                player.sendMessage("${ChatColor.RED}아이템을 생성하는 중 오류가 발생했습니다.")
+                                return@Runnable
+                            }
                             player.inventory.addItem(scrollItem)
                             player.sendMessage("${ChatColor.GREEN}스크롤 아이템을 받았습니다.")
 

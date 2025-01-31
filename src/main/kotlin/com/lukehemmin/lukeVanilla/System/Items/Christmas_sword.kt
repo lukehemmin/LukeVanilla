@@ -1,6 +1,6 @@
 package com.lukehemmin.lukeVanilla.System.Items
 
-import io.th0rgal.oraxen.api.OraxenItems
+import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Bukkit
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -20,7 +20,7 @@ class Christmas_sword(val plugin: JavaPlugin) : Listener {
     fun onEntityDeath(event: EntityDeathEvent) {
         val killer = event.entity.killer ?: return
         val item = killer.inventory.itemInMainHand
-        val itemId = OraxenItems.getIdByItem(item) ?: return
+        val itemId = NexoItems.idFromItem(item) ?: return
 
         if (itemId != "merry_christmas_sword") return
 
@@ -31,8 +31,7 @@ class Christmas_sword(val plugin: JavaPlugin) : Listener {
         //plugin.logger.info("Player ${killer.name} has $kills kills with merry_christmas_sword.")
 
         if (kills >= 5000) {
-            val newItemBuilder = OraxenItems.getItemById("merry_christmas_greatsword")?.build()
-            if (newItemBuilder == null) {
+            val newItemBuilder = NexoItems.itemFromId("merry_christmas_greatsword")?.build() ?: run{
                 plugin.logger.warning("merry_christmas_greatsword 아이템이 존재하지 않습니다.")
                 return
             }

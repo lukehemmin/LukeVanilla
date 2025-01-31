@@ -3,7 +3,7 @@ package com.lukehemmin.lukeVanilla.System.Halloween
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
-import io.th0rgal.oraxen.api.OraxenItems
+import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Material
@@ -137,7 +137,10 @@ class HalloweenItemGetCommand(private val plugin: Main) : CommandExecutor, Liste
                                 }
                                 // 수령 가능 - 스크롤 아이템 배치
                                 else -> {
-                                    val scrollItem = OraxenItems.getItemById(scrollId).build()
+                                    val scrollItem = NexoItems.itemFromId(scrollId)?.build() ?: run {
+                                        plugin.logger.warning("스크롤 아이템 생성 실패: $scrollId")
+                                        return@Runnable
+                                    }
                                     val scrollMeta = scrollItem.itemMeta
                                     scrollMeta!!.persistentDataContainer.set(guiKey, PersistentDataType.STRING, scrollId)
                                     scrollItem.itemMeta = scrollMeta

@@ -71,8 +71,21 @@ class DiscordVoiceChannelListener(private val plugin: Main) : ListenerAdapter() 
         // 현재 통화방에 있는 디스코드 멤버들 가져오기
         val channelMembers = channelJoined.members
 
+        // 통화방에 티토커가 있는지 확인
+        val titokerPresent = channelMembers.any { it.id == "941683178920378439" }
+
         // 들어온 유저에게 메시지 전송
         joiningPlayer?.sendMessage(joinMessageForUser)
+
+        // 일반 유저가 들어왔고 통화방에 티토커가 있는 경우
+        if (member.id != "941683178920378439" && titokerPresent) {
+            joiningPlayer?.let { player ->
+                player.sendMessage(titokerMessage)
+                val isEnabled = plugin.database.isTitokerMessageEnabled(player.uniqueId.toString())
+                val statusMessage = "&f&l티토커메시지 보기 활성화 여부 : ${if (isEnabled) "&a&l활성화" else "&c&l비활성화"}".translateColorCodes()
+                player.sendMessage(statusMessage)
+            }
+        }
 
         // 같은 통화방에 있는 유저들에게만 메시지 전송
         channelMembers.forEach { channelMember ->

@@ -57,7 +57,7 @@ class TitokerChatListener(private val plugin: Main) : ListenerAdapter() {
      */
     private fun replaceEmojis(text: String): String {
         // 텍스트 기반 이모지 패턴 (예: :_l:, :_g: 등)
-        val textEmojiPattern = Pattern.compile(":_[a-z]:|:d:|:pu:")
+        val textEmojiPattern = Pattern.compile(":[_a-z]+:|:naanhae:|:hi:|:notme:|:ing:")
         var result = text
 
         // 텍스트 기반 이모지 변환
@@ -91,8 +91,12 @@ class TitokerChatListener(private val plugin: Main) : ListenerAdapter() {
             ":_z:" -> "௒" // zuri_emoji
             ":_f:" -> "௑" // fish_emoji
             ":_l:" -> "ௐ" // hemmin_emoji
-            ":d:" -> "(X)" // dolbe_emoji
-            ":pu:" -> "(X)" // pumkin_emoji
+            ":d_:" -> "ꐤ" // dolbe_emoji
+            ":_pu:" -> "ꐥ" // pumkin_emoji
+            ":naanhae:" -> "ꐠ" // hyeok_emoji
+            ":hi:" -> "ꐡ" // yeong_emoji
+            ":notme:" -> "ꐢ" // dmddoo_emoji
+            ":ing:" -> "ꐣ" // kimjeokhan_emoji
             else -> emoji
         }
     }

@@ -71,6 +71,9 @@ commands:
     usage: /lukereload
     permission: lukevanilla.reload
     permission-message: 이 명령어를 사용할 권한이 없습니다.
+  아이템복구:
+    description: 커스텀 아이템을 복구합니다.
+    usage: /아이템복구
 
 permissions:
   lukevanilla.nametag:
