@@ -2,7 +2,7 @@ package com.lukehemmin.lukeVanilla.System.Halloween
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
-import io.th0rgal.oraxen.api.OraxenItems
+import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Bukkit
 import org.bukkit.NamespacedKey
 import org.bukkit.command.Command
@@ -140,9 +140,9 @@ class HalloweenItemOwnerCommand(private val plugin: Main) : CommandExecutor {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             try {
                 player.inventory.contents?.filterNotNull()?.forEach { item ->
-                    if (OraxenItems.exists(item)) {
+                    if (NexoItems.idFromItem(item) != null) {
                         val meta = item.itemMeta ?: return@forEach
-                        val oraxenId = OraxenItems.getIdByItem(item)
+                        val oraxenId = NexoItems.idFromItem(item) ?: return@forEach
 
                         if (!VALID_HALLOWEEN_ITEMS.contains(oraxenId)) {
                             return@forEach
