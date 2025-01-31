@@ -141,6 +141,17 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
 
                 player.sendMessage("")
 
+                // 할로윈 아이템 스크롤 받기 버튼과 동일한 형식으로 아이템 복구 버튼 추가
+                val itemRestoreMessage = TextComponent("                     §a§l[클릭하여 인벤토리 아이템 복구]")
+                itemRestoreMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/아이템복구")
+                itemRestoreMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+                    arrayOf(TextComponent("§a§l클릭하여 인벤토리의 깨진 아이템을 복구하세요"))
+                )
+                player.spigot().sendMessage(itemRestoreMessage)
+
+                player.sendMessage("")
+
                 val mapLink = TextComponent("                       §a§l[클릭하여 지도사이트로 이동]")
                 mapLink.clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, "https://map.mine.lukehemmin.com/")
                 player.spigot().sendMessage(mapLink)
