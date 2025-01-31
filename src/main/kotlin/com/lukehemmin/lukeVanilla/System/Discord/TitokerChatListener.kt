@@ -91,8 +91,12 @@ class TitokerChatListener(private val plugin: Main) : ListenerAdapter() {
             ":_z:" -> "௒" // zuri_emoji
             ":_f:" -> "௑" // fish_emoji
             ":_l:" -> "ௐ" // hemmin_emoji
-            ":d:" -> "(X)" // dolbe_emoji
-            ":pu:" -> "(X)" // pumkin_emoji
+            ":d_:" -> "ꐤ" // dolbe_emoji
+            ":_pu:" -> "ꐥ" // pumkin_emoji
+            ":naanhae:" -> "ꐠ" // hyeok_emoji
+            ":hi:" -> "ꐡ" // yeong_emoji
+            ":notme:" -> "ꐢ" // dmddoo_emoji
+            ":ing:" -> "ꐣ" // kimjeokhan_emoji
             else -> emoji
         }
     }

@@ -27,8 +27,8 @@ class Main : JavaPlugin() {
     lateinit var discordBot: DiscordBot // 추가된 라인
     lateinit var nextSeasonGUI: NextSeasonItemGUI
     lateinit var economyManager: EconomyManager
-    lateinit var shopManager: ShopManager
-    lateinit var shopPriceListener: ShopPriceListener
+//    lateinit var shopManager: ShopManager
+//    lateinit var shopPriceListener: ShopPriceListener
 //    lateinit var shopManager: ShopManager
 //    lateinit var priceEditManager: PriceEditManager // 추가
 
@@ -147,14 +147,14 @@ class Main : JavaPlugin() {
         // Reload 명령어 등록
         getCommand("lukereload")?.setExecutor(ReloadCommand(this))
 
-        // 상점 시스템 초기화
-        shopManager = ShopManager(this, database, economyManager)
-
-        // 명령어 등록
-        getCommand("상점")?.setExecutor(ShopCommand(shopManager))
-
-        // 리스너 등록
-        server.pluginManager.registerEvents(ShopGUIListener(shopManager, ShopPriceListener(shopManager)), this)
+//        // 상점 시스템 초기화
+//        shopManager = ShopManager(this, database, economyManager)
+//
+//        // 명령어 등록
+//        getCommand("상점")?.setExecutor(ShopCommand(shopManager))
+//
+//        // 리스너 등록
+//        server.pluginManager.registerEvents(ShopGUIListener(shopManager, ShopPriceListener(shopManager)), this)
 
         // Plugin Logic
         logger.info("Plugin enabled")
