@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanilla.System.NameTag
+package com.lukehemmin.lukeVanilla.System.ChatSystem
 
 import com.lukehemmin.lukeVanilla.System.ColorUtill.ColorUtil.translateColorCodes
 import com.lukehemmin.lukeVanilla.System.Database.Database

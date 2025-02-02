@@ -1,12 +1,8 @@
-package com.lukehemmin.lukeVanilla.System.NameTag
+package com.lukehemmin.lukeVanilla.System.ChatSystem
 
 import com.lukehemmin.lukeVanilla.System.ColorUtill.ColorUtil.translateColorCodes
 import com.lukehemmin.lukeVanilla.System.ColorUtill.ColorUtil.translateHexColorCodes
 import com.lukehemmin.lukeVanilla.System.Database.Database
-import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.event.ClickEvent
-import net.kyori.adventure.text.event.HoverEvent
-import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -61,39 +57,22 @@ class NametagManager(private val plugin: JavaPlugin, private val database: Datab
 
     @EventHandler
     fun onPlayerChat(event: AsyncPlayerChatEvent) {
-        event.isCancelled = true
-
         val player = event.player
         val uuid = player.uniqueId
-        val message = event.message
-
         val connection = database.getConnection()
         val statement = connection.prepareStatement("SELECT Tag FROM Player_NameTag WHERE UUID = ?")
         statement.setString(1, uuid.toString())
         val resultSet = statement.executeQuery()
 
-        // 채팅 메시지 구성
-        val chatMessage = Component.empty()
-            .let { component ->
-                if (resultSet.next()) {
-                    val nameTag = resultSet.getString("Tag")
-                    if (nameTag.isNotBlank()) {
-                        component.append(
-                            Component.text(nameTag.translateColorCodes().translateHexColorCodes() + " ")
-                        )
-                    } else component
-                } else component
+        event.format = if (resultSet.next()) {
+            val nameTag = resultSet.getString("Tag")
+            if (nameTag.isNotBlank()) {
+                "${nameTag.translateColorCodes().translateHexColorCodes()}§f ${player.name} : %2\$s"
+            } else {
+                "${player.name} : %2\$s"
             }
-            .append(
-                Component.text(player.name)
-                    .clickEvent(ClickEvent.suggestCommand("/tell ${player.name} "))
-                    .hoverEvent(HoverEvent.showText(Component.text("§a§l클릭하여 §f§l${player.name} §a§l에게 귓속말 보내기")))
-            )
-            .append(Component.text(" : $message"))
-
-        // 모든 수신자에게 메시지 전송
-        event.recipients.forEach { recipient ->
-            recipient.sendMessage(chatMessage)
+        } else {
+            "${player.name} : %2\$s"
         }
 
         resultSet.close()
