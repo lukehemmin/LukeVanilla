@@ -1,5 +1,8 @@
 service:
   type: "Lobby" # Vanilla or Lobby
+  
+server:
+  name: "서버이름"  # 각 서버마다 다른 이름 설정
 
 database:
   host: "localhost"

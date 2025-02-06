@@ -10,8 +10,7 @@ import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
 import com.lukehemmin.lukeVanilla.System.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
-import com.lukehemmin.lukeVanilla.System.ChatSystem.NametagCommand
-import com.lukehemmin.lukeVanilla.System.ChatSystem.NametagManager
+import com.lukehemmin.lukeVanilla.System.ChatSystem.*
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import org.bukkit.plugin.java.JavaPlugin
@@ -162,6 +161,9 @@ class Main : JavaPlugin() {
 //
 //        // 리스너 등록
 //        server.pluginManager.registerEvents(ShopGUIListener(shopManager, ShopPriceListener(shopManager)), this)
+
+        // GlobalChatManager 초기화
+        //GlobalChatManager(this, database)
 
         // Plugin Logic
         logger.info("Plugin enabled")
