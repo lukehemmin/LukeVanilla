@@ -153,6 +153,9 @@ class Main : JavaPlugin() {
         // Reload 명령어 등록
         getCommand("lukereload")?.setExecutor(ReloadCommand(this))
 
+        server.pluginManager.registerEvents(LevelStick(), this)
+        server.pluginManager.registerEvents(Scroll(), this)
+
 //        // 상점 시스템 초기화
 //        shopManager = ShopManager(this, database, economyManager)
 //

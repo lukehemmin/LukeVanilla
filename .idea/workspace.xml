@@ -18,11 +18,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/ChatSystem/GlobalChatManager.kt" afterDir="false" />
+    <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="Implement GlobalChatManager for enhanced chat functionality and server integration">
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/LevelStick.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Scroll.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/config.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -285,7 +285,7 @@
       <workItem from="1736665317156" duration="18735000" />
       <workItem from="1738326373851" duration="20283000" />
       <workItem from="1738468045367" duration="17941000" />
-      <workItem from="1738839111110" duration="28000" />
+      <workItem from="1738839111110" duration="4849000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />
@@ -335,7 +335,15 @@
       <option name="project" value="LOCAL" />
       <updated>1738304906215</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Implement GlobalChatManager for enhanced chat functionality and server integration">
+      <option name="closed" value="true" />
+      <created>1738839182244</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1738839182244</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -351,7 +359,8 @@
     <MESSAGE value="채팅 메시지 포맷 및 이벤트 처리 개선&#10;&#10;이제 플레이어 채팅 메시지가 Adventure API를 사용해 구성되며, 클릭하여 귓속말을 보내거나 호버 시 추가 정보를 표시할 수 있도록 향상되었습니다. 또한 기존 이벤트 포맷 설정을 대체하여 메시지 전송 방식이 수정되었습니다." />
     <MESSAGE value="Merge branch 'develop' of https://github.com/lukehemmin/LukeVanilla into develop" />
     <MESSAGE value="Refactor project configuration and update emoji mappings" />
-    <option name="LAST_COMMIT_MESSAGE" value="Refactor project configuration and update emoji mappings" />
+    <MESSAGE value="Implement GlobalChatManager for enhanced chat functionality and server integration" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement GlobalChatManager for enhanced chat functionality and server integration" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
