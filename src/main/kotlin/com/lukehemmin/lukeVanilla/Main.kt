@@ -156,6 +156,10 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(LevelStick(), this)
         server.pluginManager.registerEvents(Scroll(), this)
 
+        // 관리자 채팅 시스템 등록
+        val adminChatManager = AdminChatManager(this)
+        getCommand("관리자채팅")?.setExecutor(adminChatManager)
+
 //        // 상점 시스템 초기화
 //        shopManager = ShopManager(this, database, economyManager)
 //

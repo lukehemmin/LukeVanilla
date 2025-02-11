@@ -74,6 +74,11 @@ commands:
   아이템복구:
     description: 커스텀 아이템을 복구합니다.
     usage: /아이템복구
+  관리자채팅:
+    description: "관리자 전용 채팅을 활성화/비활성화합니다."
+    usage: "/관리자채팅 <활성화|비활성화>"
+    permission: "lukevanilla.adminchat"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -100,4 +105,7 @@ permissions:
     default: op
   lukevanilla.reload:
     description: "플러그인을 재시작할 수 있는 권한"
+    default: op
+  lukevanilla.adminchat:
+    description: "관리자 채팅 사용 권한"
     default: op
