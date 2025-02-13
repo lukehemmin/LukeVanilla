@@ -11,6 +11,7 @@ import com.lukehemmin.lukeVanilla.System.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.ChatSystem.*
+import com.lukehemmin.lukeVanilla.System.NexoCraftingRestriction
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import org.bukkit.plugin.java.JavaPlugin
@@ -25,6 +26,7 @@ class Main : JavaPlugin() {
     lateinit var discordBot: DiscordBot // 추가된 라인
     private lateinit var itemRestoreLogger: ItemRestoreLogger
     lateinit var nextSeasonGUI: NextSeasonItemGUI
+    private val nexoCraftingRestriction = NexoCraftingRestriction(this)
     lateinit var economyManager: EconomyManager
 //    lateinit var shopManager: ShopManager
 //    lateinit var shopPriceListener: ShopPriceListener
@@ -162,6 +164,10 @@ class Main : JavaPlugin() {
 
         // GlobalChatManager 초기화
         //GlobalChatManager(this, database)
+
+        // NexoCraftingRestriction 초기화
+        server.pluginManager.registerEvents(nexoCraftingRestriction, this)
+        getCommand("craftallow")?.setExecutor(CraftAllowCommand(nexoCraftingRestriction))
 
         // Plugin Logic
         logger.info("Plugin enabled")

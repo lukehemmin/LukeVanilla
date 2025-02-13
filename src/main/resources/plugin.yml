@@ -75,6 +75,9 @@ commands:
     usage: "/관리자채팅 <활성화|비활성화>"
     permission: "lukevanilla.adminchat"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  craftallow:
+    description: "커스텀 아이템을 제작대에 5분 동안 넣을 수 있도록 합니다."
+    usage: /craftallow
 
 permissions:
   lukevanilla.nametag:
