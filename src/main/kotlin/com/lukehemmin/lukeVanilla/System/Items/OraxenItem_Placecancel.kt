@@ -24,6 +24,7 @@ class OraxenItem_Placecancel : Listener {
         "headset",
         "axolotl_hat",
         "snowmanhat",
+        "enderdragonhat",
         // 커스텀 아이템
         "scroll",
         "h_scroll",
