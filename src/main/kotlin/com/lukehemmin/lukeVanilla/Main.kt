@@ -160,15 +160,6 @@ class Main : JavaPlugin() {
         val adminChatManager = AdminChatManager(this)
         getCommand("관리자채팅")?.setExecutor(adminChatManager)
 
-//        // 상점 시스템 초기화
-//        shopManager = ShopManager(this, database, economyManager)
-//
-//        // 명령어 등록
-//        getCommand("상점")?.setExecutor(ShopCommand(shopManager))
-//
-//        // 리스너 등록
-//        server.pluginManager.registerEvents(ShopGUIListener(shopManager, ShopPriceListener(shopManager)), this)
-
         // GlobalChatManager 초기화
         //GlobalChatManager(this, database)
 

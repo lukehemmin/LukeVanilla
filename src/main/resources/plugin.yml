@@ -58,10 +58,6 @@ commands:
     description: 돈 관련 명령어
     usage: /ehs [보내기 <플레이어> <금액>|도움말]
     aliases: [ 돈 ]
-  상점:
-    description: 상점 명령어
-    usage: /상점 <생성|수정> [인자]
-    permission: lukevanilla.shop
   refreshmessages:
     description: 접속 및 퇴장 메시지를 갱신합니다.
     usage: /refreshmessages
