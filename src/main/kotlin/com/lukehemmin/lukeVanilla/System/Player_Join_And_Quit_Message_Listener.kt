@@ -131,15 +131,15 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
 //
 //                player.sendMessage("")
 
-                val halloweenItemRegisterMessage = TextComponent("                       §6§l[할로윈 아이템 스크롤 받기]")
-                halloweenItemRegisterMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/할로윈 아이템 받기")
-                halloweenItemRegisterMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
-                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
-                    arrayOf(TextComponent("§a§l클릭하여 할로윈 아이템 스크롤을 받으세요"))
-                )
-                player.spigot().sendMessage(halloweenItemRegisterMessage)
-
-                player.sendMessage("")
+//                val halloweenItemRegisterMessage = TextComponent("                       §6§l[할로윈 아이템 스크롤 받기]")
+//                halloweenItemRegisterMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/할로윈 아이템 받기")
+//                halloweenItemRegisterMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+//                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+//                    arrayOf(TextComponent("§a§l클릭하여 할로윈 아이템 스크롤을 받으세요"))
+//                )
+//                player.spigot().sendMessage(halloweenItemRegisterMessage)
+//
+//                player.sendMessage("")
 
                 // 할로윈 아이템 스크롤 받기 버튼과 동일한 형식으로 아이템 복구 버튼 추가
                 val itemRestoreMessage = TextComponent("                     §a§l[클릭하여 인벤토리 아이템 복구]")
