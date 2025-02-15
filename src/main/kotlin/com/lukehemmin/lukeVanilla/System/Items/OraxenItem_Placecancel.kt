@@ -81,7 +81,9 @@ class OraxenItem_Placecancel : Listener {
         "gift_red_large",
         "gift_green_small",
         "gift_green_tall",
-        "gift_green_large"
+        "gift_green_large",
+        // 발렌타인 아이템
+        "valentine_head"
     )
 
     @EventHandler
