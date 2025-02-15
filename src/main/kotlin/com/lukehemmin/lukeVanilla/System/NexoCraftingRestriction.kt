@@ -26,8 +26,6 @@ class NexoCraftingRestriction(private val plugin: JavaPlugin) : Listener {
         "superpix",
         "wood_spatula",
         "experience_stick",
-        "almond_pepero",
-        "strawberry_pepero",
         "halloween_lentern",
         "halloween_sword",
         "halloween_pickaxe",

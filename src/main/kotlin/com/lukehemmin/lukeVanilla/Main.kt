@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla
 
 import com.lukehemmin.lukeVanilla.Lobby.SnowMinigame
+import com.lukehemmin.lukeVanilla.System.AntiVPN
 import com.lukehemmin.lukeVanilla.System.Command.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
@@ -165,9 +166,12 @@ class Main : JavaPlugin() {
         // GlobalChatManager 초기화
         //GlobalChatManager(this, database)
 
-        // NexoCraftingRestriction 초기화
-        server.pluginManager.registerEvents(nexoCraftingRestriction, this)
-        getCommand("craftallow")?.setExecutor(CraftAllowCommand(nexoCraftingRestriction))
+//        // NexoCraftingRestriction 초기화
+//        server.pluginManager.registerEvents(nexoCraftingRestriction, this)
+//        getCommand("craftallow")?.setExecutor(CraftAllowCommand(nexoCraftingRestriction))
+
+        // VPN 방지 실행
+        server.pluginManager.registerEvents(AntiVPN(this), this)
 
         // Plugin Logic
         logger.info("Plugin enabled")
