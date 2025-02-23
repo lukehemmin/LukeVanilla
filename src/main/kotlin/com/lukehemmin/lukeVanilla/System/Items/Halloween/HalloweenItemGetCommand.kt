@@ -1,5 +1,5 @@
 // HalloweenItemGetCommand.kt
-package com.lukehemmin.lukeVanilla.System.Halloween
+package com.lukehemmin.lukeVanilla.System.Items.Halloween
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
@@ -13,7 +13,6 @@ import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.bukkit.event.Listener
-import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 

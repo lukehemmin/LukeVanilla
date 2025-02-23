@@ -1,5 +1,5 @@
 // HalloweenGUIListener.kt
-package com.lukehemmin.lukeVanilla.System.Halloween
+package com.lukehemmin.lukeVanilla.System.Items.Halloween
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database

@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanilla.System.Halloween
+package com.lukehemmin.lukeVanilla.System.Items.Halloween
 
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender

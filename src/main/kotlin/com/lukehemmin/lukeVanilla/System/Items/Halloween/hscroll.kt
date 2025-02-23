@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanilla.System.Halloween
+package com.lukehemmin.lukeVanilla.System.Items.Halloween
 
 import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Material
