@@ -141,6 +141,16 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
 //
 //                player.sendMessage("")
 
+                val ValentineShieldItemMessage = TextComponent("                       §d§l[발렌타인 방패 아이템 받기]")
+                ValentineShieldItemMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/발렌타인방패받기")
+                ValentineShieldItemMessage.hoverEvent = net.md_5.bungee.api.chat.HoverEvent(
+                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+                    arrayOf(TextComponent("§f§l클릭하여 발렌타인 방패 아이템 받으세요"))
+                )
+                player.spigot().sendMessage(ValentineShieldItemMessage)
+
+                player.sendMessage("")
+
                 // 할로윈 아이템 스크롤 받기 버튼과 동일한 형식으로 아이템 복구 버튼 추가
                 val itemRestoreMessage = TextComponent("                     §a§l[클릭하여 인벤토리 아이템 복구]")
                 itemRestoreMessage.clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/아이템복구")

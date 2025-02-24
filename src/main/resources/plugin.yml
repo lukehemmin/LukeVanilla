@@ -78,6 +78,9 @@ commands:
   craftallow:
     description: "커스텀 아이템을 제작대에 5분 동안 넣을 수 있도록 합니다."
     usage: /craftallow
+  발렌타인방패받기:
+    description: 발렌타인 기념 방패를 받습니다.
+    usage: /발렌타인방패받기
 
 permissions:
   lukevanilla.nametag:

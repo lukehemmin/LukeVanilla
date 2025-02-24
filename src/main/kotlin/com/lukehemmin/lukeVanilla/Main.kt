@@ -163,6 +163,8 @@ class Main : JavaPlugin() {
         val adminChatManager = AdminChatManager(this)
         getCommand("관리자채팅")?.setExecutor(adminChatManager)
 
+        getCommand("발렌타인방패받기")?.setExecutor(ValentineShieldCommand(this))
+
         // GlobalChatManager 초기화
         //GlobalChatManager(this, database)
 
