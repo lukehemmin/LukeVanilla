@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanilla.System.Items
+package com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem
 
 import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Material

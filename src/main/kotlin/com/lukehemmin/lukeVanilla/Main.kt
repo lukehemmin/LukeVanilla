@@ -12,6 +12,7 @@ import com.lukehemmin.lukeVanilla.System.Items.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.ChatSystem.*
+import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
 import com.lukehemmin.lukeVanilla.System.NexoCraftingRestriction
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener

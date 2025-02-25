@@ -1,11 +1,10 @@
-package com.lukehemmin.lukeVanilla.System.Items
+package com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem
 
 import org.bukkit.ChatColor
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.player.PlayerInteractEvent
-import org.bukkit.enchantments.Enchantment
 import org.bukkit.event.player.PlayerItemHeldEvent
 import org.bukkit.entity.Player
 

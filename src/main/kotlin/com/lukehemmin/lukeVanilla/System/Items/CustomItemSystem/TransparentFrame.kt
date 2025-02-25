@@ -1,4 +1,4 @@
-package com.lukehemmin.lukeVanilla.System.Items
+package com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem
 
 import com.nexomc.nexo.api.NexoItems
 import org.bukkit.ChatColor
@@ -7,7 +7,6 @@ import org.bukkit.entity.ItemFrame
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
-import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.hanging.HangingBreakByEntityEvent
 import org.bukkit.event.hanging.HangingBreakEvent
