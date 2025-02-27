@@ -10,6 +10,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.AsyncPlayerChatEvent
+import org.bukkit.metadata.FixedMetadataValue
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
 
@@ -38,11 +39,11 @@ class AdminChatManager(private val plugin: JavaPlugin) : CommandExecutor, Listen
 
         when (args[0]) {
             "활성화" -> {
-                adminChatEnabled[sender.uniqueId] = true
+                sender.setMetadata("adminChatEnabled", FixedMetadataValue(plugin, true))
                 sender.sendMessage("${ChatColor.GREEN}${ChatColor.BOLD}관리자 채팅이 활성화되었습니다.")
             }
             "비활성화" -> {
-                adminChatEnabled[sender.uniqueId] = false
+                sender.removeMetadata("adminChatEnabled", plugin)
                 sender.sendMessage("${ChatColor.RED}${ChatColor.BOLD}관리자 채팅이 비활성화되었습니다.")
             }
             else -> {
@@ -56,7 +57,7 @@ class AdminChatManager(private val plugin: JavaPlugin) : CommandExecutor, Listen
     fun onPlayerChat(event: AsyncPlayerChatEvent) {
         val player = event.player
 
-        if (adminChatEnabled[player.uniqueId] == true) {
+        if (player.hasMetadata("adminChatEnabled")) {
             event.isCancelled = true
 
             val nameTag = getNameTag(player)

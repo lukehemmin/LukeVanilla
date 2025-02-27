@@ -163,6 +163,7 @@ class Main : JavaPlugin() {
         // 관리자 채팅 시스템 등록
         val adminChatManager = AdminChatManager(this)
         getCommand("관리자채팅")?.setExecutor(adminChatManager)
+        AdminChatSync(this)
 
         getCommand("발렌타인방패받기")?.setExecutor(ValentineShieldCommand(this))
 
