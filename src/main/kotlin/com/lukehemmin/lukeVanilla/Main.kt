@@ -13,6 +13,7 @@ import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.ChatSystem.*
 import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
+import com.lukehemmin.lukeVanilla.System.LockSystem.LockSystem
 import com.lukehemmin.lukeVanilla.System.NexoCraftingRestriction
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
@@ -176,6 +177,10 @@ class Main : JavaPlugin() {
 
         // VPN 방지 실행
         server.pluginManager.registerEvents(AntiVPN(this), this)
+
+        // LockSystem 활성화
+        val lockSystem = LockSystem(this)
+        lockSystem.enable()
 
         // Plugin Logic
         logger.info("Plugin enabled")
