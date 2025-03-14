@@ -2,40 +2,28 @@ package com.lukehemmin.lukeVanilla.System.LockSystem
 
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
-import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.inventory.EquipmentSlot
 
-class LockListener(private val lockManager: BlockLockManager) : Listener {
-
-    @EventHandler
-    fun onBlockPlace(event: BlockPlaceEvent) {
-        val block = event.blockPlaced
-        val player = event.player
-
-        if (lockManager.isLockableBlock(block)) {
-            lockManager.lockBlock(block, player)
-            player.sendMessage("블록이 자동으로 잠겼습니다.") // 메시지 한국어로 변경
-        }
-    }
-
+class LockListener(private val plugin: Main, private val lockManager: BlockLockManager) : Listener {
+    
+    // Shift + 우클릭 이벤트 처리
     @EventHandler
     fun onPlayerInteract(event: PlayerInteractEvent) {
-        if (event.action != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return
-
+        if (event.hand != EquipmentSlot.HAND) return
+        if (event.action != Action.RIGHT_CLICK_BLOCK) return
+        if (!event.player.isSneaking) return
+        
         val block = event.clickedBlock ?: return
-        val player = event.player
+        if (!lockManager.isLockableBlock(block)) return
 
-        if (lockManager.isBlockLocked(block)) {
-            if (!lockManager.canPlayerAccessBlock(block, player)) {
-                event.isCancelled = true
-                player.sendMessage("잠긴 블록입니다.") // 메시지 한국어로 변경
-                return
-            }
+        event.isCancelled = true
+        LockMenuGUI(plugin, lockManager, block).openGUI(event.player)
+    }
 
-            if (player.isSneaking) {
-                // TODO: 잠금 메뉴 GUI 표시 (상자 열기/권한 설정)
-                player.sendMessage("잠금 메뉴 GUI 표시") // 메시지 한국어로 변경
-            }
-        }
+    // 권한 추가를 위한 채팅 입력 처리
+    fun startAddingPermission(block: Block) {
+        // TODO: 채팅 입력 리스너 구현
     }
 }

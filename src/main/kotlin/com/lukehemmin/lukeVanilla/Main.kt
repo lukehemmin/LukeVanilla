@@ -31,6 +31,7 @@ class Main : JavaPlugin() {
     lateinit var nextSeasonGUI: NextSeasonItemGUI
     private val nexoCraftingRestriction = NexoCraftingRestriction(this)
     lateinit var economyManager: EconomyManager
+    lateinit var lockSystem: LockSystem
 //    lateinit var shopManager: ShopManager
 //    lateinit var shopPriceListener: ShopPriceListener
 //    lateinit var shopManager: ShopManager
@@ -179,7 +180,7 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(AntiVPN(this), this)
 
         // LockSystem 활성화
-        val lockSystem = LockSystem(this)
+        lockSystem = LockSystem(this)
         lockSystem.enable()
 
         // Plugin Logic
@@ -187,6 +188,11 @@ class Main : JavaPlugin() {
 
         // NPCSitPreventer 등록
         server.pluginManager.registerEvents(NPCSitPreventer(this), this)
+    }
+
+    // 이름을 다르게 하여 충돌 방지
+    fun getLockSystemInstance(): LockSystem {
+        return lockSystem
     }
 
     override fun onDisable() {

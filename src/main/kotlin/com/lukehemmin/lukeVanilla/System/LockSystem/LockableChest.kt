@@ -1,15 +1,13 @@
 package com.lukehemmin.lukeVanilla.System.LockSystem
 
-import org.bukkit.Material
-import org.bukkit.block.Block
-import org.bukkit.entity.Player
-
 import com.lukehemmin.lukeVanilla.Main
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.block.Block
 import org.bukkit.entity.Player
 import org.bukkit.persistence.PersistentDataType
+import java.util.UUID
+import com.lukehemmin.lukeVanilla.System.LockSystem.UUIDDataType
 
 class LockableChest(private val plugin: Main) : LockableBlock {
     private val lockableMaterials = listOf(
@@ -42,34 +40,42 @@ class LockableChest(private val plugin: Main) : LockableBlock {
     }
 
     override fun getLockPermissions(lockId: LockID): LockPermissions? {
-        // TODO: DB 연동하여 LockPermissions 조회
-        return null
+        return plugin.getLockSystemInstance().blockLockManager.getLockPermissions(lockId)
     }
 
     override fun addLockPermission(lockId: LockID, player: Player) {
-        // TODO: DB 연동하여 LockPermissions 업데이트 (플레이어 추가)
+        plugin.getLockSystemInstance().blockLockManager.addLockPermission(lockId, player)
     }
 
     override fun removeLockPermission(lockId: LockID, player: Player) {
-        // TODO: DB 연동하여 LockPermissions 업데이트 (플레이어 제거)
+        plugin.getLockSystemInstance().blockLockManager.removeLockPermission(lockId, player)
     }
 
     private fun setLockIdTag(block: Block, lockId: LockID) {
-        val persistentDataContainer = block.persistentDataContainer
         val lockIdKey = NamespacedKey(plugin, "lockId")
-        persistentDataContainer.set(lockIdKey, UUIDDataType(), lockId.id)
+        val blockState = block.state
+        if (blockState is org.bukkit.block.TileState) {
+            blockState.persistentDataContainer.set(lockIdKey, UUIDDataType, lockId.id)
+            blockState.update()
+        }
     }
 
     private fun getLockIdTag(block: Block): LockID? {
-        val persistentDataContainer = block.persistentDataContainer
         val lockIdKey = NamespacedKey(plugin, "lockId")
-        val uuid = persistentDataContainer.get(lockIdKey, UUIDDataType.UUIDDataType) ?: return null
-        return LockID(uuid)
+        val blockState = block.state
+        if (blockState is org.bukkit.block.TileState) {
+            val uuid = blockState.persistentDataContainer.get(lockIdKey, UUIDDataType) ?: return null
+            return LockID(uuid)
+        }
+        return null
     }
 
     private fun removeLockIdTag(block: Block) {
-        val persistentDataContainer = block.persistentDataContainer
         val lockIdKey = NamespacedKey(plugin, "lockId")
-        persistentDataContainer.remove(lockIdKey)
+        val blockState = block.state
+        if (blockState is org.bukkit.block.TileState) {
+            blockState.persistentDataContainer.remove(lockIdKey)
+            blockState.update()
+        }
     }
 }

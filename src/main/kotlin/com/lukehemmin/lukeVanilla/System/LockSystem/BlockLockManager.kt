@@ -20,41 +20,41 @@ class BlockLockManager(private val plugin: Main) {
     fun lockBlock(block: Block, player: Player) {
         if (!isLockableBlock(block)) return
 
-        val lockId = LockID(UUID.randomUUID())
-        val lockPermissions = LockPermissions(lockId, mutableSetOf(player.uniqueId))
-
-        lockedBlocks[lockId] = lockPermissions
-
-        // TODO: 블록에 LockID NBT 태그 저장
+        val lockableBlock = lockableBlocks.find { it.isLockable(block) } ?: return
+        lockableBlock.lock(block, player)
+        
+        // 블록이 잠기면 소유자에게 권한 자동 부여
+        val lockId = lockableBlock.getLockId(block) ?: return
+        val lockPermissions = LockPermissions(lockId)
+        lockPermissions.addPlayer(player.uniqueId)
+        plugin.database.saveLockPermissions(lockPermissions)
     }
 
     fun unlockBlock(block: Block, player: Player) {
-        val lockId = getLockIdFromBlock(block) ?: return
-        val lockPermissions = lockedBlocks[lockId] ?: return
+        if (!isLockableBlock(block)) return
 
-        if (!lockPermissions.isAllowed(player.uniqueId)) return
-
-        // TODO: 블록에서 LockID NBT 태그 제거
-        lockedBlocks.remove(lockId)
+        val lockableBlock = lockableBlocks.find { it.isLockable(block) } ?: return
+        lockableBlock.unlock(block, player)
     }
 
     fun getLockIdFromBlock(block: Block): LockID? {
-        // TODO: 블록에서 LockID NBT 태그 조회
-        return null
+        return lockableBlocks.find { it.isLockable(block) }?.getLockId(block) ?: return null
     }
 
     fun getLockPermissions(lockId: LockID): LockPermissions? {
-        return lockedBlocks[lockId]
+        return plugin.database.getLockPermissions(lockId)
     }
 
     fun addLockPermission(lockId: LockID, player: Player) {
-        val lockPermissions = lockedBlocks[lockId] ?: return
+        val lockPermissions = getLockPermissions(lockId) ?: return
         lockPermissions.addPlayer(player.uniqueId)
+        plugin.database.saveLockPermissions(lockPermissions)
     }
 
     fun removeLockPermission(lockId: LockID, player: Player) {
-        val lockPermissions = lockedBlocks[lockId] ?: return
+        val lockPermissions = getLockPermissions(lockId) ?: return
         lockPermissions.removePlayer(player.uniqueId)
+        plugin.database.saveLockPermissions(lockPermissions)
     }
 
     fun isBlockLocked(block: Block): Boolean {
@@ -62,8 +62,8 @@ class BlockLockManager(private val plugin: Main) {
     }
 
     fun canPlayerAccessBlock(block: Block, player: Player): Boolean {
-        val lockId = getLockIdFromBlock(block) ?: return true // 잠금되지 않은 블록은 접근 가능
-        val lockPermissions = lockedBlocks[lockId] ?: return true // 잠금 정보가 없으면 접근 가능 (예외 상황)
+        val lockId = getLockIdFromBlock(block) ?: return true
+        val lockPermissions = getLockPermissions(lockId) ?: return true
 
         return lockPermissions.isAllowed(player.uniqueId)
     }

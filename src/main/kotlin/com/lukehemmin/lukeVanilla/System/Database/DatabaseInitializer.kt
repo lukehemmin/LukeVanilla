@@ -16,7 +16,12 @@ class DatabaseInitializer(private val database: Database) {
         createHalloweenItemReceiveTable()
         createShopsTable()
         createValentineShieldTable()
+        //createLockTable() // block_locks 테이블 생성 추가 - moved to createTables()
         // 다른 테이블 생성 코드 추가 가능
+    }
+
+    private fun createLockTable() {
+        database.createLockTable()
     }
 
     private fun createSecretKeyTable() { // 비밀키 테이블

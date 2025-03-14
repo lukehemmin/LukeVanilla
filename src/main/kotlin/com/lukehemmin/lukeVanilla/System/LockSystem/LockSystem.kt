@@ -4,11 +4,16 @@ import com.lukehemmin.lukeVanilla.Main
 import org.bukkit.plugin.PluginManager
 
 class LockSystem(private val plugin: Main) {
-    private val lockManager = BlockLockManager(plugin)
-    private val lockListener = LockListener(lockManager)
+    val blockLockManager = BlockLockManager(plugin)
+    val lockListener = LockListener(plugin, blockLockManager)
 
     fun enable() {
+        createLockTable()
         registerListeners()
+    }
+
+    private fun createLockTable() {
+        plugin.database.createLockTable()
     }
 
     fun disable() {

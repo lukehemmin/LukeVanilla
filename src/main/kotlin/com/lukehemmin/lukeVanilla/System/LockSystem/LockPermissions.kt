@@ -4,10 +4,12 @@ import java.util.*
 
 data class LockPermissions(
     val lockId: LockID,
-    val allowedPlayers: MutableSet<UUID>
+    val allowedPlayers: MutableSet<UUID> = mutableSetOf(),
+    var isLocked: Boolean = true,
+    var allowRedstone: Boolean = false
 ) {
     fun isAllowed(playerId: UUID): Boolean {
-        return allowedPlayers.contains(playerId)
+        return isLocked && allowedPlayers.contains(playerId) || !isLocked
     }
 
     fun addPlayer(playerId: UUID) {
