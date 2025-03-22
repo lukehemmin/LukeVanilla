@@ -29,6 +29,12 @@ class LockableChest(private val plugin: Main) : LockableBlock {
     override fun lock(block: Block, player: Player) {
         val lockId = LockID(UUID.randomUUID())
         setLockIdTag(block, lockId)
+        
+        // 소유자 정보 명시적 저장
+        val lockPermissions = LockPermissions(lockId, player.uniqueId).apply {
+            addPlayer(player.uniqueId)
+        }
+        plugin.database.saveLockPermissions(lockPermissions)
     }
 
     override fun unlock(block: Block, player: Player) {

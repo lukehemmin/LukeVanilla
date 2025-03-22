@@ -40,7 +40,7 @@ class Main : JavaPlugin() {
     override fun onEnable() {
         // DataBase Logic
         saveDefaultConfig()
-        database = Database(config)
+        database = Database(this, config)
         val dbInitializer = DatabaseInitializer(database)
         dbInitializer.createTables()
 
@@ -180,8 +180,8 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(AntiVPN(this), this)
 
         // LockSystem 활성화
-        lockSystem = LockSystem(this)
-        lockSystem.enable()
+//        lockSystem = LockSystem(this)
+//        lockSystem.enable()
 
         // Plugin Logic
         logger.info("Plugin enabled")

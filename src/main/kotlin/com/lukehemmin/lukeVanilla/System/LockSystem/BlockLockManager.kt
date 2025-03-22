@@ -1,10 +1,9 @@
 package com.lukehemmin.lukeVanilla.System.LockSystem
 
+import com.lukehemmin.lukeVanilla.Main
 import org.bukkit.block.Block
 import org.bukkit.entity.Player
 import java.util.*
-
-import com.lukehemmin.lukeVanilla.Main
 
 class BlockLockManager(private val plugin: Main) {
     private val lockableBlocks: List<LockableBlock> = listOf(
@@ -25,7 +24,7 @@ class BlockLockManager(private val plugin: Main) {
         
         // 블록이 잠기면 소유자에게 권한 자동 부여
         val lockId = lockableBlock.getLockId(block) ?: return
-        val lockPermissions = LockPermissions(lockId)
+        val lockPermissions = LockPermissions(lockId, player.uniqueId)
         lockPermissions.addPlayer(player.uniqueId)
         plugin.database.saveLockPermissions(lockPermissions)
     }
@@ -65,6 +64,6 @@ class BlockLockManager(private val plugin: Main) {
         val lockId = getLockIdFromBlock(block) ?: return true
         val lockPermissions = getLockPermissions(lockId) ?: return true
 
-        return lockPermissions.isAllowed(player.uniqueId)
+        return player.hasPermission("lock.bypass") || lockPermissions.isAllowed(player.uniqueId)
     }
 }

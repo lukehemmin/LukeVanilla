@@ -3,15 +3,17 @@ package com.lukehemmin.lukeVanilla.System.Database
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.LockSystem.LockID
 import com.lukehemmin.lukeVanilla.System.LockSystem.LockPermissions
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import org.bukkit.Bukkit
 import org.bukkit.configuration.file.FileConfiguration
 import java.sql.Connection
 import java.util.*
 
-class Database(config: FileConfiguration) {
+class Database(private val plugin: Main, config: FileConfiguration) {
     private val hikariConfig: HikariConfig = HikariConfig()
     private val dataSource: HikariDataSource
     private val gson = Gson()
@@ -330,6 +332,7 @@ class Database(config: FileConfiguration) {
                 owner_uuid VARCHAR(36) NOT NULL,
                 access_list_json TEXT,
                 is_locked BOOLEAN NOT NULL DEFAULT TRUE,
+                allow_redstone BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """
@@ -347,13 +350,14 @@ class Database(config: FileConfiguration) {
                 statement.setString(1, lockId.id.toString())
                 statement.executeQuery().use { resultSet ->
                     if (resultSet.next()) {
-                        val ownerUuid = resultSet.getString("owner_uuid")
+                        val ownerUuidStr = resultSet.getString("owner_uuid")
+                        val ownerUuid = UUID.fromString(ownerUuidStr)
                         val accessListJson = resultSet.getString("access_list_json")
                         val isLocked = resultSet.getBoolean("is_locked")
                         val allowRedstone = resultSet.getBoolean("allow_redstone")
                         val allowedPlayers = parseAccessListJson(accessListJson) ?: mutableSetOf()
 
-                        return LockPermissions(lockId, allowedPlayers, isLocked, allowRedstone)
+                        return LockPermissions(lockId, ownerUuid, allowedPlayers, isLocked, allowRedstone)
                     } else {
                         return null
                     }
@@ -370,6 +374,12 @@ class Database(config: FileConfiguration) {
         } ?: mutableSetOf() // null 처리 추가
     }
 
+    fun saveLockPermissionsAsync(lockPermissions: LockPermissions) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+            saveLockPermissions(lockPermissions)
+        })
+    }
+
     fun saveLockPermissions(lockPermissions: LockPermissions) {
         val query = """
             INSERT INTO block_locks (lock_id, owner_uuid, access_list_json, is_locked, allow_redstone) 
@@ -379,7 +389,7 @@ class Database(config: FileConfiguration) {
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, lockPermissions.lockId.id.toString())
-                statement.setString(2, lockPermissions.allowedPlayers.firstOrNull()?.toString()) // Owner UUID
+                statement.setString(2, lockPermissions.owner.toString()) // Owner UUID
                 statement.setString(3, gson.toJson(lockPermissions.allowedPlayers.map { it.toString() })) // Access list json
                 statement.setBoolean(4, lockPermissions.isLocked) // isLocked 값 저장
                 statement.setBoolean(5, lockPermissions.allowRedstone) // allowRedstone 값 저장

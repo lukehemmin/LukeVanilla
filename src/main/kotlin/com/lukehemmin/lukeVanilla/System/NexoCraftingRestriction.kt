@@ -54,9 +54,9 @@ class NexoCraftingRestriction(private val plugin: JavaPlugin) : Listener {
         "merrychristmas_helmet",
         "merrychristmas_chestplate",
         "merrychristmas_leggings",
-        "merrychristmas_boots"
-//        "",
-//        "",
+        "merrychristmas_boots",
+        "harrypotterglasses",
+        "sproutcap"
 //        "",
 //        "",
 //        "",

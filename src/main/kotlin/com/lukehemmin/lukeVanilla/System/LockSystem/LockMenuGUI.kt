@@ -23,9 +23,17 @@ class LockMenuGUI(private val plugin: Main, private val lockManager: BlockLockMa
         val lockItem = ItemStack(if (lockManager.isBlockLocked(block)) Material.IRON_DOOR else Material.OAK_DOOR).apply {
             itemMeta = itemMeta?.also {
                 it.setDisplayName(if (lockManager.isBlockLocked(block)) "§c§l잠금 해제" else "§a§l잠금")
+                val lockId = lockManager.getLockIdFromBlock(block)
+                val ownerName = if (lockId != null) {
+                    lockManager.getLockPermissions(lockId)?.allowedPlayers?.firstOrNull()?.let { uuid ->
+                        Bukkit.getOfflinePlayer(uuid).name ?: "알 수 없음"
+                    } ?: "없음"
+                } else {
+                    "없음"
+                }
                 it.lore = listOf(
                     "§7블록을 ${if (lockManager.isBlockLocked(block)) "해제" else "잠금"}합니다",
-                    "§e소유자: §f${lockManager.getLockPermissions(lockManager.getLockIdFromBlock(block)!!)?.allowedPlayers?.firstOrNull()?.let { Bukkit.getOfflinePlayer(it).name } ?: "없음"}"
+                    "§e소유자: §f$ownerName"
                 )
             }
         }
