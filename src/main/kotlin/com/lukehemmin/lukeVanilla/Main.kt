@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla
 
 import com.lukehemmin.lukeVanilla.Lobby.SnowMinigame
 import com.lukehemmin.lukeVanilla.System.AntiVPN
+import com.lukehemmin.lukeVanilla.System.API.ApiClient
 import com.lukehemmin.lukeVanilla.System.Command.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
@@ -26,16 +27,18 @@ class Main : JavaPlugin() {
     private lateinit var serviceType: String
     private lateinit var nametagManager: NametagManager
     private lateinit var discordRoleManager: DiscordRoleManager
-    lateinit var discordBot: DiscordBot // 추가된 라인
+    lateinit var discordBot: DiscordBot
     private lateinit var itemRestoreLogger: ItemRestoreLogger
     lateinit var nextSeasonGUI: NextSeasonItemGUI
     private val nexoCraftingRestriction = NexoCraftingRestriction(this)
     lateinit var economyManager: EconomyManager
     lateinit var lockSystem: LockSystem
-//    lateinit var shopManager: ShopManager
-//    lateinit var shopPriceListener: ShopPriceListener
-//    lateinit var shopManager: ShopManager
-//    lateinit var priceEditManager: PriceEditManager // 추가
+    
+    // API 클라이언트 추가
+    lateinit var apiClient: ApiClient
+    
+    // API 사용 여부 플래그
+    private var useApi = false
 
     override fun onEnable() {
         // DataBase Logic
@@ -46,6 +49,15 @@ class Main : JavaPlugin() {
 
         // Read service type from config
         serviceType = config.getString("service.type") ?: "Vanilla"
+        
+        // API 사용 여부 확인
+        useApi = config.getBoolean("api.enabled", false)
+        
+        // API 클라이언트 초기화 (API 사용이 활성화된 경우)
+        if (useApi) {
+            apiClient = ApiClient(this)
+            logger.info("API Client initialized")
+        }
 
         // Discord Bot 초기화
         val discordToken = database.getSettingValue("DiscordToken")
@@ -151,8 +163,12 @@ class Main : JavaPlugin() {
         // Christmas_sword 이벤트 리스너 등록
         Christmas_sword(this)
 
-        // 돈 이코노미 시스템
-        economyManager = EconomyManager(database)
+        // 경제 시스템 - API를 사용하는 경우와 그렇지 않은 경우 구분
+        if (useApi) {
+            economyManager = EconomyManager(database, apiClient)
+        } else {
+            economyManager = EconomyManager(database)
+        }
         getCommand("돈")?.setExecutor(MoneyCommand(economyManager))
         getCommand("ehs")?.setExecutor(MoneyCommand(economyManager))
 

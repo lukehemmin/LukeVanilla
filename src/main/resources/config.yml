@@ -10,3 +10,9 @@ database:
   name: "database_name"
   user: "username"
   password: "password"
+  
+# API 설정 추가
+api:
+  enabled: false  # API 사용 여부 (true로 설정하면 API 사용)
+  baseUrl: "http://localhost:8080"  # API 서버 URL
+  timeout: 10000  # API 요청 타임아웃 (밀리초)

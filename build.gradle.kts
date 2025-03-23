@@ -28,6 +28,11 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.zaxxer:HikariCP:5.0.1")
     implementation ("com.vdurmont:emoji-java:5.1.1")
+    
+    // API 통신을 위한 의존성 추가
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.code.gson:gson:2.10.1") 
+    
 //    compileOnly("io.th0rgal:oraxen:1.186.0")
     compileOnly("com.nexomc:nexo:0.1.0")
     implementation("net.dv8tion:JDA:5.2.1")

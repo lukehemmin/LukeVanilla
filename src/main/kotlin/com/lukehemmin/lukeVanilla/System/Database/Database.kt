@@ -21,8 +21,11 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     // 데이터 클래스 추가
     data class AuthRecord(val uuid: String, val isAuth: Boolean)
     data class PlayerData(val nickname: String, val uuid: String, val discordId: String?) // discordId 추가
-
+    
+    private val useApi: Boolean
+    
     init {
+        useApi = plugin.config.getBoolean("api.enabled", false)
         val host = config.getString("database.host") ?: throw IllegalArgumentException("Database host not specified in config.")
         val port = config.getInt("database.port")
         val dbName = config.getString("database.name") ?: throw IllegalArgumentException("Database name not specified in config.")
@@ -79,6 +82,22 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     }
 
     fun getAuthRecord(authCode: String): AuthRecord? {
+        // API 사용이 가능하고 API 클라이언트가 초기화되었는지 확인
+        if (useApi && ::plugin.isInitialized && plugin::apiClient.isInitialized) {
+            try {
+                // API를 통해 인증 상태 확인을 시도
+                val result = plugin.apiClient.getAuthRecord(authCode)
+                if (result != null) {
+                    return result
+                }
+                // API 호출 실패 시 DB로 폴백
+            } catch (e: Exception) {
+                plugin.logger.warning("API 호출 실패, DB로 폴백: ${e.message}")
+                // DB로 폴백
+            }
+        }
+        
+        // 기존 DB 접근 코드
         val query = "SELECT UUID, IsAuth FROM Player_Auth WHERE AuthCode = ?"
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
