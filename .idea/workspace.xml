@@ -20,18 +20,7 @@
   <component name="ChangeListManager">
     <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="Implement GlobalChatManager for enhanced chat functionality and server integration">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/Database.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/Database.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Discord/TitokerChatListener.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Discord/TitokerChatListener.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/OraxenItem_Placecancel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/OraxenItem_Placecancel.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/BlockLockManager.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/BlockLockManager.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockListener.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockListener.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockMenuGUI.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockMenuGUI.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockPermissions.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockPermissions.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockableChest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockableChest.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockableDoor.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/LockSystem/LockableDoor.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/NexoCraftingRestriction.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/NexoCraftingRestriction.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/AntiVPN.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/AntiVPN.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,36 +49,6 @@
                 <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
                 <item name="LukeVanilla" type="f1a62948:ProjectNode" />
                 <item name="Tasks" type="e4a08cd1:TasksNode" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="build" type="c8890929:TasksNode$1" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="build setup" type="c8890929:TasksNode$1" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="documentation" type="c8890929:TasksNode$1" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="help" type="c8890929:TasksNode$1" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="other" type="c8890929:TasksNode$1" />
               </path>
               <path>
                 <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
@@ -244,8 +203,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fdfe4dae3a2d-intellij.indexing.shared.core-IU-243.22562.218" />
-        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-IU-243.22562.218" />
+        <option value="bundled-jdk-9823dce3aa75-a94e463ab2e7-intellij.indexing.shared.core-IU-243.26053.27" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-IU-243.26053.27" />
       </set>
     </attachedChunks>
   </component>
@@ -307,6 +266,8 @@
       <workItem from="1741863685845" duration="13922000" />
       <workItem from="1741941009486" duration="124000" />
       <workItem from="1742460648415" duration="4683000" />
+      <workItem from="1743220575768" duration="744000" />
+      <workItem from="1743223884606" duration="2792000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />
