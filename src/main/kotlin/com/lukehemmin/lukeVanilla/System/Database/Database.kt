@@ -66,6 +66,18 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     }
 
     fun getSettingValue(settingType: String): String? {
+        if (useApi && ::plugin.isInitialized && plugin::apiClient.isInitialized) {
+            try {
+                val response = plugin.apiClient.getSettingValue(settingType)
+                if (response != null && response.has("value")) {
+                    return response.get("value").asString
+                }
+            } catch (e: Exception) {
+                plugin.logger.warning("API를 통한 설정 값 조회 실패, DB로 폴백: ${e.message}")
+            }
+        }
+        
+        // 기존 DB 접근 코드
         val query = "SELECT setting_value FROM Settings WHERE setting_type = ?"
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
@@ -128,6 +140,26 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     }
 
     fun getPlayerDataByUuid(uuid: String): PlayerData? {
+        // API 사용이 가능하고 API 클라이언트가 초기화되었는지 확인
+        if (useApi && ::plugin.isInitialized && plugin::apiClient.isInitialized) {
+            try {
+                // API를 통해 플레이어 데이터 조회
+                val playerDataDto = plugin.apiClient.getPlayerByUuid(uuid)
+                if (playerDataDto != null) {
+                    return PlayerData(
+                        nickname = playerDataDto.get("nickname").asString,
+                        uuid = playerDataDto.get("uuid").asString,
+                        discordId = if (playerDataDto.has("discordId")) playerDataDto.get("discordId").asString else null
+                    )
+                }
+                // API 호출 실패 시 DB로 폴백
+            } catch (e: Exception) {
+                plugin.logger.warning("API 호출 실패, DB로 폴백: ${e.message}")
+                // DB로 폴백
+            }
+        }
+        
+        // 기존 DB 접근 코드
         val query = "SELECT nickname, uuid, DiscordID FROM Player_Data WHERE uuid = ?"
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
@@ -148,6 +180,16 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     }
 
     fun updateDiscordId(uuid: String, discordId: String) {
+        if (useApi && ::plugin.isInitialized && plugin::apiClient.isInitialized) {
+            try {
+                plugin.apiClient.updatePlayerDiscordId(uuid, discordId)
+                return
+            } catch (e: Exception) {
+                plugin.logger.warning("API를 통한 디스코드 ID 업데이트 실패, DB로 폴백: ${e.message}")
+            }
+        }
+        
+        // 기존 DB 접근 코드
         val query = "UPDATE Player_Data SET DiscordID = ? WHERE uuid = ?"
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
@@ -293,6 +335,16 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     }
 
     fun setSetting(settingType: String, settingValue: String) {
+        if (useApi && ::plugin.isInitialized && plugin::apiClient.isInitialized) {
+            try {
+                plugin.apiClient.updateSetting(settingType, settingValue)
+                return
+            } catch (e: Exception) {
+                plugin.logger.warning("API를 통한 설정 업데이트 실패, DB로 폴백: ${e.message}")
+            }
+        }
+        
+        // 기존 DB 접근 코드
         val query = """
             INSERT INTO Settings (setting_type, setting_value) 
             VALUES (?, ?) 
