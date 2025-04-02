@@ -167,7 +167,7 @@ class Main : JavaPlugin() {
         getCommand("관리자채팅")?.setExecutor(adminChatManager)
         AdminChatSync(this)
 
-        getCommand("발렌타인방패받기")?.setExecutor(ValentineShieldCommand(this))
+//        getCommand("발렌타인방패받기")?.setExecutor(ValentineShieldCommand(this))
 
         // GlobalChatManager 초기화
         //GlobalChatManager(this, database)
