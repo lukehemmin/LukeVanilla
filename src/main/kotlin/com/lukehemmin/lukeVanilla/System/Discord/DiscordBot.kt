@@ -19,7 +19,9 @@ class DiscordBot : ListenerAdapter() {
                 GatewayIntent.GUILD_MESSAGES,
                 GatewayIntent.MESSAGE_CONTENT,
                 GatewayIntent.GUILD_MEMBERS, // GUILD_MEMBERS 인텐트 추가
-                GatewayIntent.GUILD_VOICE_STATES // GUILD_VOICE_STATES 인텐트 추가
+                GatewayIntent.GUILD_VOICE_STATES, // GUILD_VOICE_STATES 인텐트 추가
+                GatewayIntent.GUILD_EMOJIS_AND_STICKERS, // EMOJI 인텐트 추가
+                GatewayIntent.SCHEDULED_EVENTS // SCHEDULED_EVENTS 인텐트 추가
             )
                 .addEventListeners(this)
                 .build()

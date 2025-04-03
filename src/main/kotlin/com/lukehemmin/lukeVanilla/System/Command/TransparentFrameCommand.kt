@@ -1,6 +1,6 @@
 package com.lukehemmin.lukeVanilla.System.Command
 
-import com.lukehemmin.lukeVanilla.System.Items.TransparentFrame
+import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.TransparentFrame
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender

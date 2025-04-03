@@ -1,20 +1,22 @@
 package com.lukehemmin.lukeVanilla
 
 import com.lukehemmin.lukeVanilla.Lobby.SnowMinigame
+import com.lukehemmin.lukeVanilla.System.AntiVPN
 import com.lukehemmin.lukeVanilla.System.Command.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
 import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
-import com.lukehemmin.lukeVanilla.System.Halloween.*
+import com.lukehemmin.lukeVanilla.System.Items.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
-import com.lukehemmin.lukeVanilla.System.NameTag.NametagCommand
-import com.lukehemmin.lukeVanilla.System.NameTag.NametagManager
+import com.lukehemmin.lukeVanilla.System.ChatSystem.*
+import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
+import com.lukehemmin.lukeVanilla.System.LockSystem.LockSystem
+import com.lukehemmin.lukeVanilla.System.NexoCraftingRestriction
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
-import com.lukehemmin.lukeVanilla.System.Shop.*
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 
@@ -27,7 +29,9 @@ class Main : JavaPlugin() {
     lateinit var discordBot: DiscordBot // 추가된 라인
     private lateinit var itemRestoreLogger: ItemRestoreLogger
     lateinit var nextSeasonGUI: NextSeasonItemGUI
+    private val nexoCraftingRestriction = NexoCraftingRestriction(this)
     lateinit var economyManager: EconomyManager
+    lateinit var lockSystem: LockSystem
 //    lateinit var shopManager: ShopManager
 //    lateinit var shopPriceListener: ShopPriceListener
 //    lateinit var shopManager: ShopManager
@@ -36,7 +40,7 @@ class Main : JavaPlugin() {
     override fun onEnable() {
         // DataBase Logic
         saveDefaultConfig()
-        database = Database(config)
+        database = Database(this, config)
         val dbInitializer = DatabaseInitializer(database)
         dbInitializer.createTables()
 
@@ -155,20 +159,40 @@ class Main : JavaPlugin() {
         // Reload 명령어 등록
         getCommand("lukereload")?.setExecutor(ReloadCommand(this))
 
-//        // 상점 시스템 초기화
-//        shopManager = ShopManager(this, database, economyManager)
-//
-//        // 명령어 등록
-//        getCommand("상점")?.setExecutor(ShopCommand(shopManager))
-//
-//        // 리스너 등록
-//        server.pluginManager.registerEvents(ShopGUIListener(shopManager, ShopPriceListener(shopManager)), this)
+        server.pluginManager.registerEvents(LevelStick(), this)
+        server.pluginManager.registerEvents(Scroll(), this)
+
+        // 관리자 채팅 시스템 등록
+        val adminChatManager = AdminChatManager(this)
+        getCommand("관리자채팅")?.setExecutor(adminChatManager)
+        AdminChatSync(this)
+
+//        getCommand("발렌타인방패받기")?.setExecutor(ValentineShieldCommand(this))
+
+        // GlobalChatManager 초기화
+        //GlobalChatManager(this, database)
+
+//        // NexoCraftingRestriction 초기화
+//        server.pluginManager.registerEvents(nexoCraftingRestriction, this)
+//        getCommand("craftallow")?.setExecutor(CraftAllowCommand(nexoCraftingRestriction))
+
+        // VPN 방지 실행
+        server.pluginManager.registerEvents(AntiVPN(this), this)
+
+        // LockSystem 활성화
+//        lockSystem = LockSystem(this)
+//        lockSystem.enable()
 
         // Plugin Logic
         logger.info("Plugin enabled")
 
         // NPCSitPreventer 등록
         server.pluginManager.registerEvents(NPCSitPreventer(this), this)
+    }
+
+    // 이름을 다르게 하여 충돌 방지
+    fun getLockSystemInstance(): LockSystem {
+        return lockSystem
     }
 
     override fun onDisable() {

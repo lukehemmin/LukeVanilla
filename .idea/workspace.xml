@@ -18,7 +18,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="채팅 메시지 포맷 및 이벤트 처리 개선&#10;&#10;이제 플레이어 채팅 메시지가 Adventure API를 사용해 구성되며, 클릭하여 귓속말을 보내거나 호버 시 추가 정보를 표시할 수 있도록 향상되었습니다. 또한 기존 이벤트 포맷 설정을 대체하여 메시지 전송 방식이 수정되었습니다." />
+    <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="Implement GlobalChatManager for enhanced chat functionality and server integration">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Player_Join_And_Quit_Message_Listener.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Player_Join_And_Quit_Message_Listener.kt" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -46,36 +50,6 @@
                 <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
                 <item name="LukeVanilla" type="f1a62948:ProjectNode" />
                 <item name="Tasks" type="e4a08cd1:TasksNode" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="build" type="c8890929:TasksNode$1" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="build setup" type="c8890929:TasksNode$1" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="documentation" type="c8890929:TasksNode$1" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="help" type="c8890929:TasksNode$1" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="other" type="c8890929:TasksNode$1" />
               </path>
               <path>
                 <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
@@ -117,36 +91,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Gradle.Build LukeVanilla.executor": "Run",
-    "Gradle.C:/Users/Administrator/Documents/GitHub/LukeVanilla [wrapper].executor": "Run",
-    "Gradle.LukeVanilla [build].executor": "Run",
-    "Gradle.LukeVanilla [jar].executor": "Run",
-    "Gradle.LukeVanilla [shadowJar].executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "develop",
-    "kotlin-language-version-configured": "true",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "Project",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "ml.llm.AIAssistantPromptsLibrary",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Gradle.Build LukeVanilla.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.C:/Users/Administrator/Documents/GitHub/LukeVanilla [wrapper].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.LukeVanilla [build].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.LukeVanilla [jar].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.LukeVanilla [shadowJar].executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;develop&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.44252872&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Administrator\Documents\GitHub\LukeVanilla\src\main\kotlin\com\lukehemmin\lukeVanilla\System\Npc\Shop" />
       <recent name="C:\Users\Administrator\Documents\GitHub\LukeVanilla\src\main\kotlin\com\lukehemmin\lukeVanilla\System\Halloween" />
     </key>
     <key name="MoveKotlinTopLevelDeclarationsDialog.RECENTS_KEY">
+      <recent name="com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem" />
       <recent name="com.lukehemmin.lukeVanilla.System.Npc.Shop" />
       <recent name="com.lukehemmin.lukeVanilla.System.Halloween" />
     </key>
@@ -229,8 +204,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fdfe4dae3a2d-intellij.indexing.shared.core-IU-243.22562.218" />
-        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-IU-243.22562.218" />
+        <option value="bundled-jdk-9823dce3aa75-a94e463ab2e7-intellij.indexing.shared.core-IU-243.26053.27" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-IU-243.26053.27" />
       </set>
     </attachedChunks>
   </component>
@@ -278,6 +253,23 @@
       <workItem from="1736663397964" duration="1587000" />
       <workItem from="1736665156754" duration="144000" />
       <workItem from="1736665317156" duration="18735000" />
+      <workItem from="1738326373851" duration="20283000" />
+      <workItem from="1738468045367" duration="17941000" />
+      <workItem from="1738839111110" duration="13291000" />
+      <workItem from="1739093811483" duration="5923000" />
+      <workItem from="1739301562713" duration="12112000" />
+      <workItem from="1739438191318" duration="12138000" />
+      <workItem from="1739519316098" duration="6057000" />
+      <workItem from="1739554548159" duration="7174000" />
+      <workItem from="1739959931368" duration="6113000" />
+      <workItem from="1740320523219" duration="2378000" />
+      <workItem from="1740468201682" duration="16692000" />
+      <workItem from="1741863685845" duration="13922000" />
+      <workItem from="1741941009486" duration="124000" />
+      <workItem from="1742460648415" duration="4683000" />
+      <workItem from="1743220575768" duration="744000" />
+      <workItem from="1743223884606" duration="5578000" />
+      <workItem from="1743609017846" duration="1315000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />
@@ -311,7 +303,31 @@
       <option name="project" value="LOCAL" />
       <updated>1736695763120</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Refactor project configuration and update emoji mappings">
+      <option name="closed" value="true" />
+      <created>1738304727515</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1738304727515</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Refactor project configuration and update emoji mappings">
+      <option name="closed" value="true" />
+      <created>1738304906215</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1738304906215</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Implement GlobalChatManager for enhanced chat functionality and server integration">
+      <option name="closed" value="true" />
+      <created>1738839182244</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1738839182244</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -325,7 +341,10 @@
     <MESSAGE value="의존성 추가 및 NPC 상호 작용 개선&#10;&#10;GSit 의존성을 추가하고, NPC와의 상호 작용 시 발생하던 충돌을 해결하기 위해 NPCSitPreventer를 구현하였습니다. 이 클래스는 GSit과 Citizens NPC 간의 상호 작용을 관리하여 플레이어가 NPC 클릭 시 불필요한 앉기 이벤트를 방지합니다. ShopListener에서도 GSit 관련 코드를 제거하여 상호 작용 로직을 간소화하였고, 전반적인 코드 구조와 성능을 개선하였습니다." />
     <MESSAGE value="NPC 관련 상호작용 개선 및 네임태그 채팅 수정&#10;&#10;GSit 의존성을 추가하고 NPCSitPreventer를 구현하여 NPC와의 상호작용 문제를 해결했습니다. 이로 인해 플레이어가 NPC를 클릭 시 발생하던 불필요한 앉기 이벤트를 방지합니다. 또한, ShopListener에서 불필요한 GSit 관련 코드를 제거하여 상호작용 로직을 간소화하고 성능을 개선했습니다. 추가로 NametagManager의 채팅 처리가 개선되었으며, 플레이어 이름 클릭 시 메시지 전송이 가능하도록 인터랙션 기능을 추가하였습니다." />
     <MESSAGE value="채팅 메시지 포맷 및 이벤트 처리 개선&#10;&#10;이제 플레이어 채팅 메시지가 Adventure API를 사용해 구성되며, 클릭하여 귓속말을 보내거나 호버 시 추가 정보를 표시할 수 있도록 향상되었습니다. 또한 기존 이벤트 포맷 설정을 대체하여 메시지 전송 방식이 수정되었습니다." />
-    <option name="LAST_COMMIT_MESSAGE" value="채팅 메시지 포맷 및 이벤트 처리 개선&#10;&#10;이제 플레이어 채팅 메시지가 Adventure API를 사용해 구성되며, 클릭하여 귓속말을 보내거나 호버 시 추가 정보를 표시할 수 있도록 향상되었습니다. 또한 기존 이벤트 포맷 설정을 대체하여 메시지 전송 방식이 수정되었습니다." />
+    <MESSAGE value="Merge branch 'develop' of https://github.com/lukehemmin/LukeVanilla into develop" />
+    <MESSAGE value="Refactor project configuration and update emoji mappings" />
+    <MESSAGE value="Implement GlobalChatManager for enhanced chat functionality and server integration" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement GlobalChatManager for enhanced chat functionality and server integration" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

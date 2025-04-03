@@ -15,7 +15,13 @@ class DatabaseInitializer(private val database: Database) {
         createNextseasonItemTable()
         createHalloweenItemReceiveTable()
         createShopsTable()
+        createValentineShieldTable()
+        //createLockTable() // block_locks 테이블 생성 추가 - moved to createTables()
         // 다른 테이블 생성 코드 추가 가능
+    }
+
+    private fun createLockTable() {
+        database.createLockTable()
     }
 
     private fun createSecretKeyTable() { // 비밀키 테이블
@@ -258,6 +264,20 @@ class DatabaseInitializer(private val database: Database) {
                     """
                 )
             }
+        }
+    }
+
+    private fun createValentineShieldTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS Valentine_Shield (
+                    UUID VARCHAR(36) PRIMARY KEY,
+                    received TINYINT(1) NOT NULL DEFAULT 0
+                );
+                """.trimIndent()
+            )
         }
     }
 }
