@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="https://www.dropbox.com/scl/fi/5fre39q69a5700us9ctxm/logo.png?rlkey=3sn4wqi212ds5smlgxmvq38g5&st=7nc9fot5&dl=1" alt="아이콘" width="150" height="150"/></br> LukeVanilla
+# <img src="https://i.ibb.co/zWFSDnj1/29b804970c9d735c.png" alt="아이콘" width="150" height="150"/></br> LukeVanilla
 Minecraft 1.21.4 Plugin</br>
 
 ( 아이콘 제작자 Discord : whegrae )
