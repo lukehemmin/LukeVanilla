@@ -8,15 +8,20 @@ import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
 import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
-import com.lukehemmin.lukeVanilla.System.Items.Halloween.*
+// 할로윈 임포트 주석 처리
+// import com.lukehemmin.lukeVanilla.System.Items.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
+import com.lukehemmin.lukeVanilla.System.Items.UpgradeItem
+import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.ChatSystem.*
-import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
+import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
 import com.lukehemmin.lukeVanilla.System.LockSystem.LockSystem
 import com.lukehemmin.lukeVanilla.System.NexoCraftingRestriction
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
+import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.StatsSystem
+import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.ItemStatsCommand
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 
@@ -32,6 +37,7 @@ class Main : JavaPlugin() {
     private val nexoCraftingRestriction = NexoCraftingRestriction(this)
     lateinit var economyManager: EconomyManager
     lateinit var lockSystem: LockSystem
+    lateinit var statsSystem: StatsSystem
 //    lateinit var shopManager: ShopManager
 //    lateinit var shopPriceListener: ShopPriceListener
 //    lateinit var shopManager: ShopManager
@@ -105,11 +111,29 @@ class Main : JavaPlugin() {
         getCommand("nametag")?.setExecutor(nametagCommand)
         getCommand("delnametag")?.setExecutor(nametagCommand)
 
-        // Item System
+        // 아이템 시스템 초기화
         getCommand("item")?.setExecutor(ItemCommand())
         server.pluginManager.registerEvents(DurabilityListener(this), this)
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
-        server.pluginManager.registerEvents(Halloween_Item(), this)
+        
+        // 통합 이벤트 아이템 시스템 초기화
+        val eventItemCommand = EventItemCommand(this)
+        getCommand("아이템")?.setExecutor(eventItemCommand)
+        getCommand("아이템")?.tabCompleter = EventItemCommandCompleter()
+        
+        // 이벤트 아이템 시스템 초기화
+        eventItemCommand.initialize()
+        
+        // 이벤트 아이템 GUI 리스너 등록
+        server.pluginManager.registerEvents(EventItemGUIListener(this, eventItemCommand.getEventItemSystem()), this)
+        server.pluginManager.registerEvents(eventItemCommand.getEventItemSystem(), this)
+        
+        // 기존 할로윈 코드 주석 처리
+        // server.pluginManager.registerEvents(Halloween_Item(), this)
+        // server.pluginManager.registerEvents(HalloweenGUIListener(this), this)
+        // getCommand("할로윈")?.setExecutor(HalloweenCommand(this))
+        // getCommand("할로윈")?.tabCompleter = HalloweenCommandCompleter()
+        
         server.pluginManager.registerEvents(TransparentFrame(), this)
         server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
         server.pluginManager.registerEvents(hscroll(), this)
@@ -129,10 +153,6 @@ class Main : JavaPlugin() {
         getCommand("아이템복구")?.setExecutor(itemRestoreCommand)
         server.pluginManager.registerEvents(itemRestoreCommand, this)
 
-        server.pluginManager.registerEvents(HalloweenGUIListener(this), this)
-        getCommand("할로윈")?.setExecutor(HalloweenCommand(this))
-        getCommand("할로윈")?.tabCompleter = HalloweenCommandCompleter()
-
         // 티토커 메시지 명령어 등록
         getCommand("티토커메시지")?.setExecutor(TitokerMessageCommand(this))
         getCommand("티토커메시지")?.tabCompleter = TitokerCommandCompleter()
@@ -147,9 +167,6 @@ class Main : JavaPlugin() {
         // NextSeasonItemGUI 부분 다음 시즌 가져갈 아이템
         nextSeasonGUI = NextSeasonItemGUI(this, database)
         getCommand("openNextSeasonGUI")?.setExecutor(nextSeasonGUI)
-
-        // Christmas_sword 이벤트 리스너 등록
-        Christmas_sword(this)
 
         // 돈 이코노미 시스템
         economyManager = EconomyManager(database)
@@ -182,6 +199,18 @@ class Main : JavaPlugin() {
         // LockSystem 활성화
 //        lockSystem = LockSystem(this)
 //        lockSystem.enable()
+
+        // StatsSystem 초기화
+        statsSystem = StatsSystem(this)
+        
+        // 아이템 통계 명령어 등록
+        getCommand("아이템정보")?.setExecutor(ItemStatsCommand(this))
+
+        // 아이템 업그레이드 시스템 초기화
+        UpgradeItem(this)
+        
+        // Christmas_sword 이벤트 리스너 등록 (UpgradeItem으로 통합)
+        // Christmas_sword(this)
 
         // Plugin Logic
         logger.info("Plugin enabled")
