@@ -345,17 +345,12 @@ class EventItemSystem(private val plugin: Main) : Listener {
     @EventHandler
     fun onBlockPlace(event: BlockPlaceEvent) {
         val item = event.itemInHand
-        val nexoId = NexoItems.idFromItem(item) ?: return
-        
-        // 모든 이벤트 아이템 확인
-        for (eventType in EventType.values()) {
-            val itemIds = eventItemMappings[eventType]?.values ?: continue
-            
-            if (itemIds.contains(nexoId)) {
-                event.isCancelled = true
-                event.player.sendMessage("§c이 아이템은 설치할 수 없습니다. 설명을 확인해주세요!")
-                return
-            }
+        val nexoId = NexoItems.idFromItem(item)
+
+        // halloween_lentern 아이템 체크
+        if (nexoId == "halloween_lentern") {
+            event.isCancelled = true
+            event.player.sendMessage("§c이 아이템은 설치할 수 없습니다. 설명을 확인해주세요!")
         }
     }
 } 
