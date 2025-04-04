@@ -47,13 +47,13 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         "merry_christmas_sword" to UpgradeInfo(
             "merry_christmas_sword", 
             "merry_christmas_greatsword", 
-            10,
+            5000,
             "${ChatColor.GREEN}${ChatColor.BOLD}크리스마스 검이 대검으로 바뀌었어요!"
         ),
         "valentine_sword" to UpgradeInfo(
             "valentine_sword", 
             "valentine_greatsword", 
-            10,
+            15000,
             "${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}발렌타인 데이 검이 대검으로 바뀌었어요!"
         )
     )
@@ -127,7 +127,7 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         
         // 재확인: 아이템이 정말로 소스 아이템인지 확인
         if (itemId != upgradeInfo.sourceItemId) {
-            plugin.logger.info("[UpgradeItem] 아이템 ID(${itemId})가 소스 아이템 ID(${upgradeInfo.sourceItemId})와 일치하지 않습니다. 처리를 중단합니다.")
+            // plugin.logger.info("[UpgradeItem] 아이템 ID(${itemId})가 소스 아이템 ID(${upgradeInfo.sourceItemId})와 일치하지 않습니다. 처리를 중단합니다.")
             return
         }
         
@@ -227,7 +227,7 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
                 val playersKilled = statsSystem.getStatsManager().getPlayersKilled(originalItem)
                 val damageDealt = statsSystem.getStatsManager().getDamageDealt(originalItem)
                 
-                plugin.logger.info("[UpgradeItem] 통계 정보: 몹킬=${mobsKilled}, 플레이어킬=${playersKilled}, 데미지=${damageDealt}")
+                // plugin.logger.info("[UpgradeItem] 통계 정보: 몹킬=${mobsKilled}, 플레이어킬=${playersKilled}, 데미지=${damageDealt}")
                 
                 // NBT 데이터 복사 (StatsSystem에서 사용하는 데이터 복사)
                 copyNBTData(originalMeta, newMeta)
@@ -240,7 +240,7 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
                 
                 // 아이템 ID가 제대로 설정되었는지 확인
                 val newItemId = getItemId(newItemBuilder)
-                plugin.logger.info("[UpgradeItem] 생성된 새 아이템 ID: ${newItemId}, 타겟 아이템 ID: ${upgradeInfo.targetItemId}")
+                // plugin.logger.info("[UpgradeItem] 생성된 새 아이템 ID: ${newItemId}, 타겟 아이템 ID: ${upgradeInfo.targetItemId}")
                 
                 if (newItemId != upgradeInfo.targetItemId) {
                     plugin.logger.warning("[UpgradeItem] 아이템 ID가 올바르게 설정되지 않았습니다. 업그레이드를 건너뜁니다.")
