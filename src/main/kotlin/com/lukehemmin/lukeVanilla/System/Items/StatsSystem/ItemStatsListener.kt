@@ -104,18 +104,18 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
                 null
             }
             
-            plugin.logger.info("[ItemStatsListener] EntityDeath 이벤트 발생: 플레이어=${killer.name}, 아이템ID=${itemId}, 아이템타입=${item.type}")
+            // plugin.logger.info("[ItemStatsListener] EntityDeath 이벤트 발생: 플레이어=${killer.name}, 아이템ID=${itemId}, 아이템타입=${item.type}")
             
             // Nexo 커스텀 아이템은 UpgradeItem에서 처리하므로 일반 무기만 처리
             if (itemId == null && isWeapon(item.type)) {
                 // 플레이어 킬인 경우
                 if (entity is Player) {
                     statsManager.incrementPlayersKilled(item)
-                    plugin.logger.info("[ItemStatsListener] 플레이어 킬 증가: ${killer.name}")
+                    // plugin.logger.info("[ItemStatsListener] 플레이어 킬 증가: ${killer.name}")
                 } else {
                     // 몹 킬인 경우
                     statsManager.incrementMobsKilled(item)
-                    plugin.logger.info("[ItemStatsListener] 몹 킬 증가: ${killer.name}")
+                    // plugin.logger.info("[ItemStatsListener] 몹 킬 증가: ${killer.name}")
                 }
             }
         }
