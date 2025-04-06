@@ -15,6 +15,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
+import org.bukkit.persistence.PersistentDataContainer
 import org.bukkit.persistence.PersistentDataType
 
 /**
@@ -64,6 +65,50 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
             "${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}폭죽 검이 대검으로 바뀌었어요!"
         )
     )
+    
+    /**
+     * Nexo 아이템 관련 작업을 위한 헬퍼 객체
+     * 리플렉션 로직을 분리하여 코드 가독성 향상
+     */
+    private object NexoHelper {
+        /**
+         * Nexo ID로 아이템 생성
+         * @param id Nexo 아이템 ID
+         * @param amount 생성할 아이템 수량
+         * @return 생성된 아이템 또는 null (실패시)
+         */
+        fun createItemFromId(id: String, amount: Int = 1): ItemStack? {
+            // 1. 먼저 표준 API로 시도
+            NexoItems.itemFromId(id)?.build()?.let { return it }
+            
+            // 2. 실패 시 리플렉션으로 시도
+            try {
+                val nexoPlugin = Bukkit.getServer().pluginManager.getPlugin("Nexo") ?: return null
+                
+                // Nexo 인스턴스 가져오기
+                val nexoInstance = nexoPlugin.javaClass.getDeclaredMethod("getNexoInstance").apply {
+                    isAccessible = true 
+                }.invoke(nexoPlugin)
+                
+                // 아이템 매니저 가져오기
+                val itemManager = nexoInstance.javaClass.getDeclaredMethod("getItemManager").apply {
+                    isAccessible = true
+                }.invoke(nexoInstance)
+                
+                // 아이템 생성 메서드 호출
+                return itemManager.javaClass.getDeclaredMethod(
+                    "createItem", 
+                    String::class.java, 
+                    Int::class.java
+                ).apply {
+                    isAccessible = true
+                }.invoke(itemManager, id, amount) as? ItemStack
+            } catch (e: Exception) {
+                Bukkit.getLogger().warning("[NexoHelper] 아이템 생성 중 오류: ${e.message}")
+                return null
+            }
+        }
+    }
     
     init {
         Bukkit.getPluginManager().registerEvents(this, plugin)
@@ -118,14 +163,10 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         // 아이템 ID가 없으면 처리하지 않음
         if (itemId == null) return
         
-        // 디버그 로그 추가
-//        plugin.logger.info("[UpgradeItem] EntityDeath 이벤트 발생: 플레이어=${killer.name}, 아이템ID=${itemId}, 아이템타입=${item.type}, 이미업그레이드=${isAlreadyUpgraded(itemId)}, upgradedItems=${upgradedItems}")
-        
         // 이미 업그레이드된 아이템인지 확인
         if (isAlreadyUpgraded(itemId)) {
             // 이미 업그레이드된 아이템이면 킬 수만 증가시키고 리턴
             statsSystem.getStatsManager().incrementMobsKilled(item)
-//            plugin.logger.info("[UpgradeItem] 이미 업그레이드된 아이템입니다. 킬 수만 증가시키고 리턴합니다.")
             return
         }
         
@@ -133,10 +174,7 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         val upgradeInfo = upgradeMap[itemId] ?: return
         
         // 재확인: 아이템이 정말로 소스 아이템인지 확인
-        if (itemId != upgradeInfo.sourceItemId) {
-            // plugin.logger.info("[UpgradeItem] 아이템 ID(${itemId})가 소스 아이템 ID(${upgradeInfo.sourceItemId})와 일치하지 않습니다. 처리를 중단합니다.")
-            return
-        }
+        if (itemId != upgradeInfo.sourceItemId) return
         
         // StatsSystem을 사용하여 몹 킬 수 증가
         statsSystem.getStatsManager().incrementMobsKilled(item)
@@ -185,134 +223,93 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
     }
     
     /**
-     * 아이템을 업그레이드하는 메서드
+     * 아이템 업그레이드 과정의 메인 메서드
+     * 여러 작은 메서드로 나누어 책임 분리
      */
     private fun upgradeItem(player: Player, originalItem: ItemStack, upgradeInfo: UpgradeInfo) {
+        // 1. 업그레이드 전 유효성 검사
+        if (!validateUpgrade(player, originalItem, upgradeInfo)) return
+        
+        // 2. 업그레이드 아이템 생성
+        val upgradedItem = createUpgradedItem(originalItem, upgradeInfo) ?: return
+        
+        // 3. 플레이어 인벤토리에 적용
+        player.inventory.setItemInMainHand(upgradedItem)
+        
+        // 4. 업그레이드 완료 알림
+        notifyUpgrade(player, upgradeInfo)
+        
+        plugin.logger.info("[UpgradeItem] ${player.name}의 ${upgradeInfo.sourceItemId}가 ${upgradeInfo.targetItemId}로 업그레이드되었습니다.")
+    }
+    
+    /**
+     * 업그레이드 전 유효성 검사
+     */
+    private fun validateUpgrade(player: Player, originalItem: ItemStack, upgradeInfo: UpgradeInfo): Boolean {
         val originalItemId = getItemId(originalItem)
         
-        // 이미 업그레이드된 아이템인지 다시 한번 확인
+        // 이미 업그레이드된 아이템인지 확인
         if (originalItemId != null && isAlreadyUpgraded(originalItemId)) {
-            plugin.logger.info("[UpgradeItem] 이미 업그레이드된 아이템입니다. 업그레이드를 건너뜁니다: ${player.name}, ${originalItemId}")
-            return
+            plugin.logger.info("[UpgradeItem] 이미 업그레이드된 아이템입니다: ${player.name}, ${originalItemId}")
+            return false
         }
         
-        // 소스 아이템 ID 확인
+        // 올바른 소스 아이템인지 확인
         if (originalItemId != upgradeInfo.sourceItemId) {
-            plugin.logger.info("[UpgradeItem] 아이템 ID(${originalItemId})가 소스 아이템 ID(${upgradeInfo.sourceItemId})와 일치하지 않습니다. 업그레이드를 건너뜁니다.")
-            return
+            plugin.logger.info("[UpgradeItem] 아이템 ID 불일치: ${originalItemId} != ${upgradeInfo.sourceItemId}")
+            return false
         }
         
-        // 새 아이템 생성 (다른 방식으로 아이템 생성)
-        try {
-            // Nexo 플러그인에서 직접 아이템 생성 (리플렉션 사용)
-            val nexoPlugin = Bukkit.getServer().pluginManager.getPlugin("Nexo")
-            if (nexoPlugin != null) {
-                // 리플렉션을 통해 Nexo API에 접근
-                val nexoInstanceMethod = nexoPlugin.javaClass.getDeclaredMethod("getNexoInstance")
-                nexoInstanceMethod.isAccessible = true
-                val nexoInstance = nexoInstanceMethod.invoke(nexoPlugin)
-                
-                val getItemManagerMethod = nexoInstance.javaClass.getDeclaredMethod("getItemManager")
-                getItemManagerMethod.isAccessible = true
-                val itemManager = getItemManagerMethod.invoke(nexoInstance)
-                
-                val createItemMethod = itemManager.javaClass.getDeclaredMethod("createItem", String::class.java, Int::class.java)
-                createItemMethod.isAccessible = true
-                val newItemBuilder = createItemMethod.invoke(itemManager, upgradeInfo.targetItemId, 1) as ItemStack
-                
-                // 기존 아이템의 메타와 새 아이템의 메타 가져오기
-                val originalMeta = originalItem.itemMeta ?: return
-                val newMeta = newItemBuilder.itemMeta ?: return
-                
-                // 인첸트 복사
-                originalMeta.enchants.forEach { (enchant, level) ->
-                    newMeta.addEnchant(enchant, level, true)
-                }
-                
-                // 원본 아이템의 통계 정보 가져오기
-                val mobsKilled = statsSystem.getStatsManager().getMobsKilled(originalItem)
-                val playersKilled = statsSystem.getStatsManager().getPlayersKilled(originalItem)
-                val damageDealt = statsSystem.getStatsManager().getDamageDealt(originalItem)
-                
-                // plugin.logger.info("[UpgradeItem] 통계 정보: 몹킬=${mobsKilled}, 플레이어킬=${playersKilled}, 데미지=${damageDealt}")
-                
-                // NBT 데이터 복사 (StatsSystem에서 사용하는 데이터 복사)
-                copyNBTData(originalMeta, newMeta)
-                
-                // 아이템 ID 저장 (중요: 업그레이드된 아이템의 ID를 NBT에 저장)
-                newMeta.persistentDataContainer.set(ITEM_ID_KEY, PersistentDataType.STRING, upgradeInfo.targetItemId)
-                
-                // 업데이트된 메타 적용
-                newItemBuilder.itemMeta = newMeta
-                
-                // 아이템 ID가 제대로 설정되었는지 확인
-                val newItemId = getItemId(newItemBuilder)
-                // plugin.logger.info("[UpgradeItem] 생성된 새 아이템 ID: ${newItemId}, 타겟 아이템 ID: ${upgradeInfo.targetItemId}")
-                
-                if (newItemId != upgradeInfo.targetItemId) {
-                    plugin.logger.warning("[UpgradeItem] 아이템 ID가 올바르게 설정되지 않았습니다. 업그레이드를 건너뜁니다.")
-                    return
-                }
-                
-                // 플레이어 인벤토리에서 아이템 교체
-                player.inventory.setItemInMainHand(newItemBuilder)
-                
-                // 업그레이드 메시지 전송
-                player.sendMessage(upgradeInfo.upgradeMessage)
-                plugin.logger.info("[UpgradeItem] ${player.name}의 ${upgradeInfo.sourceItemId}가 ${upgradeInfo.targetItemId}로 업그레이드되었습니다.")
-                
-                // 서버 전체에 업그레이드 알림 메시지 전송
-                val itemDisplayName = getItemDisplayName(upgradeInfo.targetItemId)
-                Bukkit.broadcastMessage("${ChatColor.GOLD}${ChatColor.BOLD}${player.name}${ChatColor.YELLOW}${ChatColor.BOLD} 님이 ${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}${itemDisplayName}${ChatColor.YELLOW}${ChatColor.BOLD}을(를) 얻었습니다!")
-                
-                return
-            }
-        } catch (e: Exception) {
-            plugin.logger.severe("[UpgradeItem] 리플렉션을 통한 아이템 생성 중 오류 발생: ${e.message}")
-            e.printStackTrace()
-        }
-        
-        // 위 방법이 실패할 경우 기존 방식으로 시도
-        val newItemBuilder = NexoItems.itemFromId(upgradeInfo.targetItemId)?.build() ?: run {
-            plugin.logger.warning("[UpgradeItem] ${upgradeInfo.targetItemId} 아이템이 존재하지 않습니다.")
-            return
-        }
+        return true
+    }
+    
+    /**
+     * 새 업그레이드 아이템 생성
+     */
+    private fun createUpgradedItem(originalItem: ItemStack, upgradeInfo: UpgradeInfo): ItemStack? {
+        // Nexo 헬퍼를 사용하여 새 아이템 생성
+        val newItem = NexoHelper.createItemFromId(upgradeInfo.targetItemId) ?: return null
         
         // 기존 아이템의 메타와 새 아이템의 메타 가져오기
-        val originalMeta = originalItem.itemMeta ?: return
-        val newMeta = newItemBuilder.itemMeta ?: return
+        val originalMeta = originalItem.itemMeta ?: return null
+        val newMeta = newItem.itemMeta ?: return null
         
         // 인첸트 복사
         originalMeta.enchants.forEach { (enchant, level) ->
             newMeta.addEnchant(enchant, level, true)
         }
         
-        // 원본 아이템의 통계 정보 가져오기
-        val mobsKilled = statsSystem.getStatsManager().getMobsKilled(originalItem)
-        val playersKilled = statsSystem.getStatsManager().getPlayersKilled(originalItem)
-        val damageDealt = statsSystem.getStatsManager().getDamageDealt(originalItem)
-        
-        plugin.logger.info("[UpgradeItem] 통계 정보: 몹킬=${mobsKilled}, 플레이어킬=${playersKilled}, 데미지=${damageDealt}")
-        
-        // NBT 데이터 복사 (StatsSystem에서 사용하는 데이터 복사)
+        // NBT 데이터 복사
         copyNBTData(originalMeta, newMeta)
         
-        // 아이템 ID 저장 (중요: 업그레이드된 아이템의 ID를 NBT에 저장)
+        // 업그레이드된 아이템 ID를 NBT에 저장
         newMeta.persistentDataContainer.set(ITEM_ID_KEY, PersistentDataType.STRING, upgradeInfo.targetItemId)
         
-        // 업데이트된 메타 적용
-        newItemBuilder.itemMeta = newMeta
+        // 메타 적용
+        newItem.itemMeta = newMeta
         
-        // 플레이어 인벤토리에서 아이템 교체
-        player.inventory.setItemInMainHand(newItemBuilder)
+        // 검증
+        if (getItemId(newItem) != upgradeInfo.targetItemId) {
+            plugin.logger.warning("[UpgradeItem] 아이템 ID가 올바르게 설정되지 않았습니다.")
+            return null
+        }
         
-        // 업그레이드 메시지 전송
+        return newItem
+    }
+    
+    /**
+     * 업그레이드 알림 메시지 전송
+     */
+    private fun notifyUpgrade(player: Player, upgradeInfo: UpgradeInfo) {
+        // 플레이어에게 업그레이드 메시지 전송
         player.sendMessage(upgradeInfo.upgradeMessage)
-        plugin.logger.info("[UpgradeItem] ${player.name}의 ${upgradeInfo.sourceItemId}가 ${upgradeInfo.targetItemId}로 업그레이드되었습니다.")
         
-        // 서버 전체에 업그레이드 알림 메시지 전송
+        // 서버 전체에 업그레이드 알림
         val itemDisplayName = getItemDisplayName(upgradeInfo.targetItemId)
-        Bukkit.broadcastMessage("${ChatColor.GOLD}${ChatColor.BOLD}${player.name}${ChatColor.YELLOW}${ChatColor.BOLD} 님이 ${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}${itemDisplayName}${ChatColor.YELLOW}${ChatColor.BOLD}을(를) 얻었습니다!")
+        Bukkit.broadcastMessage(
+            "${ChatColor.GOLD}${ChatColor.BOLD}${player.name}${ChatColor.YELLOW}${ChatColor.BOLD} 님이 " +
+            "${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}${itemDisplayName}${ChatColor.YELLOW}${ChatColor.BOLD}을(를) 얻었습니다!"
+        )
     }
     
     /**
@@ -335,51 +332,74 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
     }
     
     /**
-     * 아이템의 NBT 데이터를 복사하는 메서드
+     * 아이템의 NBT 데이터를 복사하는 메서드 - 단순화된 버전
      */
     private fun copyNBTData(source: ItemMeta, target: ItemMeta) {
-        val sourceContainer = source.persistentDataContainer
-        val targetContainer = target.persistentDataContainer
+        // 복사에서 제외할 키
+        val excludedKeys = setOf("nexo:id")
         
-        // 모든 네임스페이스 키를 복사
-        for (key in sourceContainer.keys) {
-            // nexo:id 태그는 복사하지 않음
-            if (key.toString() == "nexo:id" || key.toString().contains("nexo:id")) {
-                plugin.logger.info("[UpgradeItem] nexo:id 태그는 복사하지 않습니다: ${key}")
+        // 모든 키를 순회하며 필요한 데이터 복사
+        for (key in source.persistentDataContainer.keys) {
+            // 제외 키 확인
+            if (excludedKeys.any { excluded -> key.toString().contains(excluded) }) {
                 continue
             }
             
-            // INTEGER 타입 데이터
-            if (sourceContainer.has(key, PersistentDataType.INTEGER)) {
-                val value = sourceContainer.get(key, PersistentDataType.INTEGER)
-                if (value != null) {
-                    targetContainer.set(key, PersistentDataType.INTEGER, value)
+            // 데이터 타입에 따라 복사
+            copyDataByType(key, source.persistentDataContainer, target.persistentDataContainer)
+        }
+    }
+    
+    /**
+     * NBT 데이터 타입을 자동 감지하여 복사
+     */
+    private fun copyDataByType(key: NamespacedKey, source: PersistentDataContainer, target: PersistentDataContainer) {
+        try {
+            // 각 데이터 타입을 명시적으로 처리
+            if (source.has(key, PersistentDataType.STRING)) {
+                source.get(key, PersistentDataType.STRING)?.let { 
+                    target.set(key, PersistentDataType.STRING, it)
                 }
+                return
             }
             
-            // DOUBLE 타입 데이터
-            else if (sourceContainer.has(key, PersistentDataType.DOUBLE)) {
-                val value = sourceContainer.get(key, PersistentDataType.DOUBLE)
-                if (value != null) {
-                    targetContainer.set(key, PersistentDataType.DOUBLE, value)
+            if (source.has(key, PersistentDataType.INTEGER)) {
+                source.get(key, PersistentDataType.INTEGER)?.let { 
+                    target.set(key, PersistentDataType.INTEGER, it)
                 }
+                return
             }
             
-            // STRING 타입 데이터
-            else if (sourceContainer.has(key, PersistentDataType.STRING)) {
-                val value = sourceContainer.get(key, PersistentDataType.STRING)
-                if (value != null) {
-                    targetContainer.set(key, PersistentDataType.STRING, value)
+            if (source.has(key, PersistentDataType.DOUBLE)) {
+                source.get(key, PersistentDataType.DOUBLE)?.let { 
+                    target.set(key, PersistentDataType.DOUBLE, it)
                 }
+                return
             }
             
-            // BYTE 타입 데이터 (자동 성장 설정 등)
-            else if (sourceContainer.has(key, PersistentDataType.BYTE)) {
-                val value = sourceContainer.get(key, PersistentDataType.BYTE)
-                if (value != null) {
-                    targetContainer.set(key, PersistentDataType.BYTE, value)
+            if (source.has(key, PersistentDataType.BYTE)) {
+                source.get(key, PersistentDataType.BYTE)?.let { 
+                    target.set(key, PersistentDataType.BYTE, it)
                 }
+                return
             }
+            
+            if (source.has(key, PersistentDataType.LONG)) {
+                source.get(key, PersistentDataType.LONG)?.let { 
+                    target.set(key, PersistentDataType.LONG, it)
+                }
+                return
+            }
+            
+            if (source.has(key, PersistentDataType.FLOAT)) {
+                source.get(key, PersistentDataType.FLOAT)?.let { 
+                    target.set(key, PersistentDataType.FLOAT, it)
+                }
+                return
+            }
+        } catch (e: Exception) {
+            // 오류가 발생해도 계속 진행
+            plugin.logger.warning("[UpgradeItem] NBT 데이터 복사 실패 (키: $key): ${e.message}")
         }
     }
     
