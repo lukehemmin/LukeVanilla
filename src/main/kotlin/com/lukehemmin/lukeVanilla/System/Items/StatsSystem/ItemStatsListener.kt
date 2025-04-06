@@ -39,8 +39,8 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
     private val lastElytraPositions = mutableMapOf<Player, Vector>()
     private val elytraUpdateThreshold = 10.0 // 10블록마다 업데이트
 
-    // 각 이벤트에서 처리할 아이템 종류 비교를 위한 Map (크래프팅 시 추적용)
-    private val recentlyCraftedItems = mutableMapOf<Player, MutableSet<Material>>()
+    // 제작 세션 및 아이템 식별을 위한 맵
+    private val craftingSessions = mutableMapOf<Player, Long>() // 플레이어 -> 세션 시작 시간
     
     // 작업대 결과물이 준비될 때 메타데이터 미리 설정
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -63,18 +63,29 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
             return
         }
         
-        // ToolStats 방식: 직접 준비 단계에서 메타데이터 설정
-        statsSystem.logDebug("제작 준비 단계에서 메타데이터 설정 시도: ${result.type.name}")
+        // 제작 세션 기록
+        craftingSessions[player] = System.currentTimeMillis()
         
-        // 메타데이터 설정을 위한 아이템 복제
-        val newResult = result.clone()
-        initializeNewItem(newResult, player)
-        
-        // 결과물 교체
-        event.inventory.result = newResult
-        
-        // 성공 확인
-        statsSystem.logDebug("제작 준비 단계 설정 완료, 이제 결과물 검사: ${event.inventory.result?.let { statsManager.getCreator(it) } != null}")
+        // 결과물에 메타데이터 설정
+        try {
+            // 새 결과물 생성 및 메타데이터 설정
+            val newResult = result.clone()
+            statsManager.initializeTool(newResult, player)
+            event.inventory.result = newResult
+            
+            // 아이템 식별자 생성 (타입 + 시간)
+            val itemSignature = "${result.type.name}_${System.currentTimeMillis()}"
+            
+            // 최근 제작 아이템 목록에 추가
+            statsSystem.recentlyCraftedItems
+                .computeIfAbsent(player.uniqueId) { mutableListOf() }
+                .add(itemSignature)
+                
+            statsSystem.logDebug("제작 준비 완료: ${player.name}님이 ${result.type.name} 준비, 식별자: $itemSignature")
+        } catch (e: Exception) {
+            statsSystem.logDebug("제작 준비 단계에서 오류 발생: ${e.message}")
+            e.printStackTrace()
+        }
     }
     
     // 아이템 크래프팅 감지 (완료 시점)

@@ -10,6 +10,7 @@ import org.bukkit.event.inventory.CraftItemEvent
 import org.bukkit.event.inventory.PrepareAnvilEvent
 import org.bukkit.event.player.PlayerItemMendEvent
 import org.bukkit.inventory.ItemStack
+import java.util.UUID
 import java.util.logging.Level
 
 /**
@@ -26,7 +27,7 @@ class StatsSystem(val plugin: Main) : Listener {
     // true로 설정하면 로그가 활성화되고, false로 설정하면 비활성화됩니다.
     // 로그를 활성화하면 아이템 통계 관련 모든 작업이 서버 콘솔에 출력됩니다.
     // 문제 해결이 필요할 때만 true로 설정하고, 평소에는 false로 설정하는 것이 좋습니다.
-    var isLoggingEnabled: Boolean = true // 여기서 true 또는 false 로 설정하세요
+    var isLoggingEnabled: Boolean = false // 여기서 true 또는 false 로 설정하세요
     // ===================
     
     // 추적할 Nexo 아이템 ID 목록
@@ -41,10 +42,18 @@ class StatsSystem(val plugin: Main) : Listener {
     private val statsManager = ItemStatsManager(plugin)
     private val statsListener = ItemStatsListener(plugin, statsManager)
     
+    // 최근 제작된 아이템 추적 맵 (플레이어 UUID -> 아이템 고유 식별자 리스트)
+    val recentlyCraftedItems = mutableMapOf<UUID, MutableList<String>>()
+    
     init {
         // 이벤트 리스너 등록
         plugin.server.pluginManager.registerEvents(statsListener, plugin)
         plugin.server.pluginManager.registerEvents(this, plugin)
+        
+        // 60초마다 오래된 제작 기록 정리
+        plugin.server.scheduler.runTaskTimer(plugin, Runnable {
+            cleanupOldCraftingRecords()
+        }, 1200L, 1200L) // 60초(1200틱)마다 실행
         
         plugin.logger.info("아이템 통계 시스템이 초기화되었습니다.")
         plugin.logger.info("로그 상태: ${if (isLoggingEnabled) "활성화됨" else "비활성화됨"}")
@@ -250,5 +259,14 @@ class StatsSystem(val plugin: Main) : Listener {
             logDebug("Nexo 아이템 확인 중 오류: ${e.message}")
             return false
         }
+    }
+    
+    // 오래된 제작 기록 정리
+    private fun cleanupOldCraftingRecords() {
+        if (recentlyCraftedItems.isEmpty()) return
+        
+        logDebug("오래된 제작 기록 정리 중...")
+        recentlyCraftedItems.clear()
+        logDebug("제작 기록 정리 완료")
     }
 }
