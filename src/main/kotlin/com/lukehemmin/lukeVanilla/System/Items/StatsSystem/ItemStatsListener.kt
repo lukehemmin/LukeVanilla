@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.Items.StatsSystem
 
 import com.lukehemmin.lukeVanilla.Main
+import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -46,8 +47,8 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
     fun onPrepareItemCraft(event: PrepareItemCraftEvent) {
         val result = event.inventory.result ?: return
         
-        // 추적 가능한 아이템인지 확인
-        if (!isTrackableSpecificItem(result.type)) return
+        // 추적 가능한 아이템인지 확인 (statsSystem의 메서드 사용)
+        if (!statsSystem.isTrackableItem(result)) return
         
         // 제작자 확인
         val viewers = event.viewers
@@ -87,7 +88,7 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
             val resultType = recipe.result.type
             
             // 추적 가능한 아이템인지 확인
-            if (!isTrackableItem(recipe.result)) {
+            if (!statsSystem.isTrackableItem(recipe.result)) {
                 return
             }
             
@@ -168,7 +169,7 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
             
             // 쉬프트 클릭 처리
             if (event.isShiftClick && clickedItem != null && !clickedItem.type.isAir) {
-                if (isTrackableItem(clickedItem)) {
+                if (statsSystem.isTrackableItem(clickedItem) && !isNexoCustomItem(clickedItem)) {
                     statsSystem.logDebug("쉬프트 클릭 감지: ${clickedItem.type.name}")
                     
                     try {
@@ -186,7 +187,7 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
             }
             
             // 일반 클릭 처리
-            if (clickedItem != null && !clickedItem.type.isAir && isTrackableItem(clickedItem)) {
+            if (clickedItem != null && !clickedItem.type.isAir && statsSystem.isTrackableItem(clickedItem) && !isNexoCustomItem(clickedItem)) {
                 statsSystem.logDebug("클릭된 아이템: ${clickedItem.type.name}")
                 
                 try {
@@ -200,7 +201,7 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
             }
             
             // 커서 아이템 처리
-            if (cursorItem != null && !cursorItem.type.isAir && isTrackableItem(cursorItem)) {
+            if (cursorItem != null && !cursorItem.type.isAir && statsSystem.isTrackableItem(cursorItem) && !isNexoCustomItem(cursorItem)) {
                 statsSystem.logDebug("커서 아이템: ${cursorItem.type.name}")
                 
                 try {
@@ -308,8 +309,9 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
         val player = event.player
         val item = player.inventory.itemInMainHand
         
-        if (isTool(item.type)) {
+        if (isTool(item.type) || statsSystem.isTrackableNexoItem(item)) {
             statsManager.incrementBlocksMined(item)
+            statsSystem.logDebug("블록 파괴 통계 증가: ${player.name}")
         }
     }
     
@@ -320,9 +322,10 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
         if (damager is Player) {
             val item = damager.inventory.itemInMainHand
             
-            // 무기로 데미지를 입힌 경우
-            if (isWeapon(item.type)) {
+            // 무기로 데미지를 입힌 경우 (바닐라 또는 Nexo)
+            if (isWeapon(item.type) || statsSystem.isTrackableNexoItem(item)) {
                 statsManager.addDamageDealt(item, event.finalDamage)
+                statsSystem.logDebug("데미지 통계 추가: ${damager.name}, 데미지: ${event.finalDamage}")
             }
         }
         
@@ -353,49 +356,24 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun onEntityDeath(event: EntityDeathEvent) {
         val entity = event.entity
-        val killer = entity.killer
+        val killer = entity.killer ?: return
+        val item = killer.inventory.itemInMainHand
         
-        if (killer != null) {
-            val item = killer.inventory.itemInMainHand
-            
-            // 아이템 ID를 가져오는 방식 수정 (NBT 태그에서 확인 추가)
-            val itemId = try {
-                // 먼저 NBT 태그에서 확인 (UpgradeItem에서 저장한 ID)
-                val meta = item.itemMeta
-                if (meta != null) {
-                    val customIdKey = NamespacedKey(plugin, "lukestats_item_id")
-                    if (meta.persistentDataContainer.has(customIdKey, PersistentDataType.STRING)) {
-                        val customId = meta.persistentDataContainer.get(customIdKey, PersistentDataType.STRING)
-                        statsSystem.logDebug("NBT에서 아이템 ID 찾음: ${customId}")
-                        customId
-                    } else {
-                        // NBT에 없으면 Nexo API 사용
-                        val nexoClass = Class.forName("com.nexomc.nexo.api.NexoItems")
-                        val method = nexoClass.getDeclaredMethod("idFromItem", ItemStack::class.java)
-                        method.invoke(null, item) as? String
-                    }
-                } else {
-                    // 메타데이터가 없으면 Nexo API 사용
-                    val nexoClass = Class.forName("com.nexomc.nexo.api.NexoItems")
-                    val method = nexoClass.getDeclaredMethod("idFromItem", ItemStack::class.java)
-                    method.invoke(null, item) as? String
-                }
-            } catch (e: Exception) {
-                plugin.logger.warning("[ItemStatsListener] 아이템 ID 가져오기 실패: ${e.message}")
-                null
-            }
-            
-            // Nexo 커스텀 아이템은 UpgradeItem에서 처리하므로 일반 무기만 처리
-            if (itemId == null && isWeapon(item.type)) {
-                // 플레이어 킬인 경우
-                if (entity is Player) {
-                    statsManager.incrementPlayersKilled(item)
-                    statsSystem.logDebug("플레이어 킬 증가: ${killer.name} (${item.type.name})")
-                } else {
-                    // 몹 킬인 경우
-                    statsManager.incrementMobsKilled(item)
-                    statsSystem.logDebug("몹 킬 증가: ${killer.name} (${item.type.name})")
-                }
+        if (item.type.isAir) return
+        
+        // 바닐라 또는 Nexo 아이템 체크
+        val isNexoItem = statsSystem.isTrackableNexoItem(item)
+        val isVanillaWeapon = isWeapon(item.type)
+        
+        if (isNexoItem || isVanillaWeapon) {
+            // 플레이어 킬인 경우
+            if (entity is Player) {
+                statsManager.incrementPlayersKilled(item)
+                statsSystem.logDebug("플레이어 킬 증가: ${killer.name} (${if(isNexoItem) "Nexo아이템" else item.type.name})")
+            } else {
+                // 몹 킬인 경우
+                statsManager.incrementMobsKilled(item)
+                statsSystem.logDebug("몹 킬 증가: ${killer.name} (${if(isNexoItem) "Nexo아이템" else item.type.name})")
             }
         }
     }
@@ -458,8 +436,14 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
         }
         
         try {
-            // 아이템이 추적 가능한지 확인
-            if (isTrackableItem(item)) {
+            // Nexo 커스텀 아이템인 경우 초기화하지 않음
+            if (isNexoCustomItem(item)) {
+                statsSystem.logDebug("Nexo 커스텀 아이템 감지됨 - 메타데이터 설정 생략: ${item.type.name}")
+                return
+            }
+            
+            // 아이템이 추적 가능한지 확인 (statsSystem의 메서드 사용)
+            if (statsSystem.isTrackableItem(item)) {
                 statsSystem.logDebug("새 아이템 초기화: ${item.type.name}")
                 statsManager.initializeTool(item, player)
                 statsSystem.logDebug("메타데이터 설정 완료")
@@ -468,6 +452,31 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
             }
         } catch (e: Exception) {
             statsSystem.logDebug("아이템 초기화 중 오류 발생: ${e.message}")
+        }
+    }
+    
+    /**
+     * Nexo 커스텀 아이템인지 확인하는 메서드
+     */
+    private fun isNexoCustomItem(item: ItemStack): Boolean {
+        try {
+            // 아이템에 이미 nexo:id가 있는지 확인
+            val meta = item.itemMeta
+            if (meta != null) {
+                for (key in meta.persistentDataContainer.keys) {
+                    if (key.toString() == "nexo:id" || key.toString().contains("nexo:id")) {
+                        statsSystem.logDebug("기존 nexo:id 태그가 있는 아이템 감지")
+                        return true
+                    }
+                }
+            }
+            
+            // Nexo API를 사용하여 아이템 ID 확인
+            val nexoId = NexoItems.idFromItem(item)
+            return nexoId != null
+        } catch (e: Exception) {
+            statsSystem.logDebug("Nexo 아이템 확인 중 오류: ${e.message}")
+            return false
         }
     }
     
@@ -509,15 +518,4 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
                type == Material.NETHERITE_LEGGINGS ||
                type == Material.NETHERITE_BOOTS
     }
-    
-    // 아이템이 추적 가능한지 확인 (클래스 멤버 함수로 분리)
-    private fun isTrackableSpecificItem(type: Material): Boolean {
-        return statsSystem.isTrackableSpecificItem(type)
-    }
-    
-    // 아이템 자체가 추적 가능한지 확인 (아이템 인스턴스 사용)
-    private fun isTrackableItem(item: ItemStack): Boolean {
-        if (item.type.isAir) return false
-        return isTrackableSpecificItem(item.type)
-    }
-} 
+}

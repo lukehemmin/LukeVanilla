@@ -38,12 +38,12 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
             return true
         }
 
-        // 특정 추적 가능 아이템인지 확인 (다이아몬드/네더라이트 도구, 무기)
-        if (isTrackableSpecificItem(item.type)) {
+        // 통계 지원 아이템 확인 (바닐라 또는 Nexo)
+        if (isTrackableSpecificItem(item.type) || plugin.statsSystem.isTrackableNexoItem(item)) {
             showToolStats(player, item)
         } else {
             player.sendMessage("${ChatColor.RED}이 아이템은 통계 정보를 지원하지 않습니다.")
-            player.sendMessage("${ChatColor.YELLOW}통계 지원 아이템: 다이아몬드/네더라이트 도구 및 무기")
+            player.sendMessage("${ChatColor.YELLOW}통계 지원 아이템: 다이아몬드/네더라이트 도구 및 무기, 특정 Nexo 커스텀 아이템")
         }
 
         return true
@@ -57,7 +57,21 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
         val playersKilled = statsManager.getPlayersKilled(item)
         val damageDealt = statsManager.getDamageDealt(item)
 
+        // Nexo 아이템 여부 확인 및 ID 가져오기
+        val nexoItemId = try {
+            val nexoClass = Class.forName("com.nexomc.nexo.api.NexoItems")
+            val method = nexoClass.getDeclaredMethod("idFromItem", ItemStack::class.java)
+            method.invoke(null, item) as? String
+        } catch (e: Exception) {
+            null
+        }
+
         player.sendMessage("${ChatColor.GOLD}=== ${ChatColor.WHITE}아이템 통계 정보${ChatColor.GOLD} ===")
+        
+        // Nexo 아이템인 경우 ID 표시
+        if (nexoItemId != null) {
+            player.sendMessage("${ChatColor.LIGHT_PURPLE}Nexo 아이템 ID: ${ChatColor.WHITE}$nexoItemId")
+        }
         
         // 제작자 정보 표시
         val creatorName = if (creator != null) {
@@ -172,22 +186,6 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
 
     // 특정 추적 가능 아이템인지 확인 (다이아몬드 및 네더라이트 도구/무기만)
     private fun isTrackableSpecificItem(type: Material): Boolean {
-        return when (type) {
-            // 다이아몬드 도구/무기
-            Material.DIAMOND_SWORD,
-            Material.DIAMOND_PICKAXE,
-            Material.DIAMOND_AXE,
-            Material.DIAMOND_SHOVEL,
-            Material.DIAMOND_HOE,
-            
-            // 네더라이트 도구/무기
-            Material.NETHERITE_SWORD,
-            Material.NETHERITE_PICKAXE,
-            Material.NETHERITE_AXE,
-            Material.NETHERITE_SHOVEL,
-            Material.NETHERITE_HOE -> true
-            
-            else -> false
-        }
+        return plugin.statsSystem.isTrackableSpecificItem(type)
     }
-} 
+}

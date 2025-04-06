@@ -39,7 +39,8 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
     // 이미 업그레이드된 아이템 목록
     private val upgradedItems = setOf(
         "merry_christmas_greatsword",
-        "valentine_greatsword"
+        "valentine_greatsword",
+        "firework_greatsword"
     )
     
     // 업그레이드 가능한 아이템 맵
@@ -47,14 +48,20 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         "merry_christmas_sword" to UpgradeInfo(
             "merry_christmas_sword", 
             "merry_christmas_greatsword", 
-            5000,
+            30,
             "${ChatColor.GREEN}${ChatColor.BOLD}크리스마스 검이 대검으로 바뀌었어요!"
         ),
         "valentine_sword" to UpgradeInfo(
             "valentine_sword", 
-            "valentine_greatsword", 
-            15000,
+            "valentine_greatsword",
+            30,
             "${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}발렌타인 데이 검이 대검으로 바뀌었어요!"
+        ),
+        "firework_sword" to UpgradeInfo(
+            "firework_sword",
+            "firework_greatsword",
+            30,
+            "${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}폭죽 검이 대검으로 바뀌었어요!"
         )
     )
     
@@ -315,6 +322,7 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         return when (itemId) {
             "merry_christmas_greatsword" -> "크리스마스 대검"
             "valentine_greatsword" -> "발렌타인 대검"
+            "firework_greatsword" -> "폭죽 대검"
             else -> itemId
         }
     }
@@ -335,6 +343,12 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         
         // 모든 네임스페이스 키를 복사
         for (key in sourceContainer.keys) {
+            // nexo:id 태그는 복사하지 않음
+            if (key.toString() == "nexo:id" || key.toString().contains("nexo:id")) {
+                plugin.logger.info("[UpgradeItem] nexo:id 태그는 복사하지 않습니다: ${key}")
+                continue
+            }
+            
             // INTEGER 타입 데이터
             if (sourceContainer.has(key, PersistentDataType.INTEGER)) {
                 val value = sourceContainer.get(key, PersistentDataType.INTEGER)

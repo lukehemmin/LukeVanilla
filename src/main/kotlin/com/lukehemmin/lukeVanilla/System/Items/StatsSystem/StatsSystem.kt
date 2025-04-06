@@ -26,8 +26,16 @@ class StatsSystem(val plugin: Main) : Listener {
     // true로 설정하면 로그가 활성화되고, false로 설정하면 비활성화됩니다.
     // 로그를 활성화하면 아이템 통계 관련 모든 작업이 서버 콘솔에 출력됩니다.
     // 문제 해결이 필요할 때만 true로 설정하고, 평소에는 false로 설정하는 것이 좋습니다.
-    var isLoggingEnabled: Boolean = true // 여기서 true 또는 false로 설정하세요
+    var isLoggingEnabled: Boolean = true // 여기서 true 또는 false 로 설정하세요
     // ===================
+    
+    // 추적할 Nexo 아이템 ID 목록
+    private val trackableNexoItems = listOf(
+        "plny_springset_sword", 
+        "plny_springset_pickaxe", 
+        "valentine_pickaxe",
+        // 추가 Nexo 아이템 ID를 여기에 추가할 수 있습니다
+    )
     
     // 통계 관리자 및 리스너 초기화
     private val statsManager = ItemStatsManager(plugin)
@@ -143,9 +151,10 @@ class StatsSystem(val plugin: Main) : Listener {
         }
     }
     
-    // 추적 가능한 아이템인지 확인
-    private fun isTrackableItem(item: ItemStack): Boolean {
-        return isTool(item.type) || isArmor(item.type) || item.type == Material.ELYTRA
+    // 추적 가능한 아이템인지 확인 (바닐라 아이템과 Nexo 커스텀 아이템 모두 체크)
+    fun isTrackableItem(item: ItemStack): Boolean {
+        return !item.type.isAir && (isTool(item.type) || isArmor(item.type) || 
+              item.type == Material.ELYTRA || isTrackableNexoItem(item))
     }
     
     // 도구인지 확인
@@ -201,4 +210,45 @@ class StatsSystem(val plugin: Main) : Listener {
             else -> false
         }
     }
-} 
+    
+    // 아이템이 Nexo 커스텀 아이템인지 확인
+    fun isTrackableNexoItem(item: ItemStack): Boolean {
+        if (item.type.isAir) return false
+        
+        try {
+            // 아이템에 이미 nexo:id가 있는지 확인
+            val meta = item.itemMeta
+            if (meta != null) {
+                for (key in meta.persistentDataContainer.keys) {
+                    if (key.toString() == "nexo:id" || key.toString().contains("nexo:id")) {
+                        logDebug("기존 nexo:id 태그가 있는 아이템 - 추적하지 않음")
+                        return false // 이미 nexo:id가 있으면 건드리지 않음
+                    }
+                }
+            }
+            
+            // Nexo API를 사용하여 아이템 ID 확인
+            val nexoClass = Class.forName("com.nexomc.nexo.api.NexoItems")
+            val method = nexoClass.getDeclaredMethod("idFromItem", ItemStack::class.java)
+            val itemId = method.invoke(null, item) as? String ?: return false
+            
+            // 추적 대상 Nexo 아이템인지 확인
+            val shouldTrack = trackableNexoItems.contains(itemId) || 
+                   (itemId.contains("_pickaxe") || 
+                    itemId.contains("_sword") || 
+                    itemId.contains("_axe") || 
+                    itemId.contains("_shovel") || 
+                    itemId.contains("_hoe"))
+                    
+            if (shouldTrack) {
+                logDebug("추적 가능한 Nexo 아이템 감지: $itemId")
+            }
+            
+            return shouldTrack
+        } catch (e: Exception) {
+            // 예외 발생 시 일반 아이템으로 처리
+            logDebug("Nexo 아이템 확인 중 오류: ${e.message}")
+            return false
+        }
+    }
+}
