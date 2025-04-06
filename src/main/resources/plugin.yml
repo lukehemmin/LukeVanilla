@@ -88,6 +88,11 @@ commands:
     description: "현재 들고 있는 아이템의 통계 정보를 조회합니다."
     usage: "/아이템정보"
     aliases: [ itemstats ]
+  itemstats:
+    description: "아이템 통계 시스템 관리 명령어"
+    usage: "/itemstats log <on|off>"
+    permission: "itemstats.admin"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -117,4 +122,7 @@ permissions:
     default: op
   lukevanilla.adminchat:
     description: "관리자 채팅 사용 권한"
+    default: op
+  itemstats.admin:
+    description: "아이템 통계 시스템 관리 명령어 사용 권한"
     default: op

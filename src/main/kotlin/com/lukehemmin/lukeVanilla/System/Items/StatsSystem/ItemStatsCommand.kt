@@ -38,15 +38,12 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
             return true
         }
 
-        // 아이템 종류에 따라 다른 정보 표시
-        if (isTool(item.type) || isWeapon(item.type)) {
+        // 특정 추적 가능 아이템인지 확인 (다이아몬드/네더라이트 도구, 무기)
+        if (isTrackableSpecificItem(item.type)) {
             showToolStats(player, item)
-        } else if (isArmor(item.type)) {
-            showArmorStats(player, item)
-        } else if (item.type == Material.ELYTRA) {
-            showElytraStats(player, item)
         } else {
-            player.sendMessage("${ChatColor.RED}이 아이템에는 통계 정보가 없습니다.")
+            player.sendMessage("${ChatColor.RED}이 아이템은 통계 정보를 지원하지 않습니다.")
+            player.sendMessage("${ChatColor.YELLOW}통계 지원 아이템: 다이아몬드/네더라이트 도구 및 무기")
         }
 
         return true
@@ -62,14 +59,21 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
 
         player.sendMessage("${ChatColor.GOLD}=== ${ChatColor.WHITE}아이템 통계 정보${ChatColor.GOLD} ===")
         
-        if (creator != null) {
-            val creatorName = Bukkit.getOfflinePlayer(creator).name ?: "알 수 없음"
-            player.sendMessage("${ChatColor.YELLOW}제작자: ${ChatColor.WHITE}$creatorName")
+        // 제작자 정보 표시
+        val creatorName = if (creator != null) {
+            Bukkit.getOfflinePlayer(creator).name ?: "알 수 없음"
+        } else {
+            "알 수 없음"
         }
+        player.sendMessage("${ChatColor.YELLOW}제작자: ${ChatColor.WHITE}$creatorName")
         
-        if (creationDate != null) {
-            player.sendMessage("${ChatColor.YELLOW}제작일: ${ChatColor.WHITE}${creationDate.format(dateFormatter)}")
+        // 제작일 정보 표시
+        val createdAt = if (creationDate != null) {
+            creationDate.format(dateFormatter)
+        } else {
+            "기록 없음"
         }
+        player.sendMessage("${ChatColor.YELLOW}제작일: ${ChatColor.WHITE}$createdAt")
         
         player.sendMessage("${ChatColor.YELLOW}채굴한 블록: ${ChatColor.WHITE}${formatter.format(blocksMined)}")
         player.sendMessage("${ChatColor.YELLOW}처치한 몹: ${ChatColor.WHITE}${formatter.format(mobsKilled)}")
@@ -84,14 +88,21 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
 
         player.sendMessage("${ChatColor.GOLD}=== ${ChatColor.WHITE}방어구 통계 정보${ChatColor.GOLD} ===")
         
-        if (creator != null) {
-            val creatorName = Bukkit.getOfflinePlayer(creator).name ?: "알 수 없음"
-            player.sendMessage("${ChatColor.YELLOW}제작자: ${ChatColor.WHITE}$creatorName")
+        // 제작자 정보 표시
+        val creatorName = if (creator != null) {
+            Bukkit.getOfflinePlayer(creator).name ?: "알 수 없음"
+        } else {
+            "알 수 없음"
         }
+        player.sendMessage("${ChatColor.YELLOW}제작자: ${ChatColor.WHITE}$creatorName")
         
-        if (creationDate != null) {
-            player.sendMessage("${ChatColor.YELLOW}제작일: ${ChatColor.WHITE}${creationDate.format(dateFormatter)}")
+        // 제작일 정보 표시
+        val createdAt = if (creationDate != null) {
+            creationDate.format(dateFormatter)
+        } else {
+            "기록 없음"
         }
+        player.sendMessage("${ChatColor.YELLOW}제작일: ${ChatColor.WHITE}$createdAt")
         
         player.sendMessage("${ChatColor.YELLOW}방어한 데미지: ${ChatColor.WHITE}${formatter.format(damageBlocked)}")
     }
@@ -103,14 +114,21 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
 
         player.sendMessage("${ChatColor.GOLD}=== ${ChatColor.WHITE}겉날개 통계 정보${ChatColor.GOLD} ===")
         
-        if (firstOwner != null) {
-            val ownerName = Bukkit.getOfflinePlayer(firstOwner).name ?: "알 수 없음"
-            player.sendMessage("${ChatColor.YELLOW}최초 소유자: ${ChatColor.WHITE}$ownerName")
+        // 최초 소유자 정보 표시
+        val ownerName = if (firstOwner != null) {
+            Bukkit.getOfflinePlayer(firstOwner).name ?: "알 수 없음"
+        } else {
+            "알 수 없음"
         }
+        player.sendMessage("${ChatColor.YELLOW}최초 소유자: ${ChatColor.WHITE}$ownerName")
         
-        if (obtainedDate != null) {
-            player.sendMessage("${ChatColor.YELLOW}획득일: ${ChatColor.WHITE}${obtainedDate.format(dateFormatter)}")
+        // 획득일 정보 표시
+        val obtainedAt = if (obtainedDate != null) {
+            obtainedDate.format(dateFormatter)
+        } else {
+            "기록 없음"
         }
+        player.sendMessage("${ChatColor.YELLOW}획득일: ${ChatColor.WHITE}$obtainedAt")
         
         // 1000m 이상이면 km 단위로 표시
         if (distanceFlown >= 1000) {
@@ -150,5 +168,26 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
                type.name.endsWith("_LEGGINGS") ||
                type.name.endsWith("_BOOTS") ||
                type == Material.SHIELD
+    }
+
+    // 특정 추적 가능 아이템인지 확인 (다이아몬드 및 네더라이트 도구/무기만)
+    private fun isTrackableSpecificItem(type: Material): Boolean {
+        return when (type) {
+            // 다이아몬드 도구/무기
+            Material.DIAMOND_SWORD,
+            Material.DIAMOND_PICKAXE,
+            Material.DIAMOND_AXE,
+            Material.DIAMOND_SHOVEL,
+            Material.DIAMOND_HOE,
+            
+            // 네더라이트 도구/무기
+            Material.NETHERITE_SWORD,
+            Material.NETHERITE_PICKAXE,
+            Material.NETHERITE_AXE,
+            Material.NETHERITE_SHOVEL,
+            Material.NETHERITE_HOE -> true
+            
+            else -> false
+        }
     }
 } 

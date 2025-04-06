@@ -15,12 +15,293 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.util.Vector
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.NamespacedKey
+import org.bukkit.event.inventory.CraftItemEvent
+import org.bukkit.event.inventory.PrepareItemCraftEvent
+import org.bukkit.event.inventory.PrepareSmithingEvent
+import org.bukkit.event.inventory.SmithItemEvent
+import org.bukkit.inventory.SmithingInventory
+import org.bukkit.event.inventory.InventoryClickEvent
+import org.bukkit.event.inventory.InventoryDragEvent
+import org.bukkit.event.inventory.InventoryType
+import org.bukkit.scheduler.BukkitRunnable
+import org.bukkit.inventory.CraftingInventory
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import org.bukkit.Bukkit
 
 class ItemStatsListener(private val plugin: Main, private val statsManager: ItemStatsManager) : Listener {
+
+    // StatsSystem 참조 가져오기
+    private val statsSystem: StatsSystem
+        get() = plugin.statsSystem
 
     private val lastElytraPositions = mutableMapOf<Player, Vector>()
     private val elytraUpdateThreshold = 10.0 // 10블록마다 업데이트
 
+    // 각 이벤트에서 처리할 아이템 종류 비교를 위한 Map (크래프팅 시 추적용)
+    private val recentlyCraftedItems = mutableMapOf<Player, MutableSet<Material>>()
+    
+    // 작업대 결과물이 준비될 때 메타데이터 미리 설정
+    @EventHandler(priority = EventPriority.HIGHEST)
+    fun onPrepareItemCraft(event: PrepareItemCraftEvent) {
+        val result = event.inventory.result ?: return
+        
+        // 추적 가능한 아이템인지 확인
+        if (!isTrackableSpecificItem(result.type)) return
+        
+        // 제작자 확인
+        val viewers = event.viewers
+        if (viewers.isEmpty() || viewers[0] !is Player) return
+        val player = viewers[0] as Player
+        
+        statsSystem.logDebug("제작 준비 단계에서 결과물 검사: ${result.type.name}")
+        
+        // 이미 메타데이터가 있는지 확인
+        if (statsManager.getCreator(result) != null) {
+            statsSystem.logDebug("이미 메타데이터가 설정되어 있음: ${result.type.name}")
+            return
+        }
+        
+        // ToolStats 방식: 직접 준비 단계에서 메타데이터 설정
+        statsSystem.logDebug("제작 준비 단계에서 메타데이터 설정 시도: ${result.type.name}")
+        
+        // 메타데이터 설정을 위한 아이템 복제
+        val newResult = result.clone()
+        initializeNewItem(newResult, player)
+        
+        // 결과물 교체
+        event.inventory.result = newResult
+        
+        // 성공 확인
+        statsSystem.logDebug("제작 준비 단계 설정 완료, 이제 결과물 검사: ${event.inventory.result?.let { statsManager.getCreator(it) } != null}")
+    }
+    
+    // 아이템 크래프팅 감지 (완료 시점)
+    @EventHandler(priority = EventPriority.HIGHEST)
+    fun onItemCraft(event: CraftItemEvent) {
+        // 플레이어 확인
+        val player = event.whoClicked as? Player ?: return
+        
+        try {
+            val recipe = event.recipe
+            val resultType = recipe.result.type
+            
+            // 추적 가능한 아이템인지 확인
+            if (!isTrackableItem(recipe.result)) {
+                return
+            }
+            
+            statsSystem.logDebug("아이템 제작 이벤트: ${resultType.name}")
+            
+            // 현재 아이템 가져오기 (null일 수 있음)
+            val currentItem = event.currentItem
+            
+            // 아이템이 null이거나 AIR인 경우 레시피 결과로 새로 생성
+            if (currentItem == null || currentItem.type.isAir) {
+                statsSystem.logDebug("현재 아이템이 null 또는 AIR - 레시피 결과로 초기화")
+                val newItem = recipe.result.clone()
+                initializeNewItem(newItem, player)
+                
+                // 나중에 인벤토리 확인 스케줄링
+                checkInventoryLater(player, resultType)
+                return
+            }
+            
+            // 메타데이터가 없는 경우 초기화
+            try {
+                if (statsManager.getCreator(currentItem) == null) {
+                    statsSystem.logDebug("메타데이터가 없는 제작 아이템 감지 - 초기화 중")
+                    val clone = currentItem.clone()
+                    statsManager.initializeTool(clone, player)
+                    statsSystem.logDebug("메타데이터 설정 완료")
+                    
+                    // 성공했는데 메타데이터가 적용되지 않은 경우 나중에 인벤토리 확인
+                    if (statsManager.getCreator(currentItem) == null) {
+                        statsSystem.logDebug("메타데이터가 즉시 적용되지 않음 - 나중에 인벤토리 확인")
+                        checkInventoryLater(player, resultType)
+                    }
+                } else {
+                    statsSystem.logDebug("제작 아이템에 이미 메타데이터가 있음")
+                }
+            } catch (e: Exception) {
+                statsSystem.logDebug("제작 아이템 메타데이터 설정 중 오류: ${e.message}")
+                // 오류 발생시 나중에 인벤토리 확인
+                checkInventoryLater(player, resultType)
+            }
+        } catch (e: Exception) {
+            statsSystem.logDebug("제작 이벤트 처리 중 일반 오류: ${e.message}")
+        }
+    }
+    
+    // 지연된 인벤토리 검사
+    private fun checkInventoryLater(player: Player, type: Material) {
+        statsSystem.logDebug("${player.name}님의 인벤토리 지연 검사 예약: ${type.name}")
+        
+        // 1틱 후에 인벤토리 검사 실행
+        Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+            try {
+                if (player.isOnline) {
+                    findAndInitializeNewItems(player, type)
+                }
+            } catch (e: Exception) {
+                statsSystem.logDebug("지연된 인벤토리 검사 오류: ${e.message}")
+            }
+        }, 1L)
+    }
+    
+    // 인벤토리 클릭 이벤트 처리 (ToolStats 방식)
+    @EventHandler(priority = EventPriority.HIGHEST)
+    fun onInventoryClick(event: InventoryClickEvent) {
+        val player = event.whoClicked as? Player ?: return
+        
+        // 크래프팅 테이블 인벤토리만 처리
+        if (event.view.type != InventoryType.CRAFTING && event.view.type != InventoryType.WORKBENCH) {
+            return
+        }
+        
+        try {
+            // 클릭된 아이템 확인
+            val clickedItem = event.currentItem
+            
+            // 커서에 있는 아이템 확인
+            val cursorItem = event.cursor
+            
+            // 쉬프트 클릭 처리
+            if (event.isShiftClick && clickedItem != null && !clickedItem.type.isAir) {
+                if (isTrackableItem(clickedItem)) {
+                    statsSystem.logDebug("쉬프트 클릭 감지: ${clickedItem.type.name}")
+                    
+                    try {
+                        if (statsManager.getCreator(clickedItem) == null) {
+                            statsSystem.logDebug("쉬프트 클릭 아이템에 메타데이터 설정")
+                            initializeNewItem(clickedItem, player)
+                        }
+                    } catch (e: Exception) {
+                        statsSystem.logDebug("쉬프트 클릭 아이템 메타데이터 설정 오류: ${e.message}")
+                        // 쉬프트 클릭 후 인벤토리 확인 스케줄링
+                        checkInventoryLater(player, clickedItem.type)
+                    }
+                }
+                return
+            }
+            
+            // 일반 클릭 처리
+            if (clickedItem != null && !clickedItem.type.isAir && isTrackableItem(clickedItem)) {
+                statsSystem.logDebug("클릭된 아이템: ${clickedItem.type.name}")
+                
+                try {
+                    if (statsManager.getCreator(clickedItem) == null) {
+                        statsSystem.logDebug("클릭된 아이템에 메타데이터 설정")
+                        initializeNewItem(clickedItem, player)
+                    }
+                } catch (e: Exception) {
+                    statsSystem.logDebug("클릭된 아이템 메타데이터 설정 오류: ${e.message}")
+                }
+            }
+            
+            // 커서 아이템 처리
+            if (cursorItem != null && !cursorItem.type.isAir && isTrackableItem(cursorItem)) {
+                statsSystem.logDebug("커서 아이템: ${cursorItem.type.name}")
+                
+                try {
+                    if (statsManager.getCreator(cursorItem) == null) {
+                        statsSystem.logDebug("커서 아이템에 메타데이터 설정")
+                        initializeNewItem(cursorItem, player)
+                    }
+                } catch (e: Exception) {
+                    statsSystem.logDebug("커서 아이템 메타데이터 설정 오류: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            statsSystem.logDebug("인벤토리 클릭 이벤트 처리 중 오류: ${e.message}")
+        }
+    }
+    
+    // 인벤토리에서 새로 생성된 아이템 찾아 초기화 (ToolStats 방식)
+    private fun findAndInitializeNewItems(player: Player, type: Material) {
+        statsSystem.logDebug("인벤토리에서 새 아이템 검색: ${type.name}")
+        var found = false
+        
+        // 전체 인벤토리 확인
+        for (i in 0 until player.inventory.size) {
+            val item = player.inventory.getItem(i) ?: continue
+            
+            if (item.type != type || item.type.isAir) continue
+            
+            try {
+                if (statsManager.getCreator(item) == null) {
+                    statsSystem.logDebug("인벤토리에서 메타데이터가 없는 새 아이템 발견: 슬롯 $i")
+                    initializeNewItem(item, player)
+                    found = true
+                }
+            } catch (e: Exception) {
+                statsSystem.logDebug("인벤토리 아이템 메타데이터 설정 오류: ${e.message}")
+            }
+        }
+        
+        // 인벤토리 외부에 있는 아이템 확인 (커서 등)
+        val cursor = player.itemOnCursor
+        if (!cursor.type.isAir && cursor.type == type) {
+            try {
+                if (statsManager.getCreator(cursor) == null) {
+                    statsSystem.logDebug("커서에서 메타데이터가 없는 새 아이템 발견")
+                    initializeNewItem(cursor, player)
+                    found = true
+                }
+            } catch (e: Exception) {
+                statsSystem.logDebug("커서 아이템 메타데이터 설정 오류: ${e.message}")
+            }
+        }
+        
+        if (!found) {
+            statsSystem.logDebug("인벤토리에서 메타데이터가 없는 새 아이템을 찾지 못함")
+        }
+    }
+    
+    // 크래프팅 인벤토리에서 최대 제작 가능 아이템 수량 계산
+    private fun calculateMaxCraftable(inventory: CraftingInventory): Int {
+        val matrix = inventory.matrix
+        var maxCraftable = 64 // 기본값
+        
+        // 제작 재료들을 확인하여 가능한 최대 제작 수량 계산
+        for (item in matrix) {
+            if (item != null && item.type != Material.AIR) {
+                val amount = item.amount
+                if (amount < maxCraftable) {
+                    maxCraftable = amount
+                }
+            }
+        }
+        
+        return maxCraftable
+    }
+    
+    // 네더라이트 업그레이드 시 통계 업데이트
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    fun onSmithItem(event: SmithItemEvent) {
+        if (event.whoClicked !is Player) return
+        
+        val player = event.whoClicked as Player
+        
+        // SmithingInventory에서 결과 아이템 가져오기
+        val inventory = event.inventory as? SmithingInventory ?: return
+        val resultItem = inventory.result ?: return
+        
+        statsSystem.logDebug("스미싱 감지: ${player.name}님이 ${resultItem.type.name} 아이템 제작/업그레이드")
+        
+        // 네더라이트 업그레이드인 경우에만 처리
+        if (isNetheriteUpgrade(resultItem.type)) {
+            statsSystem.logDebug("네더라이트 업그레이드 감지: ${player.name}님이 ${resultItem.type.name}으로 업그레이드")
+            
+            // 결과 아이템에 새 제작자 및 제작일 설정
+            statsManager.updateCreator(resultItem, player)
+            
+            // 업데이트 후 확인
+            val postCreator = statsManager.getCreator(resultItem)
+            statsSystem.logDebug("업데이트 후 제작자 정보: ${postCreator?.toString() ?: "업데이트 실패"}")
+        }
+    }
+    
     // 도구로 블록 파괴 시 통계 업데이트
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun onBlockBreak(event: BlockBreakEvent) {
@@ -85,7 +366,7 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
                     val customIdKey = NamespacedKey(plugin, "lukestats_item_id")
                     if (meta.persistentDataContainer.has(customIdKey, PersistentDataType.STRING)) {
                         val customId = meta.persistentDataContainer.get(customIdKey, PersistentDataType.STRING)
-                        plugin.logger.info("[ItemStatsListener] NBT에서 아이템 ID 찾음: ${customId}")
+                        statsSystem.logDebug("NBT에서 아이템 ID 찾음: ${customId}")
                         customId
                     } else {
                         // NBT에 없으면 Nexo API 사용
@@ -104,18 +385,16 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
                 null
             }
             
-            // plugin.logger.info("[ItemStatsListener] EntityDeath 이벤트 발생: 플레이어=${killer.name}, 아이템ID=${itemId}, 아이템타입=${item.type}")
-            
             // Nexo 커스텀 아이템은 UpgradeItem에서 처리하므로 일반 무기만 처리
             if (itemId == null && isWeapon(item.type)) {
                 // 플레이어 킬인 경우
                 if (entity is Player) {
                     statsManager.incrementPlayersKilled(item)
-                    // plugin.logger.info("[ItemStatsListener] 플레이어 킬 증가: ${killer.name}")
+                    statsSystem.logDebug("플레이어 킬 증가: ${killer.name} (${item.type.name})")
                 } else {
                     // 몹 킬인 경우
                     statsManager.incrementMobsKilled(item)
-                    // plugin.logger.info("[ItemStatsListener] 몹 킬 증가: ${killer.name}")
+                    statsSystem.logDebug("몹 킬 증가: ${killer.name} (${item.type.name})")
                 }
             }
         }
@@ -172,11 +451,23 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
     }
     
     // 아이템 생성시 초기화 (다른 플러그인이나 시스템에서 호출해야 함)
-    fun initializeNewItem(item: ItemStack, creator: Player) {
-        when {
-            isTool(item.type) -> statsManager.initializeTool(item, creator)
-            isArmor(item.type) -> statsManager.initializeArmor(item, creator)
-            item.type == Material.ELYTRA -> statsManager.initializeElytra(item, creator)
+    fun initializeNewItem(item: ItemStack, player: Player) {
+        if (item.type.isAir) {
+            statsSystem.logDebug("AIR 타입 아이템에 메타데이터 설정 시도 - 무시됨")
+            return
+        }
+        
+        try {
+            // 아이템이 추적 가능한지 확인
+            if (isTrackableItem(item)) {
+                statsSystem.logDebug("새 아이템 초기화: ${item.type.name}")
+                statsManager.initializeTool(item, player)
+                statsSystem.logDebug("메타데이터 설정 완료")
+            } else {
+                statsSystem.logDebug("추적 불가능한 아이템 타입: ${item.type.name}")
+            }
+        } catch (e: Exception) {
+            statsSystem.logDebug("아이템 초기화 중 오류 발생: ${e.message}")
         }
     }
     
@@ -204,5 +495,29 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
                type.name.endsWith("_LEGGINGS") ||
                type.name.endsWith("_BOOTS") ||
                type == Material.SHIELD
+    }
+    
+    // 네더라이트 업그레이드인지 확인
+    private fun isNetheriteUpgrade(type: Material): Boolean {
+        return type == Material.NETHERITE_SWORD ||
+               type == Material.NETHERITE_PICKAXE ||
+               type == Material.NETHERITE_AXE ||
+               type == Material.NETHERITE_SHOVEL ||
+               type == Material.NETHERITE_HOE ||
+               type == Material.NETHERITE_HELMET ||
+               type == Material.NETHERITE_CHESTPLATE ||
+               type == Material.NETHERITE_LEGGINGS ||
+               type == Material.NETHERITE_BOOTS
+    }
+    
+    // 아이템이 추적 가능한지 확인 (클래스 멤버 함수로 분리)
+    private fun isTrackableSpecificItem(type: Material): Boolean {
+        return statsSystem.isTrackableSpecificItem(type)
+    }
+    
+    // 아이템 자체가 추적 가능한지 확인 (아이템 인스턴스 사용)
+    private fun isTrackableItem(item: ItemStack): Boolean {
+        if (item.type.isAir) return false
+        return isTrackableSpecificItem(item.type)
     }
 } 

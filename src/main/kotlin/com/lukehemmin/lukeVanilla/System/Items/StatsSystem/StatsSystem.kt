@@ -10,6 +10,7 @@ import org.bukkit.event.inventory.CraftItemEvent
 import org.bukkit.event.inventory.PrepareAnvilEvent
 import org.bukkit.event.player.PlayerItemMendEvent
 import org.bukkit.inventory.ItemStack
+import java.util.logging.Level
 
 /**
  * 아이템 통계 시스템의 메인 클래스
@@ -18,7 +19,15 @@ import org.bukkit.inventory.ItemStack
  * 2. 이벤트 리스너 등록
  * 3. 아이템 생성 이벤트 처리 (제작, 수리 등)
  */
-class StatsSystem(private val plugin: Main) : Listener {
+class StatsSystem(val plugin: Main) : Listener {
+    
+    // ===== 로그 설정 =====
+    // 로그 활성화 여부 설정
+    // true로 설정하면 로그가 활성화되고, false로 설정하면 비활성화됩니다.
+    // 로그를 활성화하면 아이템 통계 관련 모든 작업이 서버 콘솔에 출력됩니다.
+    // 문제 해결이 필요할 때만 true로 설정하고, 평소에는 false로 설정하는 것이 좋습니다.
+    var isLoggingEnabled: Boolean = true // 여기서 true 또는 false로 설정하세요
+    // ===================
     
     // 통계 관리자 및 리스너 초기화
     private val statsManager = ItemStatsManager(plugin)
@@ -30,17 +39,13 @@ class StatsSystem(private val plugin: Main) : Listener {
         plugin.server.pluginManager.registerEvents(this, plugin)
         
         plugin.logger.info("아이템 통계 시스템이 초기화되었습니다.")
+        plugin.logger.info("로그 상태: ${if (isLoggingEnabled) "활성화됨" else "비활성화됨"}")
     }
     
-    // 아이템 제작 시 통계 초기화
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    fun onItemCraft(event: CraftItemEvent) {
-        if (event.whoClicked !is Player) return
-        val player = event.whoClicked as Player
-        val item = event.currentItem ?: return
-        
-        if (isTrackableItem(item)) {
-            statsListener.initializeNewItem(item, player)
+    // 로그 출력 메서드 (로깅 활성화 상태일 때만 출력)
+    fun logDebug(message: String) {
+        if (isLoggingEnabled) {
+            plugin.logger.info("[StatsSystem] $message")
         }
     }
     
@@ -163,5 +168,37 @@ class StatsSystem(private val plugin: Main) : Listener {
     // 외부에서 StatsManager 접근을 위한 getter
     fun getStatsManager(): ItemStatsManager {
         return statsManager
+    }
+    
+    // ToolStats 스타일: 특정 아이템이 통계를 추적할 대상인지 확인
+    fun isTrackableSpecificItem(type: Material): Boolean {
+        return when (type) {
+            // 다이아몬드 도구
+            Material.DIAMOND_PICKAXE,
+            Material.DIAMOND_AXE,
+            Material.DIAMOND_SHOVEL,
+            Material.DIAMOND_HOE,
+            Material.DIAMOND_SWORD,
+            // 네더라이트 도구
+            Material.NETHERITE_PICKAXE,
+            Material.NETHERITE_AXE,
+            Material.NETHERITE_SHOVEL,
+            Material.NETHERITE_HOE,
+            Material.NETHERITE_SWORD,
+            // 다이아몬드 방어구
+            Material.DIAMOND_HELMET,
+            Material.DIAMOND_CHESTPLATE,
+            Material.DIAMOND_LEGGINGS,
+            Material.DIAMOND_BOOTS,
+            // 네더라이트 방어구
+            Material.NETHERITE_HELMET,
+            Material.NETHERITE_CHESTPLATE,
+            Material.NETHERITE_LEGGINGS,
+            Material.NETHERITE_BOOTS,
+            // 특수 아이템
+            Material.ELYTRA,
+            Material.SHIELD -> true
+            else -> false
+        }
     }
 } 
