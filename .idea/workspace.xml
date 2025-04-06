@@ -19,9 +19,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="Implement GlobalChatManager for enhanced chat functionality and server integration">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Player_Join_And_Quit_Message_Listener.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Player_Join_And_Quit_Message_Listener.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -108,7 +106,7 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;SDKs&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.44252872&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
@@ -269,7 +267,9 @@
       <workItem from="1742460648415" duration="4683000" />
       <workItem from="1743220575768" duration="744000" />
       <workItem from="1743223884606" duration="5578000" />
-      <workItem from="1743609017846" duration="1315000" />
+      <workItem from="1743609017846" duration="2138000" />
+      <workItem from="1743657016892" duration="303000" />
+      <workItem from="1743657332779" duration="50086000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />

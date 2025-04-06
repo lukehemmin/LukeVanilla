@@ -6,6 +6,12 @@ plugins {
 group = "com.lukehemmin"
 version = "1.0-SNAPSHOT"
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/") {
@@ -29,7 +35,7 @@ dependencies {
     implementation("com.zaxxer:HikariCP:5.0.1")
     implementation ("com.vdurmont:emoji-java:5.1.1")
 //    compileOnly("io.th0rgal:oraxen:1.186.0")
-    compileOnly("com.nexomc:nexo:0.1.0")
+    compileOnly("com.nexomc:nexo:1.1.0")
     implementation("net.dv8tion:JDA:5.2.1")
     compileOnly("net.citizensnpcs:citizens-main:2.0.37-SNAPSHOT")
     //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")

@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.Items
 
 import com.lukehemmin.lukeVanilla.System.ColorUtill.ColorUtil.translateColorCodes
+import org.bukkit.Material
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
@@ -15,14 +16,25 @@ class ItemCommand : CommandExecutor {
         }
 
         val player = sender
+        
+        // 인수가 없을 경우 처리
+        if (args.isEmpty()) {
+            player.sendMessage("Usage: /item <setname|adddesc|removedesc|cleardesc|info> [args]")
+            return true
+        }
+        
         val item = player.inventory.itemInMainHand
-
-        if (item == null || !item.hasItemMeta()) {
+        
+        // AIR 타입 아이템 체크
+        if (item.type == Material.AIR) {
             player.sendMessage("You must be holding an item to use this command.")
             return true
         }
 
-        val meta = item.itemMeta
+        val meta = item.itemMeta ?: run {
+            player.sendMessage("This item doesn't support metadata operations.")
+            return true
+        }
 
         when (args[0].toLowerCase()) {
             "setname" -> {

@@ -25,6 +25,9 @@ commands:
     usage: "/item <setname|adddesc|removedesc|cleardesc|info>"
     permission: "lukevanilla.item"
     permission-message: "You do not have permission to use this command."
+  아이템:
+    description: "이벤트 아이템을 등록하거나 조회하고 수령합니다."
+    usage: "/아이템 [등록|조회|수령] [이벤트타입]"
   infomessage:
     permission: "lukevanilla.admin"
     permission-message: "You do not have permission to use this command."
@@ -81,6 +84,15 @@ commands:
   발렌타인방패받기:
     description: 발렌타인 기념 방패를 받습니다.
     usage: /발렌타인방패받기
+  아이템정보:
+    description: "현재 들고 있는 아이템의 통계 정보를 조회합니다."
+    usage: "/아이템정보"
+    aliases: [ itemstats ]
+  itemstats:
+    description: "아이템 통계 시스템 관리 명령어"
+    usage: "/itemstats log <on|off>"
+    permission: "itemstats.admin"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -110,4 +122,7 @@ permissions:
     default: op
   lukevanilla.adminchat:
     description: "관리자 채팅 사용 권한"
+    default: op
+  itemstats.admin:
+    description: "아이템 통계 시스템 관리 명령어 사용 권한"
     default: op
