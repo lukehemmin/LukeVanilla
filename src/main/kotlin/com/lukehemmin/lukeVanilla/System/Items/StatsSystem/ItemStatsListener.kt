@@ -29,6 +29,11 @@ import org.bukkit.inventory.CraftingInventory
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import org.bukkit.Bukkit
+import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.block.Action
+import org.bukkit.event.inventory.InventoryType.SlotType
+import org.bukkit.inventory.meta.ArmorMeta
+import org.bukkit.inventory.meta.trim.ArmorTrim
 
 class ItemStatsListener(private val plugin: Main, private val statsManager: ItemStatsManager) : Listener {
 
@@ -364,7 +369,7 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
     }
     
     // 엔티티 킬 시 통계 업데이트
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     fun onEntityDeath(event: EntityDeathEvent) {
         val entity = event.entity
         val killer = entity.killer ?: return
@@ -372,11 +377,25 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
         
         if (item.type.isAir) return
         
+        // 이미 처리된 이벤트인지 확인 (UpgradeItem에서 처리한 경우)
+        if (event.entity.hasMetadata("luke_kill_processed")) {
+            return
+        }
+        
         // 바닐라 또는 Nexo 아이템 체크
         val isNexoItem = statsSystem.isTrackableNexoItem(item)
         val isVanillaWeapon = isWeapon(item.type)
         
         if (isNexoItem || isVanillaWeapon) {
+            // Nexo 아이템인 경우 이미 UpgradeItem에서 처리했을 수 있음
+            if (isNexoItem) {
+                val nexoId = NexoItems.idFromItem(item)
+                if (nexoId != null) {
+                    // 이미 UpgradeItem이 처리했다면 건너뛰기
+                    return
+                }
+            }
+            
             // 플레이어 킬인 경우
             if (entity is Player) {
                 statsManager.incrementPlayersKilled(item)
@@ -528,5 +547,60 @@ class ItemStatsListener(private val plugin: Main, private val statsManager: Item
                type == Material.NETHERITE_CHESTPLATE ||
                type == Material.NETHERITE_LEGGINGS ||
                type == Material.NETHERITE_BOOTS
+    }
+
+    // 플레이어가 갑옷을 입는 이벤트 감지 (우클릭으로 장착)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    fun onPlayerEquipArmor(event: PlayerInteractEvent) {
+        // 우클릭 아닌 경우 무시
+        if (event.action != Action.RIGHT_CLICK_AIR && event.action != Action.RIGHT_CLICK_BLOCK) {
+            return
+        }
+        
+        val player = event.player
+        val item = event.item ?: return
+        
+        // 방어구가 아니면 무시
+        if (!isArmor(item.type)) {
+            return
+        }
+        
+        statsSystem.logDebug("플레이어 ${player.name}가 방어구 장착 시도: ${item.type}")
+        
+        // 형판 정보 확인
+        val meta = item.itemMeta
+        if (meta is ArmorMeta && meta.hasTrim()) {
+            statsSystem.logDebug("방어구에 형판이 있음: ${meta.trim?.pattern?.key}")
+        }
+    }
+    
+    // 인벤토리 클릭으로 갑옷 장착 감지
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    fun onInventoryClickArmor(event: InventoryClickEvent) {
+        // 플레이어가 아니면 무시
+        if (event.whoClicked !is Player) {
+            return
+        }
+        
+        // 갑옷 슬롯 클릭이 아니면 무시
+        if (event.slotType != SlotType.ARMOR) {
+            return
+        }
+        
+        val player = event.whoClicked as Player
+        val item = event.cursor
+        
+        // 클릭한 아이템이 없거나 방어구가 아니면 무시
+        if (item == null || item.type.isAir || !isArmor(item.type)) {
+            return
+        }
+        
+        statsSystem.logDebug("플레이어 ${player.name}가 인벤토리에서 방어구 장착: ${item.type}")
+        
+        // 형판 정보 확인 및 로깅
+        val meta = item.itemMeta
+        if (meta is ArmorMeta && meta.hasTrim()) {
+            statsSystem.logDebug("인벤토리에서 장착한 방어구에 형판이 있음: ${meta.trim?.pattern?.key}")
+        }
     }
 }

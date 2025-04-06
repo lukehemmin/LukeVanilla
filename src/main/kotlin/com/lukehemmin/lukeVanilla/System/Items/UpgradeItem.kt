@@ -17,6 +17,7 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
 import org.bukkit.persistence.PersistentDataContainer
 import org.bukkit.persistence.PersistentDataType
+import org.bukkit.metadata.FixedMetadataValue
 
 /**
  * 특정 아이템들을 킬 수에 따라 업그레이드하는 시스템을 관리하는 클래스
@@ -28,6 +29,9 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
     private val statsSystem = plugin.statsSystem
     private val AUTO_UPGRADE_KEY = NamespacedKey(plugin, "lukestats_auto_upgrade")
     private val ITEM_ID_KEY = NamespacedKey(plugin, "lukestats_item_id")
+    
+    // 중복 카운트 방지를 위한 메타데이터 키
+    private val KILL_PROCESSED_META = "luke_kill_processed"
     
     // 업그레이드 아이템 정보를 저장하는 클래스
     data class UpgradeInfo(
@@ -49,19 +53,19 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         "merry_christmas_sword" to UpgradeInfo(
             "merry_christmas_sword", 
             "merry_christmas_greatsword", 
-            30,
+            5000,
             "${ChatColor.GREEN}${ChatColor.BOLD}크리스마스 검이 대검으로 바뀌었어요!"
         ),
         "valentine_sword" to UpgradeInfo(
             "valentine_sword", 
             "valentine_greatsword",
-            30,
+            15000,
             "${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}발렌타인 데이 검이 대검으로 바뀌었어요!"
         ),
         "firework_sword" to UpgradeInfo(
             "firework_sword",
             "firework_greatsword",
-            30,
+            5000,
             "${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}폭죽 검이 대검으로 바뀌었어요!"
         )
     )
@@ -154,47 +158,47 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
         return false
     }
     
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true) // 우선순위를 NORMAL로 변경
     fun onEntityDeath(event: EntityDeathEvent) {
         val killer = event.entity.killer ?: return
         val item = killer.inventory.itemInMainHand
-        val itemId = getItemId(item)
         
-        // 아이템 ID가 없으면 처리하지 않음
-        if (itemId == null) return
-        
-        // 이미 업그레이드된 아이템인지 확인
-        if (isAlreadyUpgraded(itemId)) {
-            // 이미 업그레이드된 아이템이면 킬 수만 증가시키고 리턴
-            statsSystem.getStatsManager().incrementMobsKilled(item)
+        // 이미 처리된 이벤트인지 확인
+        if (event.entity.hasMetadata(KILL_PROCESSED_META)) {
             return
         }
         
-        // 업그레이드 가능한 아이템인지 확인
-        val upgradeInfo = upgradeMap[itemId] ?: return
+        // 메타데이터 설정하여 중복 처리 방지
+        event.entity.setMetadata(KILL_PROCESSED_META, FixedMetadataValue(plugin, true))
         
-        // 재확인: 아이템이 정말로 소스 아이템인지 확인
-        if (itemId != upgradeInfo.sourceItemId) return
+        val itemId = getItemId(item)
         
-        // StatsSystem을 사용하여 몹 킬 수 증가
+        // Nexo 아이템이 아니면 무시 (타 시스템에서 처리)
+        if (itemId == null) return
+        
+        // Nexo 아이템의 킬 카운트 증가 (모든 Nexo 아이템에 적용)
         statsSystem.getStatsManager().incrementMobsKilled(item)
         
-        // 현재 몹 킬 수 가져오기
-        val kills = statsSystem.getStatsManager().getMobsKilled(item)
-        
-        // 자동 성장 기능이 활성화되어 있는지 확인
-        if (isAutoUpgradeEnabled(item)) {
-            // 업그레이드 조건 확인
-            if (kills >= upgradeInfo.killsRequired) {
-                upgradeItem(killer, item, upgradeInfo)
-            }
-        } else {
-            // 자동 성장이 비활성화되어 있지만 조건 충족 시 메시지 표시
-            if (kills == upgradeInfo.killsRequired) {
-                killer.sendMessage("${ChatColor.GOLD}${ChatColor.BOLD}아이템이 성장 조건을 충족했습니다! ${ChatColor.YELLOW}${ChatColor.BOLD}/자동성장켜기${ChatColor.GOLD}${ChatColor.BOLD} 명령어를 사용하여 성장시킬 수 있습니다.")
-            } else if (kills > upgradeInfo.killsRequired && kills % 100 == 0) {
-                // 100킬마다 한 번씩 알림 메시지 표시
-                killer.sendMessage("${ChatColor.GOLD}${ChatColor.BOLD}아이템이 이미 성장 조건을 충족했습니다! ${ChatColor.YELLOW}${ChatColor.BOLD}/자동성장켜기${ChatColor.GOLD}${ChatColor.BOLD} 명령어를 사용하여 성장시킬 수 있습니다.")
+        // 업그레이드 가능한 아이템인 경우 추가 처리
+        val upgradeInfo = upgradeMap[itemId]
+        if (upgradeInfo != null) {
+            // 현재 몹 킬 수 가져오기
+            val kills = statsSystem.getStatsManager().getMobsKilled(item)
+            
+            // 자동 성장 기능이 활성화되어 있는지 확인
+            if (isAutoUpgradeEnabled(item)) {
+                // 업그레이드 조건 확인
+                if (kills >= upgradeInfo.killsRequired) {
+                    upgradeItem(killer, item, upgradeInfo)
+                }
+            } else {
+                // 자동 성장이 비활성화되어 있지만 조건 충족 시 메시지 표시
+                if (kills == upgradeInfo.killsRequired) {
+                    killer.sendMessage("${ChatColor.GOLD}${ChatColor.BOLD}아이템이 성장 조건을 충족했습니다! ${ChatColor.YELLOW}${ChatColor.BOLD}/자동성장켜기${ChatColor.GOLD}${ChatColor.BOLD} 명령어를 사용하여 성장시킬 수 있습니다.")
+                } else if (kills > upgradeInfo.killsRequired && kills % 100 == 0) {
+                    // 100킬마다 한 번씩 알림 메시지 표시
+                    killer.sendMessage("${ChatColor.GOLD}${ChatColor.BOLD}아이템이 이미 성장 조건을 충족했습니다! ${ChatColor.YELLOW}${ChatColor.BOLD}/자동성장켜기${ChatColor.GOLD}${ChatColor.BOLD} 명령어를 사용하여 성장시킬 수 있습니다.")
+                }
             }
         }
     }

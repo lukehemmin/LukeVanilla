@@ -7,6 +7,10 @@ import org.bukkit.entity.Player
 import org.bukkit.event.Listener
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
+import org.bukkit.inventory.meta.LeatherArmorMeta
+import org.bukkit.inventory.meta.ArmorMeta
+import org.bukkit.inventory.meta.trim.ArmorTrim
+import org.bukkit.Color
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -287,6 +291,20 @@ class ItemStatsManager(private val plugin: Main) : Listener {
             val displayName = if (meta.hasDisplayName()) meta.displayName else null
             val lore = meta.lore
             
+            // 형판(패턴) 정보 저장
+            var armorTrim: ArmorTrim? = null
+            if (meta is ArmorMeta && meta.hasTrim()) {
+                armorTrim = meta.trim
+                statsSystem.logDebug("방어구 형판 정보 저장됨: ${armorTrim?.pattern?.key}")
+            }
+            
+            // 가죽 갑옷 색상 저장
+            var leatherColor: Color? = null
+            if (meta is LeatherArmorMeta) {
+                leatherColor = meta.color
+                statsSystem.logDebug("가죽 갑옷 색상 저장됨: ${leatherColor}")
+            }
+            
             // 3. 네임스페이스 키 생성
             val currentTime = LocalDateTime.now().format(ISO_DATE_FORMATTER)
             val creatorKey = NamespacedKey(plugin, "${NAMESPACE}_${CREATOR_KEY}")
@@ -298,7 +316,23 @@ class ItemStatsManager(private val plugin: Main) : Listener {
             meta.persistentDataContainer.set(createdAtKey, PersistentDataType.STRING, currentTime)
             meta.persistentDataContainer.set(damageBlockedKey, PersistentDataType.INTEGER, 0)
             
-            // 5. 최종 메타데이터 적용
+            // 5. 기존 속성 복원
+            if (displayName != null) meta.setDisplayName(displayName)
+            if (lore != null) meta.lore = lore
+            
+            // 형판(패턴) 정보 복원
+            if (armorTrim != null && meta is ArmorMeta) {
+                meta.setTrim(armorTrim)
+                statsSystem.logDebug("방어구 형판 정보 복원됨")
+            }
+            
+            // 가죽 갑옷 색상 복원
+            if (leatherColor != null && meta is LeatherArmorMeta) {
+                meta.setColor(leatherColor)
+                statsSystem.logDebug("가죽 갑옷 색상 복원됨")
+            }
+            
+            // 6. 최종 메타데이터 적용
             val success = item.setItemMeta(meta)
             
             // 6. 성공 여부 확인
@@ -604,4 +638,4 @@ class ItemStatsManager(private val plugin: Main) : Listener {
 
         return stats
     }
-} 
+}
