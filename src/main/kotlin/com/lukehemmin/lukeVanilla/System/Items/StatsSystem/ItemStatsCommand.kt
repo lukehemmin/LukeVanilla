@@ -11,18 +11,15 @@ import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.text.DecimalFormat
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 /**
  * 아이템 통계 명령어 처리기
- * /아이템정보 - 현재 들고 있는 아이템의 통계 정보를 조회합니다.
+ * /아이템정보 - 현재 들고 있는 아이템의 킬 카운트 정보를 조회합니다.
  */
 class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter {
 
     private val statsManager = plugin.statsSystem.getStatsManager()
     private val formatter = DecimalFormat("#,###.##")
-    private val dateFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (sender !is Player) {
@@ -40,7 +37,7 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
 
         // 통계 지원 아이템 확인 (바닐라 또는 Nexo)
         if (isTrackableSpecificItem(item.type) || plugin.statsSystem.isTrackableNexoItem(item)) {
-            showToolStats(player, item)
+            showItemStats(player, item)
         } else {
             player.sendMessage("${ChatColor.RED}이 아이템은 통계 정보를 지원하지 않습니다.")
             player.sendMessage("${ChatColor.YELLOW}통계 지원 아이템: 다이아몬드/네더라이트 도구 및 무기, 특정 Nexo 커스텀 아이템")
@@ -49,13 +46,9 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
         return true
     }
 
-    private fun showToolStats(player: Player, item: ItemStack) {
-        val creator = statsManager.getCreator(item)
-        val creationDate = statsManager.getCreationDate(item)
-        val blocksMined = statsManager.getBlocksMined(item)
+    private fun showItemStats(player: Player, item: ItemStack) {
         val mobsKilled = statsManager.getMobsKilled(item)
         val playersKilled = statsManager.getPlayersKilled(item)
-        val damageDealt = statsManager.getDamageDealt(item)
 
         // Nexo 아이템 여부 확인 및 ID 가져오기
         val nexoItemId = try {
@@ -66,91 +59,15 @@ class ItemStatsCommand(private val plugin: Main) : CommandExecutor, TabCompleter
             null
         }
 
-        player.sendMessage("${ChatColor.GOLD}=== ${ChatColor.WHITE}아이템 통계 정보${ChatColor.GOLD} ===")
+        player.sendMessage("${ChatColor.GOLD}=== ${ChatColor.WHITE}아이템 킬 통계 정보${ChatColor.GOLD} ===")
         
         // Nexo 아이템인 경우 ID 표시
         if (nexoItemId != null) {
             player.sendMessage("${ChatColor.LIGHT_PURPLE}Nexo 아이템 ID: ${ChatColor.WHITE}$nexoItemId")
         }
         
-        // 제작자 정보 표시
-        val creatorName = if (creator != null) {
-            Bukkit.getOfflinePlayer(creator).name ?: "알 수 없음"
-        } else {
-            "알 수 없음"
-        }
-        player.sendMessage("${ChatColor.YELLOW}제작자: ${ChatColor.WHITE}$creatorName")
-        
-        // 제작일 정보 표시
-        val createdAt = if (creationDate != null) {
-            creationDate.format(dateFormatter)
-        } else {
-            "기록 없음"
-        }
-        player.sendMessage("${ChatColor.YELLOW}제작일: ${ChatColor.WHITE}$createdAt")
-        
-        player.sendMessage("${ChatColor.YELLOW}채굴한 블록: ${ChatColor.WHITE}${formatter.format(blocksMined)}")
         player.sendMessage("${ChatColor.YELLOW}처치한 몹: ${ChatColor.WHITE}${formatter.format(mobsKilled)}")
         player.sendMessage("${ChatColor.YELLOW}처치한 플레이어: ${ChatColor.WHITE}${formatter.format(playersKilled)}")
-        player.sendMessage("${ChatColor.YELLOW}입힌 데미지: ${ChatColor.WHITE}${formatter.format(damageDealt)}")
-    }
-
-    private fun showArmorStats(player: Player, item: ItemStack) {
-        val creator = statsManager.getCreator(item)
-        val creationDate = statsManager.getCreationDate(item)
-        val damageBlocked = statsManager.getDamageBlocked(item)
-
-        player.sendMessage("${ChatColor.GOLD}=== ${ChatColor.WHITE}방어구 통계 정보${ChatColor.GOLD} ===")
-        
-        // 제작자 정보 표시
-        val creatorName = if (creator != null) {
-            Bukkit.getOfflinePlayer(creator).name ?: "알 수 없음"
-        } else {
-            "알 수 없음"
-        }
-        player.sendMessage("${ChatColor.YELLOW}제작자: ${ChatColor.WHITE}$creatorName")
-        
-        // 제작일 정보 표시
-        val createdAt = if (creationDate != null) {
-            creationDate.format(dateFormatter)
-        } else {
-            "기록 없음"
-        }
-        player.sendMessage("${ChatColor.YELLOW}제작일: ${ChatColor.WHITE}$createdAt")
-        
-        player.sendMessage("${ChatColor.YELLOW}방어한 데미지: ${ChatColor.WHITE}${formatter.format(damageBlocked)}")
-    }
-
-    private fun showElytraStats(player: Player, item: ItemStack) {
-        val firstOwner = statsManager.getFirstOwner(item)
-        val obtainedDate = statsManager.getObtainedDate(item)
-        val distanceFlown = statsManager.getDistanceFlown(item)
-
-        player.sendMessage("${ChatColor.GOLD}=== ${ChatColor.WHITE}겉날개 통계 정보${ChatColor.GOLD} ===")
-        
-        // 최초 소유자 정보 표시
-        val ownerName = if (firstOwner != null) {
-            Bukkit.getOfflinePlayer(firstOwner).name ?: "알 수 없음"
-        } else {
-            "알 수 없음"
-        }
-        player.sendMessage("${ChatColor.YELLOW}최초 소유자: ${ChatColor.WHITE}$ownerName")
-        
-        // 획득일 정보 표시
-        val obtainedAt = if (obtainedDate != null) {
-            obtainedDate.format(dateFormatter)
-        } else {
-            "기록 없음"
-        }
-        player.sendMessage("${ChatColor.YELLOW}획득일: ${ChatColor.WHITE}$obtainedAt")
-        
-        // 1000m 이상이면 km 단위로 표시
-        if (distanceFlown >= 1000) {
-            val distanceKm = distanceFlown / 1000
-            player.sendMessage("${ChatColor.YELLOW}비행 거리: ${ChatColor.WHITE}${formatter.format(distanceKm)} km")
-        } else {
-            player.sendMessage("${ChatColor.YELLOW}비행 거리: ${ChatColor.WHITE}${formatter.format(distanceFlown)} m")
-        }
     }
 
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {

@@ -6,7 +6,6 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
-import org.bukkit.event.inventory.CraftItemEvent
 import org.bukkit.event.inventory.PrepareAnvilEvent
 import org.bukkit.event.player.PlayerItemMendEvent
 import org.bukkit.inventory.ItemStack
@@ -18,7 +17,7 @@ import java.util.logging.Level
  * 이 클래스는 다음과 같은 기능을 제공합니다:
  * 1. 아이템 통계 관리자 초기화
  * 2. 이벤트 리스너 등록
- * 3. 아이템 생성 이벤트 처리 (제작, 수리 등)
+ * 3. 킬 카운트 처리
  */
 class StatsSystem(val plugin: Main) : Listener {
     
@@ -42,18 +41,10 @@ class StatsSystem(val plugin: Main) : Listener {
     private val statsManager = ItemStatsManager(plugin)
     private val statsListener = ItemStatsListener(plugin, statsManager)
     
-    // 최근 제작된 아이템 추적 맵 (플레이어 UUID -> 아이템 고유 식별자 리스트)
-    val recentlyCraftedItems = mutableMapOf<UUID, MutableList<String>>()
-    
     init {
         // 이벤트 리스너 등록
         plugin.server.pluginManager.registerEvents(statsListener, plugin)
         plugin.server.pluginManager.registerEvents(this, plugin)
-        
-        // 60초마다 오래된 제작 기록 정리
-        plugin.server.scheduler.runTaskTimer(plugin, Runnable {
-            cleanupOldCraftingRecords()
-        }, 1200L, 1200L) // 60초(1200틱)마다 실행
         
         plugin.logger.info("아이템 통계 시스템이 초기화되었습니다.")
         plugin.logger.info("로그 상태: ${if (isLoggingEnabled) "활성화됨" else "비활성화됨"}")
@@ -89,72 +80,19 @@ class StatsSystem(val plugin: Main) : Listener {
     // 아이템 통계 정보 복사 (아이템 수리나 합성 시 사용)
     private fun copyStats(source: ItemStack, target: ItemStack) {
         // 도구인 경우
-        if (isTool(source.type) && isTool(target.type)) {
-            val creator = statsManager.getCreator(source)
-            val creationDate = statsManager.getCreationDate(source)
-            val blocksMined = statsManager.getBlocksMined(source)
+        if (ItemUtils.isTool(source.type) && ItemUtils.isTool(target.type)) {
             val mobsKilled = statsManager.getMobsKilled(source)
             val playersKilled = statsManager.getPlayersKilled(source)
-            val damageDealt = statsManager.getDamageDealt(source)
             
-            creator?.let {
-                val player = plugin.server.getPlayer(it)
-                if (player != null) {
-                    statsManager.initializeTool(target, player)
-                    
-                    // 기존 통계 복원
-                    if (blocksMined > 0) {
-                        for (i in 1..blocksMined) {
-                            statsManager.incrementBlocksMined(target)
-                        }
-                    }
-                    if (mobsKilled > 0) {
-                        for (i in 1..mobsKilled) {
-                            statsManager.incrementMobsKilled(target)
-                        }
-                    }
-                    if (playersKilled > 0) {
-                        for (i in 1..playersKilled) {
-                            statsManager.incrementPlayersKilled(target)
-                        }
-                    }
-                    if (damageDealt > 0) {
-                        statsManager.addDamageDealt(target, damageDealt.toDouble())
-                    }
+            // 킬 카운트 관련 통계만 복사
+            if (mobsKilled > 0) {
+                for (i in 1..mobsKilled) {
+                    statsManager.incrementMobsKilled(target)
                 }
             }
-        } 
-        // 방어구인 경우
-        else if (isArmor(source.type) && isArmor(target.type)) {
-            val creator = statsManager.getCreator(source)
-            val damageBlocked = statsManager.getDamageBlocked(source)
-            
-            creator?.let {
-                val player = plugin.server.getPlayer(it)
-                if (player != null) {
-                    statsManager.initializeArmor(target, player)
-                    
-                    // 기존 통계 복원
-                    if (damageBlocked > 0) {
-                        statsManager.addDamageBlocked(target, damageBlocked.toDouble())
-                    }
-                }
-            }
-        }
-        // 엘리트라인 경우
-        else if (source.type == Material.ELYTRA && target.type == Material.ELYTRA) {
-            val firstOwner = statsManager.getFirstOwner(source)
-            val distanceFlown = statsManager.getDistanceFlown(source)
-            
-            firstOwner?.let {
-                val player = plugin.server.getPlayer(it)
-                if (player != null) {
-                    statsManager.initializeElytra(target, player)
-                    
-                    // 기존 통계 복원
-                    if (distanceFlown > 0) {
-                        statsManager.addDistanceFlown(target, distanceFlown)
-                    }
+            if (playersKilled > 0) {
+                for (i in 1..playersKilled) {
+                    statsManager.incrementPlayersKilled(target)
                 }
             }
         }
@@ -162,25 +100,8 @@ class StatsSystem(val plugin: Main) : Listener {
     
     // 추적 가능한 아이템인지 확인 (바닐라 아이템과 Nexo 커스텀 아이템 모두 체크)
     fun isTrackableItem(item: ItemStack): Boolean {
-        return !item.type.isAir && (isTool(item.type) || isArmor(item.type) || 
+        return !item.type.isAir && (ItemUtils.isTool(item.type) || ItemUtils.isArmor(item.type) || 
               item.type == Material.ELYTRA || isTrackableNexoItem(item))
-    }
-    
-    // 도구인지 확인
-    private fun isTool(type: Material): Boolean {
-        return type.name.endsWith("_PICKAXE") ||
-               type.name.endsWith("_AXE") ||
-               type.name.endsWith("_SHOVEL") ||
-               type.name.endsWith("_HOE")
-    }
-    
-    // 방어구인지 확인
-    private fun isArmor(type: Material): Boolean {
-        return type.name.endsWith("_HELMET") ||
-               type.name.endsWith("_CHESTPLATE") ||
-               type.name.endsWith("_LEGGINGS") ||
-               type.name.endsWith("_BOOTS") ||
-               type == Material.SHIELD
     }
     
     // 외부에서 StatsManager 접근을 위한 getter
@@ -260,13 +181,48 @@ class StatsSystem(val plugin: Main) : Listener {
             return false
         }
     }
+}
+
+/**
+ * 아이템 유틸리티 클래스 - 여러 클래스에서 공통으로 사용하는 함수 모음
+ */
+object ItemUtils {
+    // 도구인지 확인
+    fun isTool(type: Material): Boolean {
+        return type.name.endsWith("_PICKAXE") ||
+               type.name.endsWith("_AXE") ||
+               type.name.endsWith("_SHOVEL") ||
+               type.name.endsWith("_HOE")
+    }
     
-    // 오래된 제작 기록 정리
-    private fun cleanupOldCraftingRecords() {
-        if (recentlyCraftedItems.isEmpty()) return
-        
-        logDebug("오래된 제작 기록 정리 중...")
-        recentlyCraftedItems.clear()
-        logDebug("제작 기록 정리 완료")
+    // 무기인지 확인
+    fun isWeapon(type: Material): Boolean {
+        return type.name.endsWith("_SWORD") ||
+               type.name.endsWith("_AXE") ||
+               type == Material.BOW ||
+               type == Material.CROSSBOW ||
+               type == Material.TRIDENT
+    }
+    
+    // 방어구인지 확인
+    fun isArmor(type: Material): Boolean {
+        return type.name.endsWith("_HELMET") ||
+               type.name.endsWith("_CHESTPLATE") ||
+               type.name.endsWith("_LEGGINGS") ||
+               type.name.endsWith("_BOOTS") ||
+               type == Material.SHIELD
+    }
+    
+    // 네더라이트 업그레이드인지 확인
+    fun isNetheriteUpgrade(type: Material): Boolean {
+        return type == Material.NETHERITE_SWORD ||
+               type == Material.NETHERITE_PICKAXE ||
+               type == Material.NETHERITE_AXE ||
+               type == Material.NETHERITE_SHOVEL ||
+               type == Material.NETHERITE_HOE ||
+               type == Material.NETHERITE_HELMET ||
+               type == Material.NETHERITE_CHESTPLATE ||
+               type == Material.NETHERITE_LEGGINGS ||
+               type == Material.NETHERITE_BOOTS
     }
 }
