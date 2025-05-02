@@ -7,8 +7,11 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
+import com.velocitypowered.api.proxy.messages.ChannelIdentifier
+import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier // Import 추가
 import org.slf4j.Logger
 import java.nio.file.Path
+import com.lukehemmin.lukeVanilla.velocity.PluginMessageListener
 
 @Plugin(
     id = "lukevanilla",
@@ -64,9 +67,15 @@ class VelocityMain @Inject constructor(
         
         // 이벤트 리스너 초기화
         eventListeners = EventListeners(server, logger, serverMonitor, redirectManager)
-        
+        // 플러그인 메시지 리스너 초기화 및 채널 등록
+        // 'of' 대신 'MinecraftChannelIdentifier.create' 사용
+        val channel = MinecraftChannelIdentifier.create("luke", "vanilla_status")
+        server.channelRegistrar.register(channel)
+        val pluginMsgListener = PluginMessageListener(redirectManager, logger)
+        server.eventManager.register(this, pluginMsgListener)
+
         // Vanilla 서버 상태 변경 콜백 설정
-        serverMonitor.onVanillaStatusChange { isOnline ->
+        serverMonitor.onVanillaStatusChange { isOnline -> 
             // 메인 스레드에서 온라인/오프라인 이벤트 처리
             server.scheduler.buildTask(this) {
                 if (isOnline) {

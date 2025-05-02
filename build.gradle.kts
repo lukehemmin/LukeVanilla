@@ -51,6 +51,8 @@ dependencies {
     
     // Velocity API 의존성 - 버전 수정
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
+    // Netty buffer for PluginMessageEvent data
+    implementation("io.netty:netty-buffer:4.1.99.Final")
     annotationProcessor("com.velocitypowered:velocity-api:3.1.1")
 }
 
