@@ -17,6 +17,8 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/") {
         name = "papermc-repo"
     }
+    // Velocity API를 위한 저장소 추가
+    maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://oss.sonatype.org/content/groups/public/") {
         name = "sonatype"
     }
@@ -46,6 +48,10 @@ dependencies {
     compileOnly("com.github.Gecolay.GSit:core:1.13.0") {
         exclude(group = "com.github.Gecolay")
     }
+    
+    // Velocity API 의존성 - 버전 수정
+    compileOnly("com.velocitypowered:velocity-api:3.1.1")
+    annotationProcessor("com.velocitypowered:velocity-api:3.1.1")
 }
 
 val targetJavaVersion = 21

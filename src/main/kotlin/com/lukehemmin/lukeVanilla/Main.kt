@@ -22,6 +22,7 @@ import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.StatsSystem
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.ItemStatsCommand
+import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 
@@ -217,6 +218,9 @@ class Main : JavaPlugin() {
 
         // NPCSitPreventer 등록
         server.pluginManager.registerEvents(NPCSitPreventer(this), this)
+
+        // 플러그인 메시지 채널 등록
+        VanillaShutdownNotifier.registerChannel(this)
     }
 
     // 이름을 다르게 하여 충돌 방지
@@ -225,6 +229,8 @@ class Main : JavaPlugin() {
     }
 
     override fun onDisable() {
+        // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
+        VanillaShutdownNotifier.notifyShutdownImminent(this)
         try {
             // Discord 봇 종료를 먼저 실행
             if (::discordBot.isInitialized) {

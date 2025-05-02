@@ -1,0 +1,8 @@
+{
+  "id": "lukevanilla",
+  "name": "LukeVanilla Velocity",
+  "version": "1.0-SNAPSHOT",
+  "description": "LukeVanilla Velocity plugin",
+  "authors": ["lukehemmin"],
+  "main": "com.lukehemmin.lukeVanilla.velocity.VelocityMain"
+}
