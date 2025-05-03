@@ -1,6 +1,5 @@
 package com.lukehemmin.lukeVanilla
 
-import com.lukehemmin.lukeVanilla.Lobby.SnowMinigame
 import com.lukehemmin.lukeVanilla.System.AntiVPN
 import com.lukehemmin.lukeVanilla.System.Command.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
@@ -27,7 +26,6 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 
 class Main : JavaPlugin() {
-    private lateinit var snowMinigame: SnowMinigame
     lateinit var database: Database
     private lateinit var serviceType: String
     private lateinit var nametagManager: NametagManager
@@ -63,23 +61,26 @@ class Main : JavaPlugin() {
             // DiscordRoleManager 초기화
             discordRoleManager = DiscordRoleManager(database, discordBot.jda)
 
-            // DiscordAuth 초기화 및 리스너 등록
-            val discordAuth = DiscordAuth(database, this)
-            discordBot.jda.addEventListener(discordAuth)
-
-            // DiscordLeave 초기화 및 리스너 등록
-            val discordLeave = DiscordLeave(database, this, discordBot.jda)
-            discordBot.jda.addEventListener(discordLeave) // 수정된 부분
-            server.pluginManager.registerEvents(discordLeave, this)
-
             // DiscordVoiceChannelListener 초기화 및 리스너 등록
             discordBot.jda.addEventListener(DiscordVoiceChannelListener(this))
 
-            // 티토커 채팅 리스너 등록
-            discordBot.jda.addEventListener(TitokerChatListener(this))
-
             // ItemRestoreLogger 초기화
             itemRestoreLogger = ItemRestoreLogger(database, this, discordBot.jda)
+
+            // 서비스 타입이 "Lobby"가 아닐 경우에만 인증 및 관련 시스템 초기화
+            if (serviceType != "Lobby") {
+                // DiscordAuth 초기화 및 리스너 등록
+                val discordAuth = DiscordAuth(database, this)
+                discordBot.jda.addEventListener(discordAuth)
+
+                // DiscordLeave 초기화 및 리스너 등록
+                val discordLeave = DiscordLeave(database, this, discordBot.jda)
+                discordBot.jda.addEventListener(discordLeave) // 수정된 부분
+                server.pluginManager.registerEvents(discordLeave, this)
+
+                // 티토커 채팅 리스너 등록
+                discordBot.jda.addEventListener(TitokerChatListener(this))
+            }
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")
         }
@@ -99,12 +100,6 @@ class Main : JavaPlugin() {
         server.scheduler.runTaskTimer(this, Runnable {
             Player_Join_And_Quit_Message_Listener.updateMessages(database)
         }, 0L, 1200L) // 60초마다 실행 (1200 ticks)
-
-        // Register SnowMinigame if serviceType is Lobby
-        if (serviceType == "Lobby") {
-            snowMinigame = SnowMinigame(this)
-            server.pluginManager.registerEvents(snowMinigame, this)
-        }
 
         // Nametag System
         nametagManager = NametagManager(this, database)
