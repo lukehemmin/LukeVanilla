@@ -6,7 +6,7 @@ import org.bukkit.ChatColor
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
-import org.bukkit.entity.Player
+import org.bukkit.entity.*
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
@@ -16,15 +16,16 @@ import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.player.PlayerTeleportEvent
 import org.bukkit.inventory.ItemStack
+import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitRunnable
 import org.bukkit.scheduler.BukkitTask
+import org.bukkit.attribute.Attribute
 import java.util.*
+import kotlin.math.*
 
 data class TeamData(val name: String, val color: ChatColor, val spawn: Location)
 
-class SnowMinigame(
-    private val plugin: Main
-) : Listener {
+class SnowMinigame(private val plugin: JavaPlugin) : Listener {
 
     private val waitingPlayers = mutableSetOf<UUID>()
     private val playerInventories = mutableMapOf<UUID, Array<ItemStack?>>()
@@ -87,7 +88,7 @@ class SnowMinigame(
     }
 
     enum class GameState {
-        WAITING, COUNTING_DOWN, PAUSED, IN_GAME, FINISHED
+        WAITING, COUNTING_DOWN, PAUSED, IN_GAME, FINISHED, RESETTING
     }
 
     private fun isInsideArena(location: Location): Boolean {
@@ -98,14 +99,23 @@ class SnowMinigame(
     }
 
     private fun addPlayer(player: Player) {
-        if (gameState == GameState.IN_GAME || gameState == GameState.FINISHED) {
-            player.sendMessage("${ChatColor.RED}게임이 이미 진행 중이거나 종료되었습니다.")
-            return
-        }
-
-        if (gameState == GameState.PAUSED && waitingPlayers.size >= maxPlayers) {
-            if (!waitingPlayers.contains(player.uniqueId)) {
-                player.sendMessage("${ChatColor.RED}게임 시작 대기열이 가득 찼습니다.")
+        when (gameState) {
+            GameState.WAITING -> {
+                if (waitingPlayers.size >= maxPlayers) {
+                    player.sendMessage("${ChatColor.RED}게임 시작 대기열이 가득 찼습니다.")
+                    return
+                }
+            }
+            GameState.IN_GAME, GameState.FINISHED -> {
+                player.sendMessage("${ChatColor.RED}게임이 이미 진행 중이거나 종료되었습니다.")
+                return
+            }
+            GameState.RESETTING -> {
+                player.sendMessage("${ChatColor.RED}게임이 재설정 중입니다. 잠시 후 다시 시도해주세요.")
+                return
+            }
+            else -> {
+                player.sendMessage("${ChatColor.RED}현재 게임에 참여할 수 없는 상태입니다 (Unknown State: $gameState).")
                 return
             }
         }
@@ -184,8 +194,20 @@ class SnowMinigame(
                     cancelCountdown("${ChatColor.RED}최소 인원 미달로 카운트다운이 취소되었습니다.")
                 }
             }
-            GameState.IN_GAME, GameState.FINISHED -> { /* Handle later */ }
+            GameState.IN_GAME -> {
+                // 게임 진행 중 주기적 체크 (필요하다면)
+            }
+            GameState.FINISHED -> {
+                // 게임 종료 후 상태
+            }
+            GameState.RESETTING -> {
+                // 리셋 중 상태
+            }
+            else -> {
+                println("[LukeVanilla] checkPlayerCountAndManageCountdown: 예상치 못한 게임 상태: $gameState")
+            }
         }
+
         if (previousState != gameState) {
             println("[LukeVanilla] 상태가 ${previousState} 에서 ${gameState} 로 변경되었습니다.")
         }
@@ -337,22 +359,76 @@ class SnowMinigame(
 
     private fun resetGame(resetMessage: String) {
         println("[LukeVanilla] 게임 상태를 초기화합니다. 이유: ${resetMessage}")
+        gameState = GameState.RESETTING // 리셋 중 상태 추가 (동시 접근 방지 목적)
 
-        (waitingPlayers + spectatingPlayers).mapNotNull { Bukkit.getPlayer(it) }.forEach { player ->
-            playerInventories[player.uniqueId]?.let {
-                player.inventory.contents = it
-                player.sendMessage("${ChatColor.GREEN}인벤토리를 복원했습니다.")
-                println("[LukeVanilla] 플레이어 ${player.name}의 인벤토리를 복원했습니다.")
-            } ?: println("[LukeVanilla] 경고: 플레이어 ${player.name}의 저장된 인벤토리를 찾을 수 없습니다.")
-
-            if (spectatingPlayers.contains(player.uniqueId)) {
-                player.gameMode = GameMode.SURVIVAL
-                // 필요시 플레이어를 로비나 다른 안전한 장소로 텔레포트
-                // player.teleport(lobbyLocation)
+        // 1. 아레나 정리
+        // 드롭된 아이템 제거
+        arenaWorld.entities.filterIsInstance<Item>().forEach { item: Item ->
+            if (isInsideArena(item.location)) { // item.location 사용 가능
+                item.remove() // 엔티티 자체의 remove() 메소드 사용
             }
         }
+        println("[LukeVanilla] Arena 내 드롭된 아이템 제거 완료.")
 
-        playerInventories.clear()
+        // 눈 블록 다시 채우기
+        println("[LukeVanilla] Arena 눈 블록 재생성 시작...")
+        refillSnowArea(arenaWorld, 4, 58, -4, 96)
+        refillSnowArea(arenaWorld, -5, 95, -7, 59)
+        refillSnowArea(arenaWorld, -8, 60, -9, 94)
+        refillSnowArea(arenaWorld, -10, 93, -11, 61)
+        refillSnowArea(arenaWorld, -12, 62, -12, 92)
+        refillSnowArea(arenaWorld, -13, 91, -13, 63)
+        refillSnowArea(arenaWorld, -14, 64, -14, 90)
+        refillSnowArea(arenaWorld, -15, 89, -15, 65)
+        refillSnowArea(arenaWorld, -16, 66, -16, 88)
+        refillSnowArea(arenaWorld, -17, 86, -17, 68)
+        refillSnowArea(arenaWorld, -18, 70, -18, 84)
+        refillSnowArea(arenaWorld, -19, 81, -19, 73)
+        refillSnowArea(arenaWorld, 5, 59, 7, 95)
+        refillSnowArea(arenaWorld, 8, 94, 9, 60)
+        refillSnowArea(arenaWorld, 10, 61, 11, 93)
+        refillSnowArea(arenaWorld, 12, 92, 12, 62)
+        refillSnowArea(arenaWorld, 13, 63, 13, 91)
+        refillSnowArea(arenaWorld, 14, 90, 14, 64)
+        refillSnowArea(arenaWorld, 15, 65, 15, 89)
+        refillSnowArea(arenaWorld, 16, 88, 16, 66)
+        refillSnowArea(arenaWorld, 17, 68, 17, 86)
+        refillSnowArea(arenaWorld, 18, 84, 18, 70)
+        refillSnowArea(arenaWorld, 19, 73, 19, 81)
+        println("[LukeVanilla] Arena 눈 블록 재생성 완료.")
+
+        // 2. 플레이어 상태 초기화
+        val holdingLocation = Location(arenaWorld, 0.0, 5.0, 54.0) // 대기 위치
+        val allPlayersInGame = (waitingPlayers + spectatingPlayers).toSet() // 중복 제거 및 처리 중 목록 변경 방지
+
+        allPlayersInGame.mapNotNull { Bukkit.getPlayer(it) }.forEach { player ->
+            // 인벤토리 복원 (게임 아이템 자동 제거됨)
+            playerInventories[player.uniqueId]?.let {
+                player.inventory.contents = it
+                playerInventories.remove(player.uniqueId)
+            } ?: player.inventory.clear()
+
+            // 게임 모드 서바이벌로 변경
+            player.gameMode = GameMode.SURVIVAL
+
+            // 기본 상태로 리셋
+            player.walkSpeed = 0.2f
+            player.flySpeed = 0.1f
+            player.isFlying = false
+            player.allowFlight = false
+            player.foodLevel = 20 // 배고픔 채우기
+            // L420 오류 해결 최종 시도: Attribute의 전체 경로를 명시적으로 사용합니다!
+            player.health = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.value ?: 20.0
+            player.fireTicks = 0 // 불 끄기
+            player.activePotionEffects.forEach { player.removePotionEffect(it.type) } // 포션 효과 제거
+
+            // 대기 위치로 텔레포트
+            player.teleport(holdingLocation)
+            player.sendMessage(resetMessage) // 리셋 사유 메시지 전송
+        }
+
+        // 3. 게임 데이터 초기화
+        playerInventories.clear() // 남은 인벤토리 데이터 삭제 (에러 대비)
         playerTeams.clear()
         spectatingPlayers.clear()
         gameMovementAllowed = false
@@ -361,10 +437,7 @@ class SnowMinigame(
 
         waitingPlayers.clear()
         gameState = GameState.WAITING
-        countdownTask?.cancel()
-        countdownTask = null
-        countdownSeconds = 30
-        println("[LukeVanilla] 게임 초기화가 완료되었습니다. 현재 상태: WAITING")
+        println("[LukeVanilla] 게임 상태 초기화 완료. 대기 상태로 전환.")
     }
 
     private fun broadcastWaitingMessage(message: String) {
@@ -566,9 +639,24 @@ class SnowMinigame(
         if (gameState == GameState.IN_GAME && waitingPlayers.size <= 1) {
             val winner = if (waitingPlayers.isNotEmpty()) Bukkit.getPlayer(waitingPlayers.first()) else null
             val winnerMessage = winner?.let { "${ChatColor.GOLD}${it.name}님이 최종 승리했습니다!" } ?: "${ChatColor.YELLOW}승자 없이 게임이 종료되었습니다."
-            println("[LukeVanilla] 게임 종료. ${winner?.name ?: "승자 없음"}")
-            broadcastGameMessage(winnerMessage)
-            resetGame("승자가 결정되었습니다.")
+            println("[LukeVanilla] 게임 종료. 승자: ${winner?.name ?: "없음"}")
+            // 모든 참가자 + 관전자에게 승리 메시지 전송
+            (waitingPlayers + spectatingPlayers).mapNotNull{ Bukkit.getPlayer(it)}.forEach { it.sendMessage(winnerMessage) }
+            resetGame("승자가 결정되어 게임을 초기화합니다.")
+        }
+    }
+
+    // 지정된 영역을 눈 블록으로 채우는 헬퍼 함수
+    private fun refillSnowArea(world: World, x1: Int, z1: Int, x2: Int, z2: Int) {
+        val y = 4 // 눈 블록 높이
+        val minX = minOf(x1, x2)
+        val maxX = maxOf(x1, x2)
+        val minZ = minOf(z1, z2)
+        val maxZ = maxOf(z1, z2)
+        for (x in minX..maxX) {
+            for (z in minZ..maxZ) {
+                world.getBlockAt(x, y, z).type = Material.SNOW_BLOCK
+            }
         }
     }
 }
