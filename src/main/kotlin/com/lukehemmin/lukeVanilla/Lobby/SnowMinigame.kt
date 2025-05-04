@@ -682,7 +682,6 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
         spectatingPlayers.add(player.uniqueId)
         player.gameMode = GameMode.SPECTATOR
         player.inventory.clear()
-        player.teleport(Location(arenaWorld, 0.0, 15.0, 77.0)) // 중앙 높은 곳 관전 위치
         player.sendMessage("${ChatColor.GRAY}탈락하여 관전 모드로 전환되었습니다.")
 
         checkWinCondition()
