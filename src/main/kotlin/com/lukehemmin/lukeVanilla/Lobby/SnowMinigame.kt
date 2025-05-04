@@ -226,7 +226,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
 
         gameState = GameState.COUNTING_DOWN
         countdownSeconds = 30
-        broadcastWaitingMessage("${ChatColor.GREEN}최소 인원이 모여 ${countdownSeconds}초 후 게임을 시작합니다!")
+        broadcastWaitingMessage("${ChatColor.GREEN}최소 인원이 모여 ${countdownSeconds}초 후 게임을 시작합니다! (${waitingPlayers.size}/${maxPlayers})")
         println("[LukeVanilla] 카운트다운을 시작합니다.")
 
         countdownTask?.cancel()
@@ -247,7 +247,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
                     return
                 }
                 if (countdownSeconds % 10 == 0 || countdownSeconds <= 5) {
-                    broadcastWaitingMessage("${ChatColor.GREEN}게임 시작까지 ${countdownSeconds}초...")
+                    broadcastWaitingMessage("${ChatColor.GREEN}게임 시작까지 ${countdownSeconds}초... (${waitingPlayers.size}/${maxPlayers})")
                 }
                 countdownSeconds--
             }
@@ -278,7 +278,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
         }
 
         gameState = GameState.COUNTING_DOWN
-        broadcastWaitingMessage("${ChatColor.GREEN}인원이 충족되어 카운트다운을 재개합니다! (${countdownSeconds}초 남음)")
+        broadcastWaitingMessage("${ChatColor.GREEN}인원이 충족되어 카운트다운을 재개합니다! (${countdownSeconds}초 남음) (${waitingPlayers.size}/${maxPlayers})")
         println("[LukeVanilla] ${countdownSeconds}초에서 카운트다운을 재개합니다.")
 
         countdownTask?.cancel()
@@ -299,7 +299,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
                     return
                 }
                 if (countdownSeconds % 10 == 0 || countdownSeconds <= 5) {
-                    broadcastWaitingMessage("${ChatColor.GREEN}게임 시작까지 ${countdownSeconds}초...")
+                    broadcastWaitingMessage("${ChatColor.GREEN}게임 시작까지 ${countdownSeconds}초... (${waitingPlayers.size}/${maxPlayers})")
                 }
                 countdownSeconds--
             }
@@ -317,7 +317,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
         gameState = GameState.WAITING
         val remainingSeconds = countdownSeconds
         countdownSeconds = 30
-        broadcastWaitingMessage(reason)
+        broadcastWaitingMessage("${reason} (${waitingPlayers.size}/${maxPlayers})")
         println("[LukeVanilla] ${previousState} 상태에서 ${remainingSeconds}초 남은 카운트다운이 취소되었습니다. 이유: ${reason}")
     }
 
