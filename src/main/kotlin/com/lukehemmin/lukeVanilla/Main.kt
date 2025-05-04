@@ -22,6 +22,7 @@ import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.StatsSystem
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.ItemStatsCommand
 import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
+import com.lukehemmin.lukeVanilla.System.SitSystem.*
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 
@@ -37,6 +38,7 @@ class Main : JavaPlugin() {
     lateinit var economyManager: EconomyManager
     lateinit var lockSystem: LockSystem
     lateinit var statsSystem: StatsSystem
+    lateinit var sitManager: SitManager
 //    lateinit var shopManager: ShopManager
 //    lateinit var shopPriceListener: ShopPriceListener
 //    lateinit var shopManager: ShopManager
@@ -204,6 +206,15 @@ class Main : JavaPlugin() {
 
         // 아이템 업그레이드 시스템 초기화
         UpgradeItem(this)
+        
+        // 앉기 시스템 초기화
+        sitManager = SitManager(this)
+        // 명령어 등록
+        getCommand("sit")?.setExecutor(SitCommand(sitManager))
+        getCommand("lay")?.setExecutor(LayCommand(sitManager))
+        getCommand("crawl")?.setExecutor(CrawlCommand(sitManager))
+        // 점프 등 액션 리스너 등록
+        server.pluginManager.registerEvents(PlayerActionListener(sitManager), this)
         
         // Christmas_sword 이벤트 리스너 등록 (UpgradeItem으로 통합)
         // Christmas_sword(this)
