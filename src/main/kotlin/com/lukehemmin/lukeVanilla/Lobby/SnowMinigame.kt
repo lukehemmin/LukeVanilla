@@ -418,7 +418,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
             player.flySpeed = 0.1f
             player.isFlying = false
             player.allowFlight = false
-            player.health = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.value ?: 20.0
+            player.health = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.baseValue ?: 20.0
             player.foodLevel = 20
             player.fireTicks = 0
             player.isGlowing = false // 발광 효과 제거
@@ -457,12 +457,6 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
 
         // 게임 중인 플레이어 이동 제한 (좌표 이동 시) + 시작 카운트다운 중 이동 제한
         if (gameState == GameState.IN_GAME && waitingPlayers.contains(player.uniqueId) && !gameMovementAllowed) {
-            event.isCancelled = true
-            return
-        }
-
-        // 관전자 상호작용 방지
-        if (spectatingPlayers.contains(player.uniqueId)) {
             event.isCancelled = true
             return
         }
@@ -592,11 +586,6 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
     @EventHandler
     fun onPlayerTeleport(event: PlayerTeleportEvent) {
         val player = event.player
-        // 관전자 상호작용 방지
-        if (spectatingPlayers.contains(player.uniqueId)) {
-            event.isCancelled = true
-            return
-        }
         // 다른 원인(COMMAND, PLUGIN 등)의 텔레포트는 영향을 받지 않음
     }
 
