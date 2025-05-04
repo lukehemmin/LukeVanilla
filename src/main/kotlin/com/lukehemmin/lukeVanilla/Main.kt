@@ -1,5 +1,7 @@
 package com.lukehemmin.lukeVanilla
 
+import com.lukehemmin.lukeVanilla.Lobby.SnowMinigame
+import com.lukehemmin.lukeVanilla.Lobby.SnowGameCommand
 import com.lukehemmin.lukeVanilla.System.AntiVPN
 import com.lukehemmin.lukeVanilla.System.Command.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
@@ -39,6 +41,7 @@ class Main : JavaPlugin() {
     lateinit var lockSystem: LockSystem
     lateinit var statsSystem: StatsSystem
     lateinit var sitManager: SitManager
+    lateinit var snowMinigame: SnowMinigame
 //    lateinit var shopManager: ShopManager
 //    lateinit var shopPriceListener: ShopPriceListener
 //    lateinit var shopManager: ShopManager
@@ -227,6 +230,11 @@ class Main : JavaPlugin() {
 
         // 플러그인 메시지 채널 등록
         VanillaShutdownNotifier.registerChannel(this)
+
+        // 눈싸움 미니게임 초기화 및 인스턴스 저장
+        snowMinigame = SnowMinigame(this)
+        // 눈싸움 관리 명령어 등록
+        getCommand("snowgame")?.setExecutor(SnowGameCommand(snowMinigame))
     }
 
     // 이름을 다르게 하여 충돌 방지

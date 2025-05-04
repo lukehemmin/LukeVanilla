@@ -10,7 +10,10 @@ import org.bukkit.entity.*
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.PlayerDeathEvent
+import org.bukkit.event.player.PlayerInteractEntityEvent
+import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.player.PlayerRespawnEvent
@@ -19,7 +22,6 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitRunnable
 import org.bukkit.scheduler.BukkitTask
-import org.bukkit.attribute.Attribute
 import java.util.*
 import kotlin.math.*
 
@@ -98,26 +100,23 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
                location.z >= normalizedCorner1.z && location.z <= normalizedCorner2.z
     }
 
-    private fun addPlayer(player: Player) {
-        when (gameState) {
-            GameState.WAITING -> {
-                if (waitingPlayers.size >= maxPlayers) {
-                    player.sendMessage("${ChatColor.RED}게임 시작 대기열이 가득 찼습니다.")
-                    return
-                }
-            }
-            GameState.IN_GAME, GameState.FINISHED -> {
-                player.sendMessage("${ChatColor.RED}게임이 이미 진행 중이거나 종료되었습니다.")
-                return
-            }
-            GameState.RESETTING -> {
-                player.sendMessage("${ChatColor.RED}게임이 재설정 중입니다. 잠시 후 다시 시도해주세요.")
-                return
-            }
-            else -> {
-                player.sendMessage("${ChatColor.RED}현재 게임에 참여할 수 없는 상태입니다 (Unknown State: $gameState).")
-                return
-            }
+    fun addPlayer(player: Player) {
+        // 이미 게임에 참여 중인지 또는 관전 중인지 확인
+        if (waitingPlayers.contains(player.uniqueId) || spectatingPlayers.contains(player.uniqueId)) {
+            player.sendMessage("${ChatColor.YELLOW}이미 게임 관련 세션에 참여 중입니다.")
+            return
+        }
+
+        // 게임 상태 확인: WAITING, PAUSED 또는 COUNTING_DOWN (최대 인원 미만 시) 상태에서만 참여 가능
+        if (gameState != GameState.WAITING && gameState != GameState.PAUSED && !(gameState == GameState.COUNTING_DOWN && waitingPlayers.size < maxPlayers)) {
+            player.sendMessage("${ChatColor.RED}현재 게임에 참여할 수 없는 상태입니다 (State: ${gameState})")
+            return
+        }
+
+        // 최대 플레이어 수 확인
+        if (waitingPlayers.size >= maxPlayers) {
+            player.sendMessage("${ChatColor.RED}게임 시작 대기열이 가득 찼습니다.")
+            return
         }
 
         val added = waitingPlayers.add(player.uniqueId)
@@ -131,83 +130,85 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
         }
     }
 
-    private fun removePlayer(player: Player) {
-        removePlayer(player, true)
-    }
+    fun removePlayer(player: Player, performStateCheck: Boolean) {
+        val wasWaiting = waitingPlayers.remove(player.uniqueId)
+        val wasSpectating = spectatingPlayers.remove(player.uniqueId)
 
-    private fun removePlayer(player: Player, performStateCheck: Boolean) {
-        if (waitingPlayers.remove(player.uniqueId)) {
-            println("[LukeVanilla] 플레이어 ${player.name}이(가) 대기열에서 제외되었습니다 (현재: ${waitingPlayers.size})")
+        if (wasWaiting) {
+            println("[LukeVanilla] 플레이어 ${player.name} 이(가) 게임에서 제거되었습니다.")
+            // 인벤토리 복원 로직 수정
+            playerInventories.remove(player.uniqueId)?.let { inventoryContents ->
+                player.inventory.contents = inventoryContents
+                player.inventory.setArmorContents(arrayOfNulls<ItemStack>(4)) // 갑옷 제거 수정
+                player.updateInventory()
+                println("[LukeVanilla] ${player.name}의 인벤토리를 복원했습니다.")
+            }
+            player.gameMode = GameMode.SURVIVAL // 기본적으로 서바이벌로 복원
+            player.inventory.setArmorContents(arrayOfNulls<ItemStack>(4)) // 갑옷 제거 수정
+            player.health = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.baseValue ?: 20.0 // 체력 최대로 복원 (API 1.21.4+ 기준)
+            player.foodLevel = 20 // 배고픔 최대로 복원
+            player.activePotionEffects.forEach { player.removePotionEffect(it.type) } // 모든 포션 효과 제거
+            val team = playerTeams.remove(player.uniqueId)
+            if (team != null) {
+                println("[LukeVanilla] ${player.name}이(가) ${team.name}에서 제거되었습니다.")
+            }
+            // 퇴장 메시지 추가
+            val exitMessage = "${team?.color ?: ChatColor.GRAY}${player.name}${ChatColor.YELLOW}님이 게임에서 나갔습니다. (${waitingPlayers.size}/${maxPlayers})"
+            player.sendMessage("${ChatColor.YELLOW}$exitMessage") // 문자열 템플릿 사용
+            broadcastWaitingMessage(exitMessage)
+
+            // 게임 진행 중 플레이어가 나갔을 경우 승리 조건 확인
+            if (gameState == GameState.IN_GAME) {
+                checkWinCondition()
+            }
+            // 상태 확인 및 카운트다운 관리 (필요한 경우)
             if (performStateCheck) {
-                val currentCount = waitingPlayers.size
-                var message = "${ChatColor.AQUA}${player.name}${ChatColor.YELLOW}님이 게임에서 나갔습니다. (${currentCount}/${maxPlayers})"
-
-                if ((gameState == GameState.PAUSED || gameState == GameState.COUNTING_DOWN)) {
-                    if (currentCount < minPlayers) {
-                        message += " 최소 인원 미달로 카운트다운이 취소됩니다."
-                    } else if (currentCount <= maxPlayers && gameState == GameState.PAUSED) {
-                        message += " 인원이 충족되어 카운트다운을 재개합니다."
-                    }
-                }
-
-                broadcastWaitingMessage(message)
                 checkPlayerCountAndManageCountdown()
-            } else {
-                println("[LukeVanilla] 플레이어 ${player.name}이(가) 상태 확인 없이 제거되었습니다.")
             }
-            playerTeams.remove(player.uniqueId)
-            if (spectatingPlayers.contains(player.uniqueId)) {
-                spectatingPlayers.remove(player.uniqueId)
-                player.gameMode = GameMode.SURVIVAL
-                // 필요시 로비 위치로 텔레포트
-                // player.teleport(lobbyLocation)
-            }
+        } else if (wasSpectating) {
+            println("[LukeVanilla] 관전자 ${player.name} 이(가) 제거되었습니다.")
+            // 관전자가 나갈 때 특별히 처리할 내용 추가 가능
+        } else {
+            println("[LukeVanilla] removePlayer 호출: ${player.name} 은(는) 게임 또는 관전 목록에 없습니다.")
         }
     }
 
     private fun checkPlayerCountAndManageCountdown() {
         val currentCount = waitingPlayers.size
-        val previousState = gameState
         println("[LukeVanilla] 상태 확인 중: ${gameState}, 플레이어: ${currentCount}, 작업: ${countdownTask != null && !countdownTask!!.isCancelled}")
 
         when (gameState) {
             GameState.WAITING -> {
-                if (currentCount >= minPlayers && currentCount <= maxPlayers) {
-                    startCountdown()
-                } else if (currentCount > maxPlayers) {
-                    println("[LukeVanilla] 경고: 대기 상태에 ${currentCount} 명의 플레이어가 있습니다. 일시정지 상태로 강제 전환합니다.")
-                    gameState = GameState.PAUSED
-                    broadcastWaitingMessage("${ChatColor.YELLOW}인원이 최대치를 초과하여 대기합니다. (${currentCount}/${maxPlayers})")
+                if (currentCount >= minPlayers) {
+                    // 이미 카운트다운이 진행 중이 아니면 시작
+                    if (countdownTask == null || countdownTask!!.isCancelled) {
+                        startCountdown()
+                    } else {
+                        println("[LukeVanilla] 플레이어 추가/제거되었으나 이미 카운트다운 진행 중.")
+                    }
                 }
             }
             GameState.COUNTING_DOWN -> {
-                if (currentCount > maxPlayers) {
-                    pauseCountdown()
-                } else if (currentCount < minPlayers) {
+                if (currentCount < minPlayers) {
                     cancelCountdown("${ChatColor.RED}최소 인원 미달로 카운트다운이 취소되었습니다.")
+                } else if (currentCount > maxPlayers) {
+                    pauseCountdown()
                 }
             }
             GameState.PAUSED -> {
-                if (currentCount <= maxPlayers && currentCount >= minPlayers) {
+                if (currentCount in minPlayers..maxPlayers) {
                     resumeCountdown()
                 } else if (currentCount < minPlayers) {
                     cancelCountdown("${ChatColor.RED}최소 인원 미달로 카운트다운이 취소되었습니다.")
                 }
             }
             GameState.IN_GAME -> {
-                // 게임 진행 중 주기적 체크 (필요하다면)
+                // 게임 중 플레이어 수 변동 시 승리 조건 확인은 eliminatePlayer 또는 onPlayerDeath에서 처리
             }
-            GameState.FINISHED -> {
-                // 게임 종료 후 상태
-            }
-            GameState.RESETTING -> {
-                // 리셋 중 상태
-            }
-            else -> {
-                println("[LukeVanilla] checkPlayerCountAndManageCountdown: 예상치 못한 게임 상태: $gameState")
-            }
+            GameState.FINISHED, GameState.RESETTING -> { /* Do nothing */ }
         }
 
+        val previousState = gameState
         if (previousState != gameState) {
             println("[LukeVanilla] 상태가 ${previousState} 에서 ${gameState} 로 변경되었습니다.")
         }
@@ -344,6 +345,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
                 player.teleport(assignedTeam.spawn)
                 player.sendMessage("${assignedTeam.color}${assignedTeam.name}${ChatColor.WHITE}으로 배정되었습니다!")
                 player.sendMessage("${ChatColor.GREEN}인벤토리를 저장하고 게임 아이템을 지급했습니다!")
+                player.gameMode = GameMode.SURVIVAL // 게임 시작 시 서바이벌 모드로 설정
             } else {
                 // 팀 정원 초과 시
                 println("[LukeVanilla] 경고: 플레이어 ${player.name}에게 배정할 팀이 부족하여 대기 위치로 이동시킵니다.")
@@ -357,7 +359,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
         startPregameCountdown()
     }
 
-    private fun resetGame(resetMessage: String) {
+    fun resetGame(resetMessage: String) {
         println("[LukeVanilla] 게임 상태를 초기화합니다. 이유: ${resetMessage}")
         gameState = GameState.RESETTING // 리셋 중 상태 추가 (동시 접근 방지 목적)
 
@@ -405,7 +407,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
             // 인벤토리 복원 (게임 아이템 자동 제거됨)
             playerInventories[player.uniqueId]?.let {
                 player.inventory.contents = it
-                playerInventories.remove(player.uniqueId)
+                player.updateInventory()
             } ?: player.inventory.clear()
 
             // 게임 모드 서바이벌로 변경
@@ -416,14 +418,15 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
             player.flySpeed = 0.1f
             player.isFlying = false
             player.allowFlight = false
-            player.foodLevel = 20 // 배고픔 채우기
-            // L420 오류 해결 최종 시도: Attribute의 전체 경로를 명시적으로 사용합니다!
             player.health = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.value ?: 20.0
-            player.fireTicks = 0 // 불 끄기
+            player.foodLevel = 20
+            player.fireTicks = 0
+            player.isGlowing = false // 발광 효과 제거
             player.activePotionEffects.forEach { player.removePotionEffect(it.type) } // 포션 효과 제거
 
             // 대기 위치로 텔레포트
-            player.teleport(holdingLocation)
+            val lobbyLocation = Location(arenaWorld, 0.0, 5.0, 54.0) // 지정된 종료 위치
+            player.teleport(lobbyLocation)
             player.sendMessage(resetMessage) // 리셋 사유 메시지 전송
         }
 
@@ -458,6 +461,20 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
             return
         }
 
+        // 관전자 상호작용 방지
+        if (spectatingPlayers.contains(player.uniqueId)) {
+            event.isCancelled = true
+            return
+        }
+
+        // 용암 감지
+        if (gameState == GameState.IN_GAME && waitingPlayers.contains(player.uniqueId)) {
+            if (to.block.type == Material.LAVA) {
+                eliminatePlayer(player, "용암")
+                return // 용암에 빠지면 아래 로직은 실행 안 함
+            }
+        }
+
         // 관전자가 영역 밖으로 나가는 것 방지
         if (spectatingPlayers.contains(player.uniqueId) && !isInsideArena(to)) {
             event.isCancelled = true
@@ -474,7 +491,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
                 addPlayer(player)
             } else {
                 println("[LukeVanilla] 플레이어 ${player.name}이(가) 경기장 영역을 나갔습니다.")
-                removePlayer(player)
+                removePlayer(player, true)
             }
         }
     }
@@ -517,6 +534,18 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
             }
         }
         // 게임 영역 외부에서는 기본 동작 허용
+    }
+
+    @EventHandler
+    fun onBlockPlace(event: BlockPlaceEvent) {
+        val player = event.player
+        if (spectatingPlayers.contains(player.uniqueId)) {
+            event.isCancelled = true
+        }
+        if (gameState == GameState.IN_GAME && waitingPlayers.contains(player.uniqueId)) {
+            player.sendMessage("${ChatColor.RED}게임 중에는 블록을 설치할 수 없습니다.")
+            event.isCancelled = true
+        }
     }
 
     @EventHandler
@@ -563,22 +592,28 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
     @EventHandler
     fun onPlayerTeleport(event: PlayerTeleportEvent) {
         val player = event.player
-        // 관전자가 다른 엔티티를 관전하려고 할 때 (보통 우클릭)
-        if (event.cause == PlayerTeleportEvent.TeleportCause.SPECTATE && spectatingPlayers.contains(player.uniqueId)) {
-            val targetEntity = player.spectatorTarget
-            if (targetEntity is Player) {
-                // 타겟이 게임 참여자가 아니면 텔레포트 취소
-                if (!waitingPlayers.contains(targetEntity.uniqueId)) {
-                    event.isCancelled = true
-                    player.sendMessage("${ChatColor.RED}게임에 참여 중인 플레이어만 관전할 수 있습니다.")
-                }
-            } else {
-                // 플레이어가 아닌 대상 관전 시도 시 (선택적 처리)
-                // event.isCancelled = true
-                // player.sendMessage("${ChatColor.RED}플레이어만 관전할 수 있습니다.")
-            }
+        // 관전자 상호작용 방지
+        if (spectatingPlayers.contains(player.uniqueId)) {
+            event.isCancelled = true
+            return
         }
         // 다른 원인(COMMAND, PLUGIN 등)의 텔레포트는 영향을 받지 않음
+    }
+
+    @EventHandler
+    fun onPlayerInteract(event: PlayerInteractEvent) {
+        val player = event.player
+        if (spectatingPlayers.contains(player.uniqueId)) {
+            event.isCancelled = true
+        }
+    }
+
+    @EventHandler
+    fun onPlayerInteractEntity(event: PlayerInteractEntityEvent) {
+        val player = event.player
+        if (spectatingPlayers.contains(player.uniqueId)) {
+            event.isCancelled = true
+        }
     }
 
     @EventHandler
@@ -587,7 +622,7 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
         if (waitingPlayers.contains(player.uniqueId)) {
             println("[LukeVanilla] 플레이어 ${player.name}이(가) 대기 중 서버를 나갔습니다.")
             playerTeams.remove(player.uniqueId)
-            removePlayer(player)
+            removePlayer(player, true)
         }
         if (spectatingPlayers.contains(player.uniqueId)) {
             println("[LukeVanilla] 관전자 ${player.name}이(가) 서버를 나갔습니다.")
@@ -644,6 +679,63 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
             (waitingPlayers + spectatingPlayers).mapNotNull{ Bukkit.getPlayer(it)}.forEach { it.sendMessage(winnerMessage) }
             resetGame("승자가 결정되어 게임을 초기화합니다.")
         }
+    }
+
+    // 플레이어 탈락 처리 (사망, 용암 등)
+    private fun eliminatePlayer(player: Player, reason: String) {
+        if (!waitingPlayers.contains(player.uniqueId)) return // 이미 탈락했거나 관전 중이면 무시
+
+        println("[LukeVanilla] 플레이어 ${player.name} 탈락. 사유: $reason")
+        broadcastGameMessage("${playerTeams[player.uniqueId]?.color ?: ChatColor.GRAY}${player.name}${ChatColor.RED}님이 탈락했습니다! ${ChatColor.GRAY}(사유: $reason)")
+
+        // 관전 모드로 전환
+        waitingPlayers.remove(player.uniqueId)
+        spectatingPlayers.add(player.uniqueId)
+        player.gameMode = GameMode.SPECTATOR
+        player.inventory.clear()
+        player.teleport(Location(arenaWorld, 0.0, 15.0, 77.0)) // 중앙 높은 곳 관전 위치
+        player.sendMessage("${ChatColor.GRAY}탈락하여 관전 모드로 전환되었습니다.")
+
+        checkWinCondition()
+        checkPlayerCountAndManageCountdown() // 플레이어 수 변경에 따른 상태 업데이트
+    }
+
+    // 맵 리셋 개선: 아레나 내부 블록 제거 후 눈 채우기
+    private fun clearArenaArea() {
+        if (!::arenaWorld.isInitialized) return
+        val startY = 1 // 바닥 제외
+        val endY = 11 // 천장 제외
+
+        println("[LukeVanilla] 아레나 내부 블록 제거 시작 (Y: $startY ~ $endY)")
+        for (x in normalizedCorner1.blockX..normalizedCorner2.blockX) {
+            for (z in normalizedCorner1.blockZ..normalizedCorner2.blockZ) {
+                for (y in startY..endY) {
+                    val block = arenaWorld.getBlockAt(x, y, z)
+                    if (block.type != Material.AIR) { // 공기가 아닌 블록만 제거
+                        block.type = Material.AIR
+                    }
+                }
+            }
+        }
+        println("[LukeVanilla] 아레나 내부 블록 제거 완료.")
+    }
+
+    // 관리자 강제 시작
+    fun forceStartGame() {
+        if (gameState != GameState.WAITING && gameState != GameState.PAUSED && gameState != GameState.COUNTING_DOWN) {
+            println("[LukeVanilla] 강제 시작 불가: 현재 상태 $gameState")
+            // 또는 현재 게임을 리셋하고 시작?
+            return
+        }
+        println("[LukeVanilla] 게임 강제 시작! (관리자 요청)")
+        cancelCountdown("관리자에 의해 게임이 강제 시작됩니다.") // 기존 카운트다운 취소
+        startGame()
+    }
+
+    // 관리자 강제 종료 및 리셋
+    fun forceResetGame() {
+        println("[LukeVanilla] 게임 강제 종료 및 리셋! (관리자 요청)")
+        resetGame("관리자에 의해 게임이 강제 종료 및 초기화되었습니다.")
     }
 
     // 지정된 영역을 눈 블록으로 채우는 헬퍼 함수
