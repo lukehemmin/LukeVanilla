@@ -14,9 +14,9 @@ class AntiVPN(private val plugin: JavaPlugin) : Listener {
     fun onPlayerPreLogin(event: AsyncPlayerPreLoginEvent){
         val ipAddress = event.address.hostAddress
 
-        // 로컬 IP(127.0.0.1)는 검사 우회
-        if (ipAddress == "127.0.0.1" || ipAddress == "localhost") {
-            plugin.logger.info("${event.name}님이 로컬 IP로 접속했습니다. VPN 검사를 우회합니다.")
+        // 로컬 IP(127.0.0.1) 및 사설 네트워크 IP(192.168.*.*)는 검사 우회
+        if (ipAddress == "127.0.0.1" || ipAddress == "localhost" || ipAddress.startsWith("192.168.")) {
+            plugin.logger.info("${event.name}님이 로컬/사설 IP로 접속했습니다. VPN 검사를 우회합니다.")
             return
         }
 
