@@ -277,7 +277,7 @@
       <workItem from="1746189919458" duration="15385000" />
       <workItem from="1746370529910" duration="6271000" />
       <workItem from="1746506636414" duration="2236000" />
-      <workItem from="1746603414398" duration="4651000" />
+      <workItem from="1746603414398" duration="4739000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />
