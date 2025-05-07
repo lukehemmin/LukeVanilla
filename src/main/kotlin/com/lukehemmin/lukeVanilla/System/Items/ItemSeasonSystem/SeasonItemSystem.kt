@@ -9,7 +9,7 @@ class SeasonItemSystem : Listener {
     
     // 시즌제 아이템 ID 리스트
     private val restrictedItems = listOf(
-        "halloween_lentern",
+        "halloween_lentern"
         // 추가할 아이템 ID를 여기에 넣으세요
     )
 

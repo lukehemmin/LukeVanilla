@@ -14,6 +14,8 @@ import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.Items.UpgradeItem
 import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
+import com.lukehemmin.lukeVanilla.System.Items.ItemSeasonSystem.*
+import com.lukehemmin.lukeVanilla.System.Items.ItemSeasonSystem.ItemCommand
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.ChatSystem.*
 import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
@@ -209,6 +211,9 @@ class Main : JavaPlugin() {
 
         // 아이템 업그레이드 시스템 초기화
         UpgradeItem(this)
+        
+        // 아이템 시즌 시스템 명령어 등록
+        getCommand("아이템")?.setExecutor(ItemCommand())
         
         // 앉기 시스템 초기화
         sitManager = SitManager(this)

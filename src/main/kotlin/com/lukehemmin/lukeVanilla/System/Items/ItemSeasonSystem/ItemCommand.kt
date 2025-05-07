@@ -14,7 +14,7 @@ class ItemCommand : CommandExecutor, TabCompleter {
     private val itemViewSystem = ItemViewSystem()
     
     // 이벤트 타입 목록
-    private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인", "봄")
+    private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인")
     
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (sender !is Player) {
