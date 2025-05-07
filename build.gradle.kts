@@ -81,8 +81,8 @@ tasks.shadowJar {
     destinationDirectory.set(
         if (isCI) file("build/libs")
         else
-            //("/Users/lukehemmin/Documents")
-            file("E:/server")
+            file("/Users/lukehemmin/Documents")
+            //file("E:/server")
     )
     manifest {
         attributes(mapOf("Main-Class" to "com.lukehemmin.lukeVanilla.Main"))
