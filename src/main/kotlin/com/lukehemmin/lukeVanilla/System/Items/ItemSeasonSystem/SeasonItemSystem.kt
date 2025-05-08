@@ -39,7 +39,8 @@ class SeasonItemSystem(private val plugin: Main) : Listener {
      * 아이템 등록 처리
      */
     fun registerItem(player: Player, eventTypeArg: String?): Boolean {
-        return itemRegisterSystem.registerItem(player, eventTypeArg)
+        // String? 타입을 Array<out String> 타입으로 변환
+        return itemRegisterSystem.registerItem(player, arrayOf(eventTypeArg ?: ""))
     }
     
     /**
