@@ -327,6 +327,14 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
         broadcastWaitingMessage("${ChatColor.GOLD}게임 시작! 행운을 빕니다!")
         println("[LukeVanilla] 게임 시작. 참가자: ${waitingPlayers.joinToString { Bukkit.getOfflinePlayer(it).name ?: it.toString() }}")
 
+        // 게임 시작 시 (1, 7, 57)부터 (-1, 5, 57) 영역을 barrier 블록으로 막음
+        for (x in -1..1) {
+            for (y in 5..7) {
+                arenaWorld.getBlockAt(x, y, 57).type = Material.BARRIER
+            }
+        }
+        println("[LukeVanilla] 게임 시작 시 지정된 통로를 차단했습니다.")
+
         val participatingPlayers = waitingPlayers.mapNotNull { Bukkit.getPlayer(it) }.shuffled()
         playerTeams.clear()
         val holdingLocation = Location(arenaWorld, 0.0, 5.0, 54.0) // 초과 인원 대기 위치
@@ -362,6 +370,14 @@ class SnowMinigame(private val plugin: JavaPlugin) : Listener {
     fun resetGame(resetMessage: String) {
         println("[LukeVanilla] 게임 상태를 초기화합니다. 이유: ${resetMessage}")
         gameState = GameState.RESETTING // 리셋 중 상태 추가 (동시 접근 방지 목적)
+
+        // 게임 종료 시 (1, 7, 57)부터 (-1, 5, 57) 영역을 air 블록으로 변경하여 통행 가능하게 함
+        for (x in -1..1) {
+            for (y in 5..7) {
+                arenaWorld.getBlockAt(x, y, 57).type = Material.AIR
+            }
+        }
+        println("[LukeVanilla] 게임 종료 시 차단된 통로를 복원했습니다.")
 
         // 1. 아레나 정리
         // 드롭된 아이템 제거
