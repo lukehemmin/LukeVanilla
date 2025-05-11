@@ -18,6 +18,7 @@ import com.lukehemmin.lukeVanilla.System.Items.ItemSeasonSystem.*
 import com.lukehemmin.lukeVanilla.System.Items.ItemSeasonSystem.ItemCommand
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.ChatSystem.*
+import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
 import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
 import com.lukehemmin.lukeVanilla.System.LockSystem.LockSystem
 import com.lukehemmin.lukeVanilla.System.NexoCraftingRestriction
