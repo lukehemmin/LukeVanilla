@@ -177,6 +177,26 @@ class ItemRegisterSystem {
         }
     }
     
+    // 아이템이 DB에 전역적으로 등록되어 있는지 확인하고 소유자 UUID 반환
+    private fun isItemGloballyRegisteredInDatabase(itemId: String): String? {
+        return try {
+            database.getConnection().use { connection ->
+                val query = "SELECT UUID FROM Player_Items_State WHERE ItemID = ? AND State = 'OWNED' LIMIT 1"
+                connection.prepareStatement(query).use { pstmt ->
+                    pstmt.setString(1, itemId)
+                    val rs = pstmt.executeQuery()
+                    if (rs.next()) {
+                        return rs.getString("UUID")
+                    }
+                }
+            }
+            null // 등록된 기록이 없음
+        } catch (e: SQLException) {
+            plugin.logger.severe("DB에서 아이템 전역 등록 상태 확인 중 오류 발생 (ItemID: $itemId): ${e.message}")
+            null // 오류 발생 시 null 반환하여 등록 시도 가능하게 둘 수도 있으나, 여기서는 등록 안된 것으로 처리
+        }
+    }
+    
     // 아이템 등록 메인 메서드
     fun registerItem(player: Player, args: Array<out String>): Boolean {
         if (!player.hasPermission("lukevanilla.item.register")) {
@@ -187,6 +207,7 @@ class ItemRegisterSystem {
         // 비동기로 처리
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             try {
+                val processedNexoIdsThisSession = mutableSetOf<String>() // 이번 등록 세션에서 처리된 nexoID 목록
                 val registeredItems = mutableListOf<String>() // 새로 등록된 아이템
                 val alreadyOwnItems = mutableListOf<String>() // 이미 자신이 등록한 아이템 (NBT & DB 모두)
                 val newlyDbRegisteredForSelfItems = mutableListOf<String>() // NBT에는 소유, DB에는 없어서 새로 등록된 아이템
@@ -234,6 +255,11 @@ class ItemRegisterSystem {
                             christmasItems.containsKey(nexoId) || 
                             valentineItems.containsKey(nexoId))) {
                         
+                        // 이번 세션에서 이미 처리된 아이템 종류는 건너뜀 (인벤토리 내 중복 처리)
+                        if (nexoId in processedNexoIdsThisSession) {
+                            continue
+                        }
+
                         // NBT 데이터에서 소유자 확인
                         if (meta.persistentDataContainer.has(ownerKey, PersistentDataType.STRING)) {
                             val ownerUuid = meta.persistentDataContainer.get(ownerKey, PersistentDataType.STRING)
@@ -267,21 +293,37 @@ class ItemRegisterSystem {
                                     alreadyRegisteredItems.add(Pair(nexoId, ownerName))
                                 }
                             }
+                            processedNexoIdsThisSession.add(nexoId) // NBT 처리된 아이템도 세션에 기록
                         } else {
-                            // 소유자가 없는 새로운 아이템 등록
-                            if (registerItemToDatabase(player, nexoId)) {
-                                Bukkit.getScheduler().runTask(plugin, Runnable {
-                                    meta.persistentDataContainer.set(
-                                        ownerKey,
-                                        PersistentDataType.STRING,
-                                        player.uniqueId.toString()
-                                    )
-                                    item.itemMeta = meta
-                                })
-                                registeredItems.add(nexoId)
+                            // 소유자가 없는 아이템 (신규 등록 시도 대상)
+                            // 먼저 DB에 이 아이템 ID로 등록된 것이 있는지 전역적으로 확인
+                            val globalOwnerUuid = isItemGloballyRegisteredInDatabase(nexoId)
+                            if (globalOwnerUuid != null) {
+                                // DB에 이미 등록된 아이템임. 소유자 정보 가져와서 alreadyRegisteredItems에 추가
+                                database.getConnection().use { connection ->
+                                    val selectStmt = connection.prepareStatement("SELECT NickName FROM Player_Data WHERE UUID = ?")
+                                    selectStmt.setString(1, globalOwnerUuid)
+                                    val resultSet = selectStmt.executeQuery()
+                                    val ownerName = if (resultSet.next()) resultSet.getString("NickName") else "알 수 없는 플레이어"
+                                    alreadyRegisteredItems.add(Pair(nexoId, ownerName))
+                                }
                             } else {
-                                plugin.logger.warning("아이템 등록 중 오류 발생: $nexoId")
+                                // DB에 없는 새로운 아이템, 등록 시도
+                                if (registerItemToDatabase(player, nexoId)) {
+                                    Bukkit.getScheduler().runTask(plugin, Runnable {
+                                        meta.persistentDataContainer.set(
+                                            ownerKey,
+                                            PersistentDataType.STRING,
+                                            player.uniqueId.toString()
+                                        )
+                                        item.itemMeta = meta
+                                    })
+                                    registeredItems.add(nexoId)
+                                } else {
+                                    plugin.logger.warning("아이템 등록 중 오류 발생: $nexoId")
+                                }
                             }
+                            processedNexoIdsThisSession.add(nexoId) // 신규 등록 시도 아이템도 세션에 기록
                         }
                     }
                 }
