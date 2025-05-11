@@ -13,7 +13,7 @@ import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
 // import com.lukehemmin.lukeVanilla.System.Items.Halloween.*
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.Items.UpgradeItem
-import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
+// import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
 import com.lukehemmin.lukeVanilla.System.Items.ItemSeasonSystem.*
 import com.lukehemmin.lukeVanilla.System.Items.ItemSeasonSystem.ItemCommand
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
@@ -120,16 +120,14 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
         
         // 통합 이벤트 아이템 시스템 초기화
-        val eventItemCommand = EventItemCommand(this)
-        getCommand("아이템")?.setExecutor(eventItemCommand)
-        getCommand("아이템")?.tabCompleter = EventItemCommandCompleter()
-        
-        // 이벤트 아이템 시스템 초기화
-        eventItemCommand.initialize()
-        
-        // 이벤트 아이템 GUI 리스너 등록
-        server.pluginManager.registerEvents(EventItemGUIListener(this, eventItemCommand.getEventItemSystem()), this)
-        server.pluginManager.registerEvents(eventItemCommand.getEventItemSystem(), this)
+//        val eventItemCommand = EventItemCommand(this)
+        // 아이템 명령어 등록 (ItemSeasonSystem)
+//        getCommand("아이템")?.setExecutor(eventItemCommand) // 이 줄은 이미 ItemSeasonSystem의 ItemCommand로 되어있으므로 변경 없음
+//        getCommand("아이템")?.tabCompleter = EventItemCommandCompleter()
+
+        // 아이템 GUI 리스너 등록 (CustomItemSystem)
+        // server.pluginManager.registerEvents(EventItemGUIListener(this, eventItemCommand.getEventItemSystem()), this)
+        // server.pluginManager.registerEvents(eventItemCommand.getEventItemSystem(), this)
         
         // 기존 할로윈 코드 주석 처리
         // server.pluginManager.registerEvents(Halloween_Item(), this)
@@ -213,7 +211,9 @@ class Main : JavaPlugin() {
         UpgradeItem(this)
         
         // 아이템 시즌 시스템 명령어 등록
-        getCommand("아이템")?.setExecutor(ItemCommand())
+        val itemSeasonSystemCommand = ItemCommand() // ItemSeasonSystem의 ItemCommand 인스턴스 생성
+        getCommand("아이템")?.setExecutor(itemSeasonSystemCommand)
+        getCommand("아이템")?.tabCompleter = itemSeasonSystemCommand // 동일 인스턴스를 TabCompleter로 설정
         
         // 앉기 시스템 초기화
         sitManager = SitManager(this)
