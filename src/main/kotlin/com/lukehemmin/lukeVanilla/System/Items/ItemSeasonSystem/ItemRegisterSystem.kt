@@ -253,10 +253,15 @@ class ItemRegisterSystem {
                 val alreadyRegisteredItems = mutableMapOf<String, String>()
                 val processedNexoIdsThisSession = mutableSetOf<String>()
 
-                for (item in player.inventory.contents) {
+                val allItems = mutableListOf<ItemStack?>()
+                allItems.addAll(player.inventory.contents.toList()) // player.inventory.contents가 Array이므로 toList() 추가
+                allItems.addAll(player.inventory.armorContents.toList()) // player.inventory.armorContents가 Array이므로 toList() 추가
+                allItems.add(player.inventory.itemInOffHand)
+
+                for (item in allItems) {
                     if (item == null || item.type == Material.AIR) continue
 
-                    val nexoId = NexoItems.idFromItem(item) ?: continue // 수정된 부분
+                    val nexoId = NexoItems.idFromItem(item) ?: continue
                     if (processedNexoIdsThisSession.contains(nexoId)) continue // 이미 이번 세션에서 처리된 아이템
 
                     val eventType = getEventType(nexoId)
