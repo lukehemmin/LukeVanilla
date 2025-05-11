@@ -222,24 +222,13 @@ class ItemRegisterSystem {
     }
     
     // 아이템 등록 메인 메서드
-    fun registerItem(player: Player, args: Array<out String>): Boolean {
-        if (args.isEmpty()) {
-            player.sendMessage("§c사용법: /아이템 등록 [시즌명(할로윈/크리스마스/발렌타인) 또는 전체]")
-            return true
-        }
+    fun registerItem(player: Player): Boolean { 
+        // 명령어 인자 사용 없이 항상 전체 시즌 아이템을 대상으로 함
+        val targetSeasonName = "" // ""는 전체 시즌을 의미
 
-        val targetSeasonInput = args[0].lowercase()
-        val targetSeasonName = when (targetSeasonInput) {
-            "할로윈" -> "할로윈"
-            "크리스마스" -> "크리스마스"
-            "발렌타인" -> "발렌타인"
-            "전체" -> "" // 전체 시즌 아이템을 대상으로 함
-            else -> {
-                player.sendMessage("§c올바르지 않은 시즌명입니다. [할로윈/크리스마스/발렌타인/전체] 중에서 선택해주세요.")
-                return true
-            }
-        }
-
+        // targetSeasonName이 "" (전체)이므로, 아래의 특정 시즌 활성화 여부 확인은
+        // 실질적으로 건너뛰게 됩니다. 개별 아이템의 시즌 활성화 여부는 루프 내에서
+        // eventType을 기준으로 확인되므로 문제가 없습니다.
         if (targetSeasonName.isNotEmpty() && !isSeasonEnabled(targetSeasonName)) {
             player.sendMessage("§c현재 §e${targetSeasonName} §c시즌 아이템은 등록이 비활성화되어 있습니다.")
             return true
