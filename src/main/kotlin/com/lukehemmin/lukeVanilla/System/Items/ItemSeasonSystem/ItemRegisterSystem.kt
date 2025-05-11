@@ -103,7 +103,7 @@ class ItemRegisterSystem {
     private fun getEventType(itemId: String): String {
         return when {
             itemId.startsWith("halloween_") -> "할로윈"
-            itemId.startsWith("merry_christmas_") -> "크리스마스"
+            itemId.startsWith("merry_christmas_") || itemId.startsWith("merrychristmas_") -> "크리스마스"
             itemId.startsWith("valentine_") -> "발렌타인"
             else -> ""
         }
