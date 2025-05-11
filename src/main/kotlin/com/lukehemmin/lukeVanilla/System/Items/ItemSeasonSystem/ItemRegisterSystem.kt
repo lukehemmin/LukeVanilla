@@ -223,178 +223,153 @@ class ItemRegisterSystem {
     
     // 아이템 등록 메인 메서드
     fun registerItem(player: Player, args: Array<out String>): Boolean {
-        if (!player.hasPermission("lukevanilla.item.register")) {
-            player.sendMessage("§c이 명령어를 사용할 권한이 없습니다.")
+        if (args.isEmpty()) {
+            player.sendMessage("§c사용법: /아이템 등록 [시즌명(할로윈/크리스마스/발렌타인) 또는 전체]")
             return true
         }
-        
-        // 비동기로 처리
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
-            try {
-                val processedNexoIdsThisSession = mutableSetOf<String>() // 이번 등록 세션에서 처리된 nexoID 목록
-                val registeredItems = mutableListOf<String>() // 새로 등록된 아이템
-                val alreadyOwnItems = mutableListOf<String>() // 이미 자신이 등록한 아이템 (NBT & DB 모두)
-                val newlyDbRegisteredForSelfItems = mutableListOf<String>() // NBT에는 소유, DB에는 없어서 새로 등록된 아이템
-                val alreadyRegisteredItems = mutableListOf<Pair<String, String>>() // 다른 사람이 등록한 아이템과 소유자
-                
-                // 인벤토리의 모든 아이템 확인
-                val itemsToCheck = ArrayList<Pair<ItemStack, ItemMeta>>()
-                
-                // 메인 인벤토리 확인
-                for (item in player.inventory.contents) {
-                    if (item != null && item.type != Material.AIR) {
-                        val meta = item.itemMeta
-                        if (meta != null) {
-                            itemsToCheck.add(Pair(item, meta))
-                        }
-                    }
-                }
-                
-                // 갑옷 슬롯 확인
-                for (item in player.inventory.armorContents) {
-                    if (item != null && item.type != Material.AIR) {
-                        val meta = item.itemMeta
-                        if (meta != null) {
-                            itemsToCheck.add(Pair(item, meta))
-                        }
-                    }
-                }
-                
-                // 왼손 확인
-                val offhandItem = player.inventory.itemInOffHand
-                if (offhandItem.type != Material.AIR) {
-                    val meta = offhandItem.itemMeta
-                    if (meta != null) {
-                        itemsToCheck.add(Pair(offhandItem, meta))
-                    }
-                }
-                
-                // 모든 아이템 처리
-                for ((item, meta) in itemsToCheck) {
-                    val nexoId = NexoItems.idFromItem(item)
-                    
-                    // Nexo 아이템이고 시즌 아이템인 경우만 처리
-                    if (!nexoId.isNullOrEmpty() && (
-                            (isHalloweenEnabled && halloweenItems.containsKey(nexoId)) || 
-                            (isChristmasEnabled && christmasItems.containsKey(nexoId)) || 
-                            (isValentineEnabled && valentineItems.containsKey(nexoId)))) {
-                        
-                        // 이번 세션에서 이미 처리된 아이템 종류는 건너뜀 (인벤토리 내 중복 처리)
-                        if (nexoId in processedNexoIdsThisSession) {
-                            continue
-                        }
 
-                        // NBT 데이터에서 소유자 확인
-                        if (meta.persistentDataContainer.has(ownerKey, PersistentDataType.STRING)) {
-                            val ownerUuid = meta.persistentDataContainer.get(ownerKey, PersistentDataType.STRING)
-                            
-                            // 자신이 등록한 아이템인지 확인
-                            if (ownerUuid == player.uniqueId.toString()) {
-                                // NBT에는 내 소유로 되어 있음. DB에도 등록되어 있는지 확인
-                                if (checkItemOwnershipInDatabase(player.uniqueId.toString(), nexoId)) {
-                                    // DB에도 이미 등록되어 있음
-                                    alreadyOwnItems.add(nexoId)
-                                } else {
-                                    // DB에는 등록되어 있지 않음. DB에 등록 시도
-                                    if (registerItemToDatabase(player, nexoId)) {
-                                        // DB 등록 성공
-                                        newlyDbRegisteredForSelfItems.add(nexoId)
-                                        // NBT는 이미 플레이어 소유로 되어 있으므로, NBT 업데이트는 불필요
-                                    } else {
-                                        // DB 등록 실패
-                                        plugin.logger.warning("플레이어 ${player.name}의 아이템 $nexoId 를 DB에 추가 등록 중 오류 발생 (NBT는 소유, DB는 미소유 상태)")
-                                        // 이 경우, NBT상으로는 소유하고 있으므로 alreadyOwnItems에 추가하여 일관성 유지 (오류 상황 인지)
-                                        alreadyOwnItems.add(nexoId)
-                                    }
-                                }
-                            } else {
-                                // 다른 사람이 등록한 아이템인 경우 소유자 이름 조회
-                                database.getConnection().use { connection ->
-                                    val selectStmt = connection.prepareStatement("SELECT NickName FROM Player_Data WHERE UUID = ?")
-                                    selectStmt.setString(1, ownerUuid)
-                                    val resultSet = selectStmt.executeQuery()
-                                    val ownerName = if (resultSet.next()) resultSet.getString("NickName") else "알 수 없는 플레이어"
-                                    alreadyRegisteredItems.add(Pair(nexoId, ownerName))
-                                }
-                            }
-                            processedNexoIdsThisSession.add(nexoId) // NBT 처리된 아이템도 세션에 기록
+        val targetSeasonInput = args[0].lowercase()
+        val targetSeasonName = when (targetSeasonInput) {
+            "할로윈" -> "할로윈"
+            "크리스마스" -> "크리스마스"
+            "발렌타인" -> "발렌타인"
+            "전체" -> "" // 전체 시즌 아이템을 대상으로 함
+            else -> {
+                player.sendMessage("§c올바르지 않은 시즌명입니다. [할로윈/크리스마스/발렌타인/전체] 중에서 선택해주세요.")
+                return true
+            }
+        }
+
+        if (targetSeasonName.isNotEmpty() && !isSeasonEnabled(targetSeasonName)) {
+            player.sendMessage("§c현재 §e${targetSeasonName} §c시즌 아이템은 등록이 비활성화되어 있습니다.")
+            return true
+        }
+
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            try {
+                val registeredItems = mutableListOf<String>()
+                val alreadyOwnItems = mutableListOf<String>()
+                val newlyDbRegisteredForSelfItems = mutableListOf<String>()
+                val alreadyRegisteredItems = mutableMapOf<String, String>()
+                val processedNexoIdsThisSession = mutableSetOf<String>()
+
+                for (item in player.inventory.contents) {
+                    if (item == null || item.type == Material.AIR) continue
+
+                    val nexoId = NexoItems.idFromItem(item) ?: continue // 수정된 부분
+                    if (processedNexoIdsThisSession.contains(nexoId)) continue // 이미 이번 세션에서 처리된 아이템
+
+                    val eventType = getEventType(nexoId)
+                    if (eventType.isEmpty()) continue // 시즌 아이템이 아니면 건너뜀
+
+                    // 1. targetSeasonName이 설정되어 있고, 현재 아이템(nexoId)이 해당 시즌 아이템인지 확인
+                    if (targetSeasonName.isNotEmpty() && getTableName(eventType).lowercase() != getTableName(targetSeasonName).lowercase()) {
+                        continue // 현재 아이템이 선택된 시즌 아이템이 아니면 건너뜀
+                    }
+
+                    // 2. 시즌 활성화 여부 확인 (선택된 시즌이 없다면 개별 아이템의 시즌으로 확인)
+                    val currentItemSeasonToEnableCheck = if (targetSeasonName.isNotEmpty()) targetSeasonName else eventType
+                    if (!isSeasonEnabled(currentItemSeasonToEnableCheck)) {
+                        continue
+                    }
+
+                    // 3. 전역 등록 확인 (Player_Items_State)
+                    val globalOwnerUUID = isItemGloballyRegisteredInDatabase(nexoId)
+                    if (globalOwnerUUID != null) {
+                        if (globalOwnerUUID == player.uniqueId.toString()) {
+                            alreadyOwnItems.add(nexoId)
                         } else {
-                            // 소유자가 없는 아이템 (신규 등록 시도 대상)
-                            // 먼저 DB에 이 아이템 ID로 등록된 것이 있는지 전역적으로 확인
-                            val globalOwnerUuid = isItemGloballyRegisteredInDatabase(nexoId)
-                            if (globalOwnerUuid != null) {
-                                // DB에 이미 등록된 아이템임. 소유자 정보 가져와서 alreadyRegisteredItems에 추가
-                                database.getConnection().use { connection ->
-                                    val selectStmt = connection.prepareStatement("SELECT NickName FROM Player_Data WHERE UUID = ?")
-                                    selectStmt.setString(1, globalOwnerUuid)
-                                    val resultSet = selectStmt.executeQuery()
-                                    val ownerName = if (resultSet.next()) resultSet.getString("NickName") else "알 수 없는 플레이어"
-                                    alreadyRegisteredItems.add(Pair(nexoId, ownerName))
-                                }
+                            val ownerName = Bukkit.getOfflinePlayer(UUID.fromString(globalOwnerUUID)).name ?: "알 수 없는 플레이어"
+                            alreadyRegisteredItems.put(nexoId, ownerName)
+                        }
+                        processedNexoIdsThisSession.add(nexoId)
+                        continue
+                    }
+
+                    // 4. 전역 등록 안됨 -> NBT 및 시즌별 DB 등록 시도
+                    val itemMeta = item.itemMeta
+                    if (itemMeta != null && itemMeta.persistentDataContainer.has(ownerKey, PersistentDataType.STRING)) {
+                        val ownerNbtUuid = itemMeta.persistentDataContainer.get(ownerKey, PersistentDataType.STRING)
+                        if (ownerNbtUuid == player.uniqueId.toString()) { // NBT 소유자가 현재 플레이어
+                            // 전역 DB에는 없고, NBT는 내 소유. 시즌별 DB 상태 확인
+                            if (checkItemOwnershipInDatabase(player.uniqueId.toString(), nexoId)) {
+                                // 시즌별 DB에도 이미 소유 중 -> 'alreadyOwnItems' 처리
+                                updatePlayerItemState(player.uniqueId, nexoId, "OWNED") // Player_Items_State 일관성 보장
+                                alreadyOwnItems.add(nexoId)
                             } else {
-                                // DB에 없는 새로운 아이템, 등록 시도
-                                if (registerItemToDatabase(player, nexoId)) {
-                                    Bukkit.getScheduler().runTask(plugin, Runnable {
-                                        meta.persistentDataContainer.set(
-                                            ownerKey,
-                                            PersistentDataType.STRING,
-                                            player.uniqueId.toString()
-                                        )
-                                        item.itemMeta = meta
-                                    })
-                                    registeredItems.add(nexoId)
+                                // 시즌별 DB에는 없음 -> 신규 등록 절차 진행
+                                if (registerItemToDatabase(player, nexoId)) { // 시즌별 DB에 등록
+                                    if (updatePlayerItemState(player.uniqueId, nexoId, "OWNED")) { // Player_Items_State에 등록
+                                        newlyDbRegisteredForSelfItems.add(nexoId)
+                                    } else {
+                                        plugin.logger.warning("Player_Items_State 업데이트 실패 (NBT 내꺼, 시즌DB 신규등록 후): $nexoId")
+                                    }
                                 } else {
-                                    plugin.logger.warning("아이템 등록 중 오류 발생: $nexoId")
+                                    plugin.logger.warning("시즌DB 등록 실패 (NBT 내꺼, 시즌DB에 없었음): $nexoId")
                                 }
                             }
-                            processedNexoIdsThisSession.add(nexoId) // 신규 등록 시도 아이템도 세션에 기록
+                        } else { // NBT 소유자가 다른 플레이어
+                            val ownerName = Bukkit.getOfflinePlayer(UUID.fromString(ownerNbtUuid)).name ?: "알 수 없는 플레이어"
+                            alreadyRegisteredItems.put(nexoId, ownerName) // NBT는 다른 사람 것, 전역DB에는 없음
+                        }
+                    } else {
+                        // NBT 없음 (새 아이템), 전역 DB에도 없음 -> 신규 등록 시도
+                        if (registerItemToDatabase(player, nexoId)) {
+                            if (updatePlayerItemState(player.uniqueId, nexoId, "OWNED")) {
+                                val mutableMeta = item.itemMeta // 작업할 수 있는 메타데이터 복사본 가져오기
+                                mutableMeta?.persistentDataContainer?.set(ownerKey, PersistentDataType.STRING, player.uniqueId.toString())
+                                item.itemMeta = mutableMeta // 변경된 메타데이터 다시 설정
+                                registeredItems.add(nexoId)
+                            } else {
+                                plugin.logger.warning("Player_Items_State 업데이트 실패 (신규 등록): $nexoId")
+                            }
+                        } else {
+                            plugin.logger.warning("시즌DB 등록 실패 (신규 등록): $nexoId")
                         }
                     }
+                    processedNexoIdsThisSession.add(nexoId)
                 }
                 
-                // 모든 처리가 완료된 후 결과 메시지 출력
+                // 모든 처리가 완료된 후 결과 메시지 출력 (메인 스레드에서 실행)
                 Bukkit.getScheduler().runTask(plugin, Runnable {
-                    // 새로 등록된 아이템 메시지 출력
+                    var messageSent = false
                     if (registeredItems.isNotEmpty()) {
                         val displayNames = registeredItems.map { getItemDisplayName(it) }
                         player.sendMessage("§a다음 아이템들이 소유자로 등록되었습니다: §f${displayNames.joinToString(", ")}")
+                        messageSent = true
                     }
-                    
-                    // 이미 자신이 등록한 아이템 (NBT & DB 모두)
                     if (alreadyOwnItems.isNotEmpty()) {
                         val displayNames = alreadyOwnItems.map { getItemDisplayName(it) }
                         player.sendMessage("§e이미 자신이 등록한 아이템입니다: §f${displayNames.joinToString(", ")}")
+                        messageSent = true
                     }
-                    
-                    // NBT에는 소유, DB에는 없어서 새로 등록된 아이템 메시지 출력
                     if (newlyDbRegisteredForSelfItems.isNotEmpty()) {
                         val displayNames = newlyDbRegisteredForSelfItems.map { getItemDisplayName(it) }
                         player.sendMessage("§b다음 아이템들이 데이터베이스에 추가로 등록되었습니다: §f${displayNames.joinToString(", ")}")
+                        messageSent = true
                     }
-                    
-                    // 다른 사람이 등록한 아이템
                     if (alreadyRegisteredItems.isNotEmpty()) {
                         alreadyRegisteredItems.forEach { (itemId, ownerName) ->
                             player.sendMessage("§c아이템 §f${getItemDisplayName(itemId)} §c은(는) §f$ownerName §c님이 이미 등록하였습니다.")
                         }
+                        messageSent = true
                     }
-                    
-                    // 등록된 아이템이 없는 경우 메시지 출력
-                    if (registeredItems.isEmpty() && alreadyOwnItems.isEmpty() && newlyDbRegisteredForSelfItems.isEmpty() && alreadyRegisteredItems.isEmpty()) {
-                        player.sendMessage("§c등록 가능한 시즌 아이템이 없습니다.")
+
+                    if (!messageSent) {
+                        player.sendMessage("§c등록할 수 있는 아이템이 없거나, 조건에 맞는 시즌 아이템이 인벤토리에 없습니다.")
                     }
                 })
             } catch (e: Exception) {
-                plugin.logger.warning("처리 중 오류 발생: ${e.message}")
+                plugin.logger.warning("아이템 등록 처리 중 예외 발생: ${e.message}")
+                e.printStackTrace()
                 Bukkit.getScheduler().runTask(plugin, Runnable {
-                    player.sendMessage("§c처리 중 오류가 발생했습니다.")
+                    player.sendMessage("§c아이템 등록 중 오류가 발생했습니다. 콘솔 로그를 확인해주세요.")
                 })
             }
         })
-        
         return true
     }
-    
+
     // 시즌별 아이템 활성화 상태 설정 메서드
     fun setSeasonEnabled(season: String, enabled: Boolean): Boolean {
         return when (season.lowercase()) {
@@ -412,6 +387,27 @@ class ItemRegisterSystem {
             "크리스마스" -> isChristmasEnabled
             "발렌타인" -> isValentineEnabled
             else -> false
+        }
+    }
+
+    private fun updatePlayerItemState(playerUUID: UUID, itemId: String, state: String): Boolean {
+        plugin.logger.info("[DEBUG] updatePlayerItemState 호출됨. playerUUID: $playerUUID, itemId: '$itemId', state: '$state'")
+        val sql = "INSERT INTO Player_Items_State (UUID, ItemID, State) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE State = VALUES(State)"
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, playerUUID.toString())
+                    stmt.setString(2, itemId)
+                    stmt.setString(3, state)
+                    stmt.executeUpdate()
+                    plugin.logger.info("[DEBUG] Player_Items_State 업데이트 성공.")
+                    true
+                }
+            }
+        } catch (e: SQLException) {
+            plugin.logger.warning("[LukeVanilla] Player_Items_State 업데이트 중 데이터베이스 오류 발생: ${e.message}")
+            plugin.logger.warning("[LukeVanilla] 오류 발생 SQL: $sql, UUID: $playerUUID, ItemID: $itemId, State: $state")
+            false
         }
     }
 }
