@@ -20,15 +20,9 @@
   <component name="ChangeListManager">
     <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="Implement GlobalChatManager for enhanced chat functionality and server integration">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/EventItemCommand.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/EventItemCommandCompleter.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/EventItemGUIListener.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/EventItemGetCommand.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/EventItemQueryCommand.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/EventItemRegisterCommand.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/EventItemSystem.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/EventType.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemCommand.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemCommand.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemRegisterSystem.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemRegisterSystem.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/SeasonItemSystem.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/SeasonItemSystem.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -211,8 +205,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.23774.435" />
-        <option value="bundled-js-predefined-d6986cc7102b-f27c65a3e318-JavaScript-IU-251.23774.435" />
+        <option value="bundled-jdk-9823dce3aa75-a94e463ab2e7-intellij.indexing.shared.core-IU-243.26053.27" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-IU-243.26053.27" />
       </set>
     </attachedChunks>
   </component>
@@ -286,6 +280,8 @@
       <workItem from="1746506636414" duration="2236000" />
       <workItem from="1746603414398" duration="4739000" />
       <workItem from="1746676427838" duration="4391000" />
+      <workItem from="1746975370360" duration="722000" />
+      <workItem from="1746976947872" duration="7304000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />
