@@ -31,7 +31,7 @@ class ItemCommand : CommandExecutor, TabCompleter {
         
         when (args[0].lowercase(Locale.getDefault())) {
             "등록" -> {
-                return itemRegisterSystem.registerItem(player, args)
+                return itemRegisterSystem.registerItem(player)
             }
             "수령" -> {
                 if (args.size < 2) {
