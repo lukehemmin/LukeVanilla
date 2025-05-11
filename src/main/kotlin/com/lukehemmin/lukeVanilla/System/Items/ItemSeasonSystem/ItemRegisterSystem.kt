@@ -17,6 +17,11 @@ class ItemRegisterSystem {
     private lateinit var database: Database
     private lateinit var ownerKey: NamespacedKey
     
+    // 시즌별 아이템 활성화 여부 설정
+    private var isHalloweenEnabled = false
+    private var isChristmasEnabled = true
+    private var isValentineEnabled = true
+    
     // 이벤트 타입 목록
     private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인")
     
@@ -206,9 +211,9 @@ class ItemRegisterSystem {
                     
                     // Nexo 아이템이고 시즌 아이템인 경우만 처리
                     if (!nexoId.isNullOrEmpty() && (
-                            halloweenItems.containsKey(nexoId) || 
-                            christmasItems.containsKey(nexoId) || 
-                            valentineItems.containsKey(nexoId))) {
+                            (isHalloweenEnabled && halloweenItems.containsKey(nexoId)) || 
+                            (isChristmasEnabled && christmasItems.containsKey(nexoId)) || 
+                            (isValentineEnabled && valentineItems.containsKey(nexoId)))) {
                         
                         // NBT 데이터에서 소유자 확인
                         if (meta.persistentDataContainer.has(ownerKey, PersistentDataType.STRING)) {
@@ -282,5 +287,25 @@ class ItemRegisterSystem {
         })
         
         return true
+    }
+    
+    // 시즌별 아이템 활성화 상태 설정 메서드
+    fun setSeasonEnabled(season: String, enabled: Boolean): Boolean {
+        return when (season.lowercase()) {
+            "할로윈" -> { isHalloweenEnabled = enabled; true }
+            "크리스마스" -> { isChristmasEnabled = enabled; true }
+            "발렌타인" -> { isValentineEnabled = enabled; true }
+            else -> false
+        }
+    }
+    
+    // 시즌별 아이템 활성화 상태 확인 메서드
+    fun isSeasonEnabled(season: String): Boolean {
+        return when (season.lowercase()) {
+            "할로윈" -> isHalloweenEnabled
+            "크리스마스" -> isChristmasEnabled
+            "발렌타인" -> isValentineEnabled
+            else -> false
+        }
     }
 }

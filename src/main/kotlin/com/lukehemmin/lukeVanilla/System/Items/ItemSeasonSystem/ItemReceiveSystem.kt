@@ -20,6 +20,11 @@ class ItemReceiveSystem : Listener {
     private lateinit var plugin: Main
     private lateinit var database: Database
     
+    // 시즌별 아이템 수령 가능 여부 설정
+    private var isHalloweenReceivable = true
+    private var isChristmasReceivable = false
+    private var isValentineReceivable = false
+    
     // 이벤트 타입 목록
     private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인")
     
@@ -165,6 +170,12 @@ class ItemReceiveSystem : Listener {
         // 이벤트 타입 확인
         if (!eventTypes.contains(eventTypeArg)) {
             player.sendMessage("§c유효하지 않은 이벤트 타입입니다. 사용 가능한 이벤트: ${eventTypes.joinToString(", ")}")
+            return true
+        }
+        
+        // 이벤트 활성화 여부 확인
+        if (!isSeasonReceivable(eventTypeArg)) {
+            player.sendMessage("§c아직 ${eventTypeArg} 아이템을 수령할 수 있는 기간이 아닙니다.")
             return true
         }
         
@@ -672,5 +683,25 @@ class ItemReceiveSystem : Listener {
         }
         
         return ""
+    }
+    
+    // 시즌별 아이템 수령 가능 여부 설정 메서드
+    fun setSeasonReceivable(season: String, receivable: Boolean): Boolean {
+        return when (season.lowercase()) {
+            "할로윈" -> { isHalloweenReceivable = receivable; true }
+            "크리스마스" -> { isChristmasReceivable = receivable; true }
+            "발렌타인" -> { isValentineReceivable = receivable; true }
+            else -> false
+        }
+    }
+    
+    // 시즌별 아이템 수령 가능 여부 확인 메서드
+    fun isSeasonReceivable(season: String): Boolean {
+        return when (season.lowercase()) {
+            "할로윈" -> isHalloweenReceivable
+            "크리스마스" -> isChristmasReceivable
+            "발렌타인" -> isValentineReceivable
+            else -> false
+        }
     }
 }
