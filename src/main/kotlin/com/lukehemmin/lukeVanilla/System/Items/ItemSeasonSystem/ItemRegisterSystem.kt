@@ -131,10 +131,25 @@ class ItemRegisterSystem {
     
     // 아이템을 데이터베이스에 등록
     private fun registerItemToDatabase(player: Player, itemId: String): Boolean {
+        plugin.logger.info("[DEBUG] registerItemToDatabase 호출됨. itemId: '$itemId'") // 원본 itemId 로그
         return try {
             val eventType = getEventType(itemId)
+            plugin.logger.info("[DEBUG] eventType: '$eventType'") // eventType 로그
+
             val tableName = getTableName(eventType)
-            val columnName = getColumnName(itemId)
+            plugin.logger.info("[DEBUG] tableName: '$tableName'") // tableName 로그
+
+            var columnName = itemId // 기본적으로 전체 itemId를 사용
+            
+            // 시즌 이벤트 아이템의 경우, 접두사를 제거하고 실제 아이템 타입만 컬럼명으로 사용
+            val seasonPrefixes = listOf("halloween_", "merry_christmas_", "merrychristmas_", "valentine_")
+            for (prefix in seasonPrefixes) {
+                if (itemId.startsWith(prefix)) {
+                    columnName = itemId.substring(prefix.length)
+                    break
+                }
+            }
+            plugin.logger.info("[DEBUG] 최종 columnName: '$columnName'") // 최종 columnName 로그
             
             database.getConnection().use { connection ->
                 val uuid = player.uniqueId.toString()
@@ -144,11 +159,15 @@ class ItemRegisterSystem {
                 val resultSet = selectStmt.executeQuery()
                 
                 if (resultSet.next()) {
-                    val updateStmt = connection.prepareStatement("UPDATE $tableName SET $columnName = 1 WHERE UUID = ?")
+                    val sql = "UPDATE $tableName SET `$columnName` = 1 WHERE UUID = ?"
+                    plugin.logger.info("[DEBUG] 실행될 UPDATE SQL: $sql") // 실행될 SQL 로그
+                    val updateStmt = connection.prepareStatement(sql)
                     updateStmt.setString(1, uuid)
                     updateStmt.executeUpdate()
                 } else {
-                    val insertStmt = connection.prepareStatement("INSERT INTO $tableName (UUID, $columnName) VALUES (?, 1)")
+                    val sql = "INSERT INTO $tableName (UUID, `$columnName`) VALUES (?, 1)"
+                    plugin.logger.info("[DEBUG] 실행될 INSERT SQL: $sql") // 실행될 SQL 로그
+                    val insertStmt = connection.prepareStatement(sql)
                     insertStmt.setString(1, uuid)
                     insertStmt.executeUpdate()
                 }
