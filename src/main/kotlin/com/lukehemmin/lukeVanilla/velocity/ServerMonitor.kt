@@ -1,8 +1,10 @@
 package com.lukehemmin.lukeVanilla.velocity
 
 import com.velocitypowered.api.proxy.ProxyServer
+import com.velocitypowered.api.proxy.server.RegisteredServer
 import com.velocitypowered.api.scheduler.ScheduledTask
 import org.slf4j.Logger
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
 
@@ -14,86 +16,97 @@ class ServerMonitor(
     private val logger: Logger,
     private val plugin: Any
 ) {
-    private lateinit var serverMonitorTask: ScheduledTask
-    private var isVanillaOnline: Boolean = false
-    
-    // vanilla 서버 상태 변경 콜백
-    private var onVanillaOnlineCallback: Consumer<Boolean> = Consumer { }
-    
+    private val serverMonitorTasks = ConcurrentHashMap<String, ScheduledTask>()
+    private val serverStatus = ConcurrentHashMap<String, Boolean>() // 서버 이름, 온라인 여부
+    private var onServerStatusChangeCallback: Consumer<Pair<RegisteredServer, Boolean>> = Consumer { } // 서버 정보, 온라인 여부
+
+    // 모니터링할 서버 목록 (우선은 vanilla만)
+    private val monitoredServers = listOf("vanilla")
+
     /**
      * 모니터링 시작
      */
     fun start(intervalSeconds: Long = 10) {
-        val vanillaServerName = "vanilla" // vanilla 서버 이름
-        
-        serverMonitorTask = server.scheduler.buildTask(plugin) {
-            try {
-                // 서버 존재 여부 확인
-                val vanillaServer = server.getServer(vanillaServerName)
-                if (vanillaServer.isEmpty) {
-                    logger.warn("Vanilla server is not registered in Velocity!")
-                    updateStatus(false)
-                    return@buildTask
-                }
-                
-                // 서버 ping 시도
-                val pingFuture = vanillaServer.get().ping()
-                pingFuture.thenAccept { pingResult ->
-                    updateStatus(true)
-                }.exceptionally { throwable ->
-                    val wasOnline = isVanillaOnline
-                    updateStatus(false)
-                    
-                    if (wasOnline) {
-                        logger.warn("Vanilla server is now OFFLINE! ${throwable.message}")
+        monitoredServers.forEach { serverName ->
+            val task = server.scheduler.buildTask(plugin) {
+                try {
+                    val registeredServerOptional = server.getServer(serverName)
+                    if (registeredServerOptional.isEmpty) {
+                        logger.warn("$serverName server is not registered in Velocity!")
+                        updateStatus(serverName, false, null)
+                        return@buildTask
                     }
-                    null
+                    val registeredServer = registeredServerOptional.get()
+
+                    registeredServer.ping().thenAccept { _ ->
+                        updateStatus(serverName, true, registeredServer)
+                    }.exceptionally { throwable ->
+                        val wasOnline = serverStatus[serverName] ?: false
+                        updateStatus(serverName, false, registeredServer)
+
+                        if (wasOnline) {
+                            logger.warn("$serverName server is now OFFLINE! ${throwable.message}")
+                        }
+                        null
+                    }
+                } catch (e: Exception) {
+                    logger.error("Error while monitoring $serverName server status", e)
+                    val rs = server.getServer(serverName).orElse(null)
+                    updateStatus(serverName, false, rs)
                 }
-            } catch (e: Exception) {
-                logger.error("Error while monitoring server status", e)
-                updateStatus(false)
-            }
-        }.repeat(intervalSeconds, TimeUnit.SECONDS).schedule()
+            }.repeat(intervalSeconds, TimeUnit.SECONDS).schedule()
+            serverMonitorTasks[serverName] = task
+            logger.info("Started monitoring for $serverName server.")
+        }
     }
-    
+
     /**
      * 모니터링 중지
      */
     fun stop() {
-        if (::serverMonitorTask.isInitialized) {
-            serverMonitorTask.cancel()
-        }
+        serverMonitorTasks.values.forEach { it.cancel() }
+        serverMonitorTasks.clear()
+        logger.info("Stopped all server monitoring tasks.")
     }
-    
+
     /**
-     * vanilla 서버 상태 업데이트 및 콜백 호출
+     * 특정 서버 상태 업데이트 및 콜백 호출
      */
-    private fun updateStatus(online: Boolean) {
-        val previous = isVanillaOnline
-        isVanillaOnline = online
-        
-        // 상태가 변경되었을 경우 콜백 실행
-        if (previous != online) {
+    private fun updateStatus(serverName: String, online: Boolean, registeredServer: RegisteredServer?) {
+        val previousStatus = serverStatus.getOrDefault(serverName, !online) // 이전 상태가 없으면 현재와 반대로 설정하여 변경 감지
+        serverStatus[serverName] = online
+
+        if (previousStatus != online) {
             if (online) {
-                logger.info("Vanilla server is now ONLINE!")
+                logger.info("$serverName server is now ONLINE!")
             } else {
-                logger.info("Vanilla server is now OFFLINE!")
+                logger.info("$serverName server is now OFFLINE!")
             }
-            onVanillaOnlineCallback.accept(online)
+            // RegisteredServer가 null이 아닐 때만 콜백 호출 (서버가 아예 존재하지 않는 경우는 제외)
+            registeredServer?.let {
+                onServerStatusChangeCallback.accept(Pair(it, online))
+            }
         }
     }
-    
+
     /**
-     * 현재 vanilla 서버 상태 반환
+     * 현재 특정 서버 상태 반환
      */
-    fun isVanillaOnline(): Boolean {
-        return isVanillaOnline
+    fun isServerOnline(serverName: String): Boolean {
+        return serverStatus.getOrDefault(serverName, false)
     }
     
     /**
-     * vanilla 서버 상태 변경시 실행할 콜백 설정
+     * 모든 모니터링 대상 서버의 현재 상태 반환
      */
-    fun onVanillaStatusChange(callback: Consumer<Boolean>) {
-        onVanillaOnlineCallback = callback
+    fun getAllServerStatuses(): Map<String, Boolean> {
+        return serverStatus.toMap()
+    }
+
+    /**
+     * 서버 상태 변경시 실행할 콜백 설정
+     */
+    fun onServerStatusChange(callback: Consumer<Pair<RegisteredServer, Boolean>>) {
+        onServerStatusChangeCallback = callback
     }
 }

@@ -9,6 +9,8 @@ import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier // Import 추가
+import com.velocitypowered.api.command.CommandManager // 명령어 관리자 import
+import com.velocitypowered.api.command.CommandMeta // 명령어 메타데이터 import
 import org.slf4j.Logger
 import java.nio.file.Path
 import com.lukehemmin.lukeVanilla.velocity.PluginMessageListener
@@ -42,6 +44,7 @@ class VelocityMain @Inject constructor(
         
         // 이벤트 리스너 등록
         registerEventListeners()
+        registerCommands() // 명령어 등록 메소드 호출
         
         logger.info("Automatic server redirection system initialized")
     }
@@ -74,14 +77,20 @@ class VelocityMain @Inject constructor(
         val pluginMsgListener = PluginMessageListener(redirectManager, logger)
         server.eventManager.register(this, pluginMsgListener)
 
-        // Vanilla 서버 상태 변경 콜백 설정
-        serverMonitor.onVanillaStatusChange { isOnline -> 
+        // 서버 상태 변경 콜백 설정 (새로운 방식으로 변경)
+        serverMonitor.onServerStatusChange { (changedServer, isOnline) ->
             // 메인 스레드에서 온라인/오프라인 이벤트 처리
             server.scheduler.buildTask(this) {
                 if (isOnline) {
-                    redirectManager.handleVanillaServerOnline()
+                    // PlayerRedirectManager에 특정 서버가 온라인되었음을 알림
+                    redirectManager.handleServerOnline(changedServer)
                 } else {
-                    redirectManager.handleVanillaServerOffline()
+                    // 특정 서버가 오프라인되었을 때의 처리
+                    // 예: "vanilla" 서버가 오프라인되면 기존 로직대로 로비로 이동
+                    if (changedServer.serverInfo.name.equals("vanilla", ignoreCase = true)) {
+                        redirectManager.handleVanillaServerOffline()
+                    }
+                    // 다른 서버 오프라인 시 추가 로직이 필요하면 여기에 구현
                 }
             }.schedule()
         }
@@ -99,5 +108,29 @@ class VelocityMain @Inject constructor(
      */
     private fun registerEventListeners() {
         server.eventManager.register(this, eventListeners)
+    }
+
+    /**
+     * 명령어 등록
+     */
+    private fun registerCommands() {
+        val commandManager: CommandManager = server.commandManager
+
+        // /로비서버 명령어 등록
+        val lobbyCommandMeta: CommandMeta = commandManager.metaBuilder("로비서버")
+            .aliases("lobby", "l") // 단축 명령어 설정 (선택 사항)
+            .plugin(this)
+            .build()
+        commandManager.register(lobbyCommandMeta, LobbyCommand(server, logger, redirectManager))
+
+        // /야생서버 명령어 등록
+        val wildServerCommandMeta: CommandMeta = commandManager.metaBuilder("야생서버")
+            .aliases("wild", "w", "vanilla") // 단축 명령어 설정 (선택 사항)
+            .plugin(this)
+            .build()
+        // "야생서버"는 "vanilla" 서버로 가정합니다.
+        commandManager.register(wildServerCommandMeta, WildServerCommand(server, logger, redirectManager))
+
+        logger.info("Successfully registered commands: /로비서버, /야생서버")
     }
 }
