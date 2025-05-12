@@ -210,14 +210,14 @@ class ItemRegisterSystem {
             return Pair(null, null)
         }
 
-        val sql = "SELECT OwnerUUID, OwnerName FROM $tableName WHERE ItemID = ? LIMIT 1"
+        val sql = "SELECT UUID, OwnerName FROM $tableName WHERE ItemID = ? LIMIT 1"
         try {
             database.getConnection().use { connection ->
                 connection.prepareStatement(sql).use { stmt ->
                     stmt.setString(1, itemId)
                     stmt.executeQuery().use { rs ->
                         if (rs.next()) {
-                            val ownerUUID = rs.getString("OwnerUUID")
+                            val ownerUUID = rs.getString("UUID")
                             val ownerName = rs.getString("OwnerName")
                             return Pair(ownerUUID, ownerName)
                         }
