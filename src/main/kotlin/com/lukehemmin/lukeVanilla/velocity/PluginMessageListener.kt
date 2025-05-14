@@ -4,6 +4,7 @@ import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.PluginMessageEvent
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier // Import 추가
+import com.velocitypowered.api.proxy.ProxyServer // ProxyServer import 추가
 import org.slf4j.Logger
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream
@@ -13,8 +14,10 @@ import java.io.DataInputStream
  * PlayerRedirectManager를 통해 자동 리디렉션을 처리합니다.
  */
 class PluginMessageListener(
+    private val server: ProxyServer, // server 파라미터 추가
+    private val logger: Logger,
     private val redirectManager: PlayerRedirectManager,
-    private val logger: Logger
+    private val serverMonitor: ServerMonitor
 ) {
     // 네임스페이스와 ID를 분리하여 ChannelIdentifier 생성
     private val channel: ChannelIdentifier = MinecraftChannelIdentifier.create("luke", "vanilla_status") // 'of' 대신 'MinecraftChannelIdentifier.create' 사용
@@ -30,7 +33,16 @@ class PluginMessageListener(
 
         when (message) {
             "OFFLINE_IMMINENT" -> redirectManager.handleVanillaServerOffline()
-            "ONLINE" -> redirectManager.handleVanillaServerOnline()
+            "ONLINE" -> {
+                val vanillaServer = server.getServer("vanilla")
+                if (vanillaServer.isPresent) {
+                    redirectManager.handleServerOnline(vanillaServer.get()) // 이 호출은 VelocityMain의 콜백으로 이동하는 것이 좋을 수 있음
+                    // serverMonitor.updateServerStatus("vanilla", true) // ServerMonitor 상태는 내부적으로 업데이트됨
+                    logger.info("Vanilla server reported ONLINE, notified RedirectManager.") // ServerMonitor 언급 제거
+                } else {
+                    logger.warn("Received ONLINE message for vanilla server, but 'vanilla' server is not registered.")
+                }
+            }
             // 로깅 시 파라미터 전달
             else -> logger.warn("Unknown vanilla_status message: {}", message)
         }

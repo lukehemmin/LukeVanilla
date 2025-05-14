@@ -9,6 +9,7 @@ import com.velocitypowered.api.proxy.Player
 import com.velocitypowered.api.proxy.ProxyServer
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import org.slf4j.Logger
 
 /**
@@ -77,9 +78,10 @@ class EventListeners(
     fun onKickedFromServer(event: KickedFromServerEvent) {
         val player = event.player
         val kickedFromServer = event.server
-        val reason = event.reasonComponent.orElse(Component.text("알 수 없는 이유"))
+        // 서버 킥 사유를 확인하고, 없으면 기본 메시지 사용
+        val reason: Component = event.getServerKickReason().orElse(Component.text("알 수 없는 이유"))
 
-        logger.info("Player ${player.username} was kicked from ${kickedFromServer.serverInfo.name}. Reason: ${Component.text().append(reason).content()}")
+        logger.info("Player ${player.username} was kicked from ${kickedFromServer.serverInfo.name}. Reason: ${LegacyComponentSerializer.legacySection().serialize(reason)}")
 
         // 플레이어가 vanilla 서버에 있었고, 서버가 갑자기 다운된 경우 (정상적인 종료 메시지가 아닌 경우)
         // 또는 플레이어가 재연결을 시도해야 하는 다른 서버에서 튕겼을 경우
@@ -89,27 +91,25 @@ class EventListeners(
             // 서버가 오프라인 상태인지 확인 (ServerMonitor를 통해)
             val isServerActuallyOffline = !serverMonitor.isServerOnline(kickedFromServer.serverInfo.name)
 
-            if (isServerActuallyOffline || event.kickReasonAllowsStayConnected()) {
+            if (isServerActuallyOffline) { 
                  // 플레이어를 프록시에 유지하고 재연결 시도 메시지 표시
                 event.result = KickedFromServerEvent.DisconnectPlayer.create(
-                    Component.text("서버와의 연결이 끊겼습니다. 잠시 후 자동으로 재연결을 시도합니다...\n이유: ").append(reason).color(NamedTextColor.RED)
+                    Component.text("서버와의 연결이 끊겼습니다. 잠시 후 자동으로 재연결을 시도합니다...\n이유: ").append(reason.color(NamedTextColor.RED)) 
                 )
                 redirectManager.markPlayerAwaitingReconnect(player.uniqueId, kickedFromServer)
                 logger.info("Player ${player.username} will stay on proxy, awaiting reconnect to ${kickedFromServer.serverInfo.name}.")
                 // 여기서 타이틀이나 액션바 메시지를 주기적으로 보내는 로직을 추가할 수 있습니다. (별도 클래스 또는 PlayerRedirectManager에서 관리)
                 sendReconnectingMessageTask(player, kickedFromServer.serverInfo.name)
-
             } else {
-                // 서버는 온라인이지만 다른 이유로 킥 (예: 밴, 다른 곳에서 로그인)
-                // 이 경우 일반적인 킥으로 처리 (로비로 보내거나, 기본 킥 메시지 유지)
+                // 로비 서버로 리디렉션 또는 연결 종료 (기존 로직 유지)
                 val lobby = server.getServer("lobby")
                 if (lobby.isPresent) {
                     event.result = KickedFromServerEvent.RedirectPlayer.create(lobby.get(), reason)
-                    logger.info("Player ${player.username} kicked from ${kickedFromServer.serverInfo.name}, redirecting to lobby. Reason: ${Component.text().append(reason).content()}")
+                    logger.info("Player ${player.username} kicked from ${kickedFromServer.serverInfo.name}, redirecting to lobby. Reason: ${LegacyComponentSerializer.legacySection().serialize(reason)}")
                 } else {
                     // 로비 서버가 없으면 기본 킥 처리 (프록시에서 연결 해제)
                     event.result = KickedFromServerEvent.DisconnectPlayer.create(
-                        Component.text("서버에서 연결이 끊겼습니다: ").append(reason).append(Component.text("\n로비 서버를 찾을 수 없어 연결을 종료합니다.")).color(NamedTextColor.RED)
+                        Component.text("서버에서 연결이 끊겼습니다: ").append(reason).append(Component.text("\n로비 서버를 찾을 수 없어 연결을 종료합니다.")).color(NamedTextColor.RED) 
                     )
                     logger.warn("Player ${player.username} kicked from ${kickedFromServer.serverInfo.name}, no lobby server found. Disconnecting.")
                 }
@@ -123,7 +123,7 @@ class EventListeners(
             } else {
                  // 이미 로비에 있거나 로비가 없는 경우, 기본 킥 처리
                 event.result = KickedFromServerEvent.DisconnectPlayer.create(reason)
-                 logger.info("Player ${player.username} kicked from ${kickedFromServer.serverInfo.name}. Default kick action. Reason: ${Component.text().append(reason).content()}")
+                 logger.info("Player ${player.username} kicked from ${kickedFromServer.serverInfo.name}. Default kick action. Reason: ${LegacyComponentSerializer.legacySection().serialize(reason)}")
             }
         }
     }

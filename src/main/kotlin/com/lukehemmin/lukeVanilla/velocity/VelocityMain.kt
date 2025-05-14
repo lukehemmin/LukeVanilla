@@ -74,7 +74,8 @@ class VelocityMain @Inject constructor(
         // 'of' 대신 'MinecraftChannelIdentifier.create' 사용
         val channel = MinecraftChannelIdentifier.create("luke", "vanilla_status")
         server.channelRegistrar.register(channel)
-        val pluginMsgListener = PluginMessageListener(redirectManager, logger)
+        // 수정: PluginMessageListener 생성자에 server 및 serverMonitor 추가, 인자 순서 조정
+        val pluginMsgListener = PluginMessageListener(server, logger, redirectManager, serverMonitor)
         server.eventManager.register(this, pluginMsgListener)
 
         // 서버 상태 변경 콜백 설정 (새로운 방식으로 변경)
