@@ -4,6 +4,7 @@ import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.nexomc.nexo.api.NexoItems
 import org.bukkit.Bukkit
+// Kyori API는 지금 적용하지 않습니다 - 추후 별도 작업으로 진행
 import org.bukkit.ChatColor
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
@@ -14,8 +15,42 @@ import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import org.bukkit.inventory.Inventory
 
 class ItemReceiveSystem : Listener {
+    
+    companion object {
+        // 전역적으로 중복 클릭을 추적하기 위한 스레드 안전한 정적 맵
+        private val lastClickTimes = ConcurrentHashMap<String, Long>()
+        
+        // 이 메서드는 특정 플레이어의 특정 슬롯 클릭이 최근에 발생했는지 확인
+        fun isRecentClick(playerUuid: String, slot: Int): Boolean {
+            val key = "${playerUuid}_${slot}"
+            val lastClick = lastClickTimes[key] ?: 0L
+            val currentTime = System.currentTimeMillis()
+            val isRecent = currentTime - lastClick < 2000 // 2초 이내 클릭은 중복으로 간주
+            
+            if (!isRecent) {
+                // 최근 클릭이 아닌 경우에만 시간 업데이트
+                lastClickTimes[key] = currentTime
+            }
+            
+            return isRecent
+        }
+        
+        // 일정 시간 후 만료된 항목 정리 (서버 성능 최적화)
+        fun cleanupExpiredEntries() {
+            val currentTime = System.currentTimeMillis()
+            val expiredKeys = lastClickTimes.entries
+                .filter { (currentTime - it.value) > 60000 } // 1분 이상 지난 항목은 제거
+                .map { it.key }
+                
+            for (key in expiredKeys) {
+                lastClickTimes.remove(key)
+            }
+        }
+    }
     
     lateinit var plugin: Main
     lateinit var database: Database
@@ -30,7 +65,7 @@ class ItemReceiveSystem : Listener {
     
     // GUI 관련 상수
     private val halloweenGuiTitle = "${ChatColor.DARK_PURPLE}할로윈 아이템 받기"
-    private val christmasGuiTitle = "${ChatColor.GREEN}크리스마스 아이템 받기"
+    private val christmasGuiTitle = "${ChatColor.RED}크리스마스 아이템 받기"
     private val valentineGuiTitle = "${ChatColor.LIGHT_PURPLE}발렌타인 아이템 받기"
     
     // GUI 키
@@ -484,9 +519,6 @@ class ItemReceiveSystem : Listener {
     }
     
     // 인벤토리 클릭 이벤트 처리
-    // 중복 처리 방지를 위한 정적 맵 - 이미 처리된 이벤트 추적
-    private val processedEvents = mutableMapOf<String, Long>()
-    
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
@@ -507,10 +539,9 @@ class ItemReceiveSystem : Listener {
         // 항상 클릭 이벤트 취소
         event.isCancelled = true
         
-        // 이미 처리된 이벤트의 경우 무시
-        val playerUuid = player.uniqueId.toString()
-        val timestamp = System.currentTimeMillis()
-        if (processedEvents.containsKey(playerUuid) && timestamp - processedEvents[playerUuid]!! < 1000) {
+        // 중복 클릭 감지 - 정적 맵 사용
+        if (isRecentClick(player.uniqueId.toString(), event.slot)) {
+            plugin.logger.info("버그 방지: 중복 클릭 감지 - 플레이어 ${player.name}, 슬롯 ${event.slot}")
             return
         }
         
@@ -607,11 +638,12 @@ class ItemReceiveSystem : Listener {
                         scrollItem.itemMeta = scrollMeta
                         
                         // 플레이어에게 한 번만 지급
-                        // 인벤토리에 이미 같은 종류의 스크롤이 있는지 확인
-                        val hasScrollAlready = player.inventory.contents.any { item -> 
-                            if (item == null) return@any false
-                            if (!item.hasItemMeta()) return@any false
-                            val meta = item.itemMeta ?: return@any false
+                        // 인벤토리에 이미 같은 종류의 스크롤이 있는지 철저히 확인
+                        for (item in player.inventory.contents) {
+                            if (item == null) continue
+                            if (!item.hasItemMeta()) continue
+                            
+                            val meta = item.itemMeta ?: continue
                             val pdc = meta.persistentDataContainer
                             
                             val existingScrollId = when (eventType) {
@@ -620,12 +652,11 @@ class ItemReceiveSystem : Listener {
                                 "Valentine" -> pdc.get(valentineGuiKey, PersistentDataType.STRING)
                                 else -> null
                             }
-                            existingScrollId == scrollId
-                        }
-                        
-                        if (hasScrollAlready) {
-                            player.sendMessage("${ChatColor.RED}이 스크롤은 이미 인벤토리에 있습니다.")
-                            return@Runnable
+                            
+                            if (existingScrollId == scrollId) {
+                                player.sendMessage("${ChatColor.RED}이 스크롤은 이미 인벤토리에 있습니다.")
+                                return@Runnable
+                            }
                         }
                         
                         // 플레이어에게 지급
@@ -663,8 +694,9 @@ class ItemReceiveSystem : Listener {
                         }
                         player.sendMessage("${ChatColor.GREEN}$itemDisplayName $koreanItemName 스크롤을 수령했습니다.")
                         
-                        // 처리된 이벤트 기록 - 중복 수령 방지
-                        processedEvents[player.uniqueId.toString()] = System.currentTimeMillis()
+                        // 이벤트 처리 완료 - 추가 처리 필요 없음
+                        // 디버그 로깅
+                        plugin.logger.info("아이템 지급 성공: 플레이어 ${player.name}, 아이템 $scrollId")
                     })
                 }
             } catch (e: Exception) {
