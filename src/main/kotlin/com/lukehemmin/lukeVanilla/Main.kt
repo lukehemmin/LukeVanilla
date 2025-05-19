@@ -73,19 +73,19 @@ class Main : JavaPlugin() {
             // ItemRestoreLogger 초기화
             itemRestoreLogger = ItemRestoreLogger(database, this, discordBot.jda)
 
-            // 서비스 타입이 "Lobby"가 아닐 경우에만 인증 및 관련 시스템 초기화
+            // DiscordLeave 초기화 및 리스너 등록 (모든 서버 공통)
+            val discordLeave = DiscordLeave(database, this, discordBot.jda)
+            discordBot.jda.addEventListener(discordLeave) 
+            server.pluginManager.registerEvents(discordLeave, this)
+            
+            // 티토커 채팅 리스너 등록 (모든 서버 공통)
+            discordBot.jda.addEventListener(TitokerChatListener(this))
+            
+            // 서비스 타입이 "Lobby"가 아닐 경우에만 인증코드 처리 시스템 초기화
             if (serviceType != "Lobby") {
-                // DiscordAuth 초기화 및 리스너 등록
+                // DiscordAuth 초기화 및 리스너 등록 (인증코드 처리만 로비에서 비활성화)
                 val discordAuth = DiscordAuth(database, this)
                 discordBot.jda.addEventListener(discordAuth)
-
-                // DiscordLeave 초기화 및 리스너 등록
-                val discordLeave = DiscordLeave(database, this, discordBot.jda)
-                discordBot.jda.addEventListener(discordLeave) // 수정된 부분
-                server.pluginManager.registerEvents(discordLeave, this)
-
-                // 티토커 채팅 리스너 등록
-                discordBot.jda.addEventListener(TitokerChatListener(this))
             }
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")

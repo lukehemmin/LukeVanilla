@@ -606,6 +606,28 @@ class ItemReceiveSystem : Listener {
                         scrollMeta!!.persistentDataContainer.set(ownerKey, PersistentDataType.STRING, uuid)
                         scrollItem.itemMeta = scrollMeta
                         
+                        // 플레이어에게 한 번만 지급
+                        // 인벤토리에 이미 같은 종류의 스크롤이 있는지 확인
+                        val hasScrollAlready = player.inventory.contents.any { item -> 
+                            if (item == null) return@any false
+                            if (!item.hasItemMeta()) return@any false
+                            val meta = item.itemMeta ?: return@any false
+                            val pdc = meta.persistentDataContainer
+                            
+                            val existingScrollId = when (eventType) {
+                                "Halloween" -> pdc.get(halloweenGuiKey, PersistentDataType.STRING)
+                                "Christmas" -> pdc.get(christmasGuiKey, PersistentDataType.STRING)
+                                "Valentine" -> pdc.get(valentineGuiKey, PersistentDataType.STRING)
+                                else -> null
+                            }
+                            existingScrollId == scrollId
+                        }
+                        
+                        if (hasScrollAlready) {
+                            player.sendMessage("${ChatColor.RED}이 스크롤은 이미 인벤토리에 있습니다.")
+                            return@Runnable
+                        }
+                        
                         // 플레이어에게 지급
                         player.inventory.addItem(scrollItem)
                         
@@ -617,7 +639,29 @@ class ItemReceiveSystem : Listener {
                             else -> ""
                         }
                         
-                        player.sendMessage("${ChatColor.GREEN}$itemDisplayName ${columnName.capitalize()} 스크롤을 수령했습니다.")
+                        // 아이템 이름 한글로 변환
+                        val koreanItemName = when (columnName) {
+                            "sword" -> "검"
+                            "pickaxe" -> "곡괭이"
+                            "axe" -> "도끼"
+                            "shovel" -> "삽"
+                            "hoe" -> "괭이"
+                            "bow" -> "활"
+                            "crossbow" -> "쇠뇌"
+                            "fishing_rod" -> "낚싯대"
+                            "hammer" -> "망치"
+                            "shield" -> "방패"
+                            "helmet" -> "투구"
+                            "chestplate" -> "갑옷"
+                            "leggings" -> "바지"
+                            "boots" -> "부츠"
+                            "head" -> "머리장식"
+                            "hat" -> "모자"
+                            "scythe" -> "낫"
+                            "spear" -> "창"
+                            else -> columnName
+                        }
+                        player.sendMessage("${ChatColor.GREEN}$itemDisplayName $koreanItemName 스크롤을 수령했습니다.")
                         
                         // 처리된 이벤트 기록 - 중복 수령 방지
                         processedEvents[player.uniqueId.toString()] = System.currentTimeMillis()
