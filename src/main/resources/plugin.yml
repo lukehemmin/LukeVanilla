@@ -93,15 +93,6 @@ commands:
     usage: "/itemstats log <on|off>"
     permission: "itemstats.admin"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
-  sit:
-    description: "현재 위치에 앉습니다."
-    usage: "/sit"
-  lay:
-    description: "현재 위치에 눕습니다."
-    usage: "/lay"
-  crawl:
-    description: "기어다니기 모드를 활성화/비활성화합니다."
-    usage: "/crawl"
 
 permissions:
   lukevanilla.nametag:

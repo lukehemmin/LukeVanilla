@@ -7,10 +7,12 @@ import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 import java.util.*
 
-class ItemCommand : CommandExecutor, TabCompleter {
+class ItemCommand(
+    // 외부에서 주입받은 ItemReceiveSystem 인스턴스 사용
+    private val itemReceiveSystem: ItemReceiveSystem
+) : CommandExecutor, TabCompleter {
     
     private val itemRegisterSystem = ItemRegisterSystem()
-    private val itemReceiveSystem = ItemReceiveSystem()
     private val itemViewSystem = ItemViewSystem()
     
     // 이벤트 타입 목록

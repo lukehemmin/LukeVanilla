@@ -17,8 +17,8 @@ import java.util.*
 
 class ItemReceiveSystem : Listener {
     
-    private lateinit var plugin: Main
-    private lateinit var database: Database
+    lateinit var plugin: Main
+    lateinit var database: Database
     
     // 시즌별 아이템 수령 가능 여부 설정
     private var isHalloweenReceivable = true
@@ -484,6 +484,9 @@ class ItemReceiveSystem : Listener {
     }
     
     // 인벤토리 클릭 이벤트 처리
+    // 중복 처리 방지를 위한 정적 맵 - 이미 처리된 이벤트 추적
+    private val processedEvents = mutableMapOf<String, Long>()
+    
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
@@ -503,6 +506,13 @@ class ItemReceiveSystem : Listener {
         
         // 항상 클릭 이벤트 취소
         event.isCancelled = true
+        
+        // 이미 처리된 이벤트의 경우 무시
+        val playerUuid = player.uniqueId.toString()
+        val timestamp = System.currentTimeMillis()
+        if (processedEvents.containsKey(playerUuid) && timestamp - processedEvents[playerUuid]!! < 1000) {
+            return
+        }
         
         // 클릭한 아이템 확인
         val clickedItem = event.currentItem ?: return
@@ -608,6 +618,9 @@ class ItemReceiveSystem : Listener {
                         }
                         
                         player.sendMessage("${ChatColor.GREEN}$itemDisplayName ${columnName.capitalize()} 스크롤을 수령했습니다.")
+                        
+                        // 처리된 이벤트 기록 - 중복 수령 방지
+                        processedEvents[player.uniqueId.toString()] = System.currentTimeMillis()
                     })
                 }
             } catch (e: Exception) {

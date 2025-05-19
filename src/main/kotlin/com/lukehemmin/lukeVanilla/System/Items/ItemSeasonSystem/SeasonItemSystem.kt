@@ -11,7 +11,7 @@ import org.bukkit.event.block.BlockPlaceEvent
 /**
  * 시즌 아이템 시스템 - 할로윈, 크리스마스, 발렌타인 등 시즌별 아이템 관리 시스템
  */
-class SeasonItemSystem(private val plugin: Main) : Listener {
+class SeasonItemSystem(private val plugin: Main, private val itemReceiveSystem: ItemReceiveSystem) : Listener {
     
     // 시즌제 아이템 ID 리스트 (설치 불가)
     private val restrictedItems = listOf(
@@ -26,12 +26,11 @@ class SeasonItemSystem(private val plugin: Main) : Listener {
     
     // 각 시스템 관리
     private val itemRegisterSystem = ItemRegisterSystem()
-    private val itemReceiveSystem = ItemReceiveSystem()
+    // ItemReceiveSystem은 생성자에서 전달받음
     private val itemViewSystem = ItemViewSystem()
     
     init {
-        // 이벤트 리스너 등록
-        Bukkit.getPluginManager().registerEvents(itemReceiveSystem, plugin)
+        // 이벤트 리스너 등록 - ItemReceiveSystem은 Main.kt에서 등록하므로 여기서는 제거
         Bukkit.getPluginManager().registerEvents(this, plugin)
     }
     

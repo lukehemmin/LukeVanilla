@@ -43,7 +43,6 @@ class Main : JavaPlugin() {
     lateinit var economyManager: EconomyManager
     lateinit var lockSystem: LockSystem
     lateinit var statsSystem: StatsSystem
-    lateinit var sitManager: SitManager
     lateinit var snowMinigame: SnowMinigame
 //    lateinit var shopManager: ShopManager
 //    lateinit var shopPriceListener: ShopPriceListener
@@ -116,7 +115,8 @@ class Main : JavaPlugin() {
         getCommand("delnametag")?.setExecutor(nametagCommand)
 
         // 아이템 시스템 초기화
-        getCommand("item")?.setExecutor(ItemCommand())
+        // 아래에서 생성할 itemReceiveSystem 인스턴스를 사용하므로 여기서는 생성하지 않음
+        // 영어 명령어 등록은 아래에서 통합
         server.pluginManager.registerEvents(DurabilityListener(this), this)
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
         
@@ -211,19 +211,19 @@ class Main : JavaPlugin() {
         // 아이템 업그레이드 시스템 초기화
         UpgradeItem(this)
         
-        // 아이템 시즌 시스템 명령어 등록
-        val itemSeasonSystemCommand = ItemCommand() // ItemSeasonSystem의 ItemCommand 인스턴스 생성
-        getCommand("아이템")?.setExecutor(itemSeasonSystemCommand)
-        getCommand("아이템")?.tabCompleter = itemSeasonSystemCommand // 동일 인스턴스를 TabCompleter로 설정
+        // 아이템 시즌 시스템 설정
+        // ItemReceiveSystem 인스턴스 생성 및 이벤트 리스너로 등록
+        val itemReceiveSystem = ItemReceiveSystem()
+        itemReceiveSystem.plugin = this // 플러그인 인스턴스 설정
+        itemReceiveSystem.database = database // 데이터베이스 인스턴스 설정
+        server.pluginManager.registerEvents(itemReceiveSystem, this) // 이벤트 리스너로 등록
         
-        // 앉기 시스템 초기화
-        sitManager = SitManager(this)
-        // 명령어 등록
-        getCommand("sit")?.setExecutor(SitCommand(sitManager))
-        getCommand("lay")?.setExecutor(LayCommand(sitManager))
-        getCommand("crawl")?.setExecutor(CrawlCommand(sitManager))
-        // 점프 등 액션 리스너 등록
-        server.pluginManager.registerEvents(PlayerActionListener(sitManager), this)
+        // ItemCommand에 단일 ItemReceiveSystem 인스턴스 전달
+        val itemSeasonSystemCommand = ItemCommand(itemReceiveSystem)
+        getCommand("아이템")?.setExecutor(itemSeasonSystemCommand) // 한글 명령어 등록
+        getCommand("아이템")?.tabCompleter = itemSeasonSystemCommand // 동일 인스턴스를 TabCompleter로 설정
+        getCommand("item")?.setExecutor(itemSeasonSystemCommand) // 영어 명령어도 동일 인스턴스 사용
+        getCommand("item")?.tabCompleter = itemSeasonSystemCommand // 영어 명령어에도 동일 탭 컴플리터 사용
         
         // Christmas_sword 이벤트 리스너 등록 (UpgradeItem으로 통합)
         // Christmas_sword(this)
