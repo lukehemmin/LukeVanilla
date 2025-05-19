@@ -20,8 +20,8 @@ class ItemRegisterSystem {
     
     // 시즌별 아이템 활성화 여부 설정
     private var isHalloweenEnabled = false
-    private var isChristmasEnabled = true
-    private var isValentineEnabled = true
+    private var isChristmasEnabled = false
+    private var isValentineEnabled = false
     
     // 이벤트 타입 목록
     private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인")
