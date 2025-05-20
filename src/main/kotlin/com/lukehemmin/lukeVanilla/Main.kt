@@ -87,15 +87,30 @@ class Main : JavaPlugin() {
                 val discordAuth = DiscordAuth(database, this)
                 discordBot.jda.addEventListener(discordAuth)
             }
+
+            if (serviceType == "Lobby") {
+                // 서비스 타입이 "Lobby"인 경우에만 관리자 어시스턴트 초기화
+                val adminAssistant = AdminAssistant(this)
+                adminAssistant.initialize()
+            }
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")
         }
 
         // Discord Bot 초기화 부분 아래에 추가
-        discordBot.jda.addEventListener(
-            SupportSystem(discordBot, database),
-            SupportCaseListener(database, discordBot)
-        )
+        // 고객지원 시스템은 로비 서버에서만 실행
+        if (serviceType == "Lobby") {
+            logger.info("로비 서버에서 고객지원 시스템을 초기화합니다.")
+            discordBot.jda.addEventListener(
+                SupportSystem(discordBot, database),
+                SupportCaseListener(database, discordBot)
+            )
+            // 고객지원 채널 설정 초기화 (로비 서버에서만 수행)
+            val supportSystem = SupportSystem(discordBot, database)
+            supportSystem.setupSupportChannel()
+        } else {
+            logger.info("${serviceType} 서버에서는 고객지원 시스템이 비활성화됩니다.")
+        }
 
         // 이벤트 리스너 등록
         server.pluginManager.registerEvents(PlayerLoginListener(database), this)

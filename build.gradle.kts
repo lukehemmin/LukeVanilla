@@ -35,7 +35,6 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.zaxxer:HikariCP:5.0.1")
-    implementation ("com.vdurmont:emoji-java:5.1.1")
 //    compileOnly("io.th0rgal:oraxen:1.186.0")
     compileOnly("com.nexomc:nexo:1.1.0")
     implementation("net.dv8tion:JDA:5.2.1")
@@ -54,6 +53,8 @@ dependencies {
     // Netty buffer for PluginMessageEvent data
     implementation("io.netty:netty-buffer:4.1.99.Final")
     annotationProcessor("com.velocitypowered:velocity-api:3.1.1")
+    // implementation("com.openai:openai-java:0.12.0") // 기존 의존성 주석 처리
+    implementation("com.theokanning.openai-gpt3-java:service:0.12.0") // 새 의존성 추가
 }
 
 val targetJavaVersion = 21
