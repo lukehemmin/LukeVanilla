@@ -51,6 +51,12 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
             event.joinMessage = null
             return
         }
+        
+        // 특정 권한(lukevanilla.hidemessages)을 가진 플레이어는 접속 메시지 표시 안 함
+        if (player.hasPermission("lukevanilla.hidemessages")) {
+            event.joinMessage = null
+            return
+        }
 
         if (serviceType == "Vanilla") {
             // Vanilla Server Join
@@ -206,6 +212,12 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
 
         // 인증되지 않은 플레이어는 퇴장 메시지 표시 안 함
         if (!isAuth) {
+            event.quitMessage = null
+            return
+        }
+        
+        // 특정 권한(lukevanilla.hidemessages)을 가진 플레이어는 퇴장 메시지 표시 안 함
+        if (player.hasPermission("lukevanilla.hidemessages")) {
             event.quitMessage = null
             return
         }
