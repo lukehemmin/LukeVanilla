@@ -102,8 +102,9 @@ class AdminAssistant(
         if (event.author.isBot) return
         if (assistantChannelId == null || event.channel.id != assistantChannelId) return
 
+        // 관리자 권한 체크 제거: 해당 채널에서 메시지를 보낼 수 있는 유저라면 누구나 가능
         val member = event.member
-        if (member == null || !member.hasPermission(Permission.ADMINISTRATOR)) {
+        if (member == null) {
             return
         }
 
