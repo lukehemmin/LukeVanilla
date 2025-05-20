@@ -25,6 +25,8 @@ object ServerStatusProvider {
         }
         // Ping은 서버 전체 평균값을 구할 수 없으므로, 예시로 0으로 표기
         val ping = "0ms"
-        return "${tps} tps  ${mspt} mspt  ping ${ping}"
+        val onlinePlayers = Bukkit.getOnlinePlayers().size
+        val maxPlayers = Bukkit.getMaxPlayers()
+        return "TPS: ${tps}, MSPT: ${mspt}, Ping: ${ping}, Players: ${onlinePlayers}/${maxPlayers}"
     }
 }
