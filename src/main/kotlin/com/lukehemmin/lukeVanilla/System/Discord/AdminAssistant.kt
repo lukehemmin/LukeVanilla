@@ -141,6 +141,9 @@ class AdminAssistant(
             // 항상 시스템 프롬프트에 서버 상태 및 관리 명령어 정보 포함 (AI가 필요할 때만 답변에 사용)
             val serverStatus = ServerStatusProvider.getServerStatusString()
             val commandTable = """
+# 언어 지시
+- 반드시 **모든 답변을 한국어**(높임말, 자연스러운 표현)로 한다.
+
 # 역할
 - 넌 Minecraft 서버의 관리자 어시스턴트야.
 - 서버 상태, TPS, 렉, mspt, ping 등과 관련된 질문이 오면 아래 실시간 서버 상태 정보를 참고해서 답변해.
@@ -216,7 +219,7 @@ class AdminAssistant(
                 contextQueue.addLast(messageContent to aiResponseContent)
 
                 val initialMsg = event.channel.sendMessage("AI 답변 생성 중...").complete()
-                val chunkSize = 2
+                val chunkSize = 10
                 val content = aiResponseContent
                 var current = ""
                 for (i in content.indices step chunkSize) {
