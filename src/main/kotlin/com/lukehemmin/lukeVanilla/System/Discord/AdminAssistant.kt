@@ -95,6 +95,9 @@ class AdminAssistant(
         return null
     }
 
+    // 채널별 최근 8개 대화 저장 (질문/답변 쌍)
+    private val channelContextMap = mutableMapOf<String, ArrayDeque<Pair<String, String>>>()
+
     override fun onMessageReceived(event: MessageReceivedEvent) {
         if (event.author.isBot) return
         if (assistantChannelId == null || event.channel.id != assistantChannelId) return
@@ -118,6 +121,82 @@ class AdminAssistant(
             } else {
                 builder.model(ChatModel.GPT_3_5_TURBO)
             }
+
+            // 채널별 최근 8개 대화(질문/답변) context system prompt에 추가
+            val channelId = event.channel.id
+            val contextQueue = channelContextMap.getOrPut(channelId) { ArrayDeque() }
+            val contextPrompt = if (contextQueue.isNotEmpty()) {
+                buildString {
+                    append("# 최근 대화 기록 (최대 8개)\n")
+                    contextQueue.forEachIndexed { idx, (q, a) ->
+                        append("${idx+1}. [관리자] $q\n   [AI] $a\n")
+                    }
+                    append("\n이전 대화 맥락을 참고해 답변이 필요한 경우 자연스럽게 이어서 답변해.")
+                }
+            } else ""
+            if (contextPrompt.isNotBlank()) {
+                builder.addSystemMessage(contextPrompt)
+            }
+
+            // 항상 시스템 프롬프트에 서버 상태 및 관리 명령어 정보 포함 (AI가 필요할 때만 답변에 사용)
+            val serverStatus = ServerStatusProvider.getServerStatusString()
+            val commandTable = """
+# 역할
+- 넌 Minecraft 서버의 관리자 어시스턴트야.
+- 서버 상태, TPS, 렉, mspt, ping 등과 관련된 질문이 오면 아래 실시간 서버 상태 정보를 참고해서 답변해.
+- 관리자가 서버 명령어(특히 로그조사/복구 등)에 대해 궁금해하면 아래 표와 설명을 바탕으로 친절하게 안내해.
+- 마인크래프트 서버와 무관한 명령어나, 허용되지 않은 명령어는 안내하지 마.
+
+# 실시간 서버 상태
+- $serverStatus
+
+# 관리 명령어 안내 (CoreProtect 및 기타 관리자 명령어)
+아래 명령어만 안내해야 하며, 표와 설명을 참고해. (다른 명령어는 알려주지 마)
+
+| 명령어 | 설명 |
+| --- | --- |
+| /co help | 명령어 목록을 보여줌 |
+| /co inspect | 인스펙터 토글 |
+| /co lookup | 블록 데이터 조회 |
+| /co rollback | 블록 데이터 롤백 |
+| /co restore | 블록 데이터 복구 |
+| /co purge | 오래된 데이터 삭제 |
+| /co reload | 설정 리로드 |
+| /co status | 플러그인 상태 조회 |
+| /co consumer | Consumer 처리 토글 |
+| /co near | 반경 5칸 내 조회 |
+| /co undo | 롤백/복구 취소 |
+| /inventorysee <닉네임> | 해당 유저의 인벤토리 조사 (GUI로 아이템 확인/추가/회수 가능) |
+| /enderchestsee <닉네임> | 해당 유저의 엔더상자 조사 (GUI로 아이템 확인/추가/회수 가능) |
+| /inventoryrestore view <닉네임> | 백업된 플레이어 인벤토리 조회 및 아이템 복구 (복구하고자 하는 아이템만 꺼내서 사용, 전체 대체 금지) |
+| /nametag [닉네임] [칭호] | 플레이어에게 칭호 부여 (채팅/머리위/Tab에 칭호 표시, 색상코드 사용 가능) |
+
+
+## 주요 사용 예시
+- `/co lookup u:플레이어명 t:1h a:-block` : 최근 1시간 동안 특정 플레이어가 부순 블록 조회
+- `/co rollback u:플레이어명 t:1h` : 최근 1시간 동안 특정 플레이어가 한 행동 롤백
+- `/co restore u:플레이어명 t:1h` : 최근 1시간 동안 특정 플레이어가 한 행동 복구
+- `/co purge t:30d` : 30일 이전 데이터 삭제
+- `/co help` : 전체 명령어 도움말
+
+## 주요 사용 예시 (심화)
+- /co i - 입력 후 해당 블럭 왼클릭 시 파괴 및 설치 로그, 우클릭 시 상자의 경우 아이템을 넣거나 뺀 기록 등.
+- /co l user:유저이름 time:시간 radius:거리 ( 블럭 수, #global 등. ) action:행동 필터 kill, item 등. include:특정 아이템 필터 exclude:특정아이템 제외
+- /co l user:lukehemmin time:3h include:white_shulker_box ( 특정 아이템을 필터하려는 경우 아이템 코드를 입력 ) (예시) 루크해민이 약 3시간전에 화이트셜커상자를 잃어버렸다고 하는 경우. 로그 검색.)
+- /co l time:시간 radius:100 (선택) 추가로 include:tnt 로 특정 블럭이나 엔티티를 지정하여 검색 가능. (유저가 블럭을 부순게 아닌 엔티티가 블럭을 제거했거나 주변에서 발생한 로그를 확인하려는 경우.)
+
+## 파라미터 설명
+- `u:<user>` : 유저 지정
+- `t:<time>` : 시간 지정 (예: 1h, 2d)
+- `r:<radius>` : 반경 지정
+- `a:<action>` : 액션 종류 (예: -block, +block 등)
+- `i:<include>` : 포함할 블록/엔티티
+- `e:<exclude>` : 제외할 블록/엔티티
+- `#<hashtag>` : 추가 기능 (예: #preview)
+
+더 자세한 명령어 설명이나 예시가 필요하면, 위 표와 설명을 바탕으로 안내해줘.
+""".trimIndent()
+            builder.addSystemMessage(commandTable)
             // system 메시지 제거, 유저 메시지만 추가
             builder.addUserMessage(messageContent)
             val params = builder.build()
@@ -129,7 +208,11 @@ class AdminAssistant(
                 ?.content()
                 ?.orElse(null)
 
+            // 최근 8개 context에 현재 대화 추가 (질문/답변)
             if (!aiResponseContent.isNullOrEmpty()) {
+                if (contextQueue.size >= 8) contextQueue.removeFirst()
+                contextQueue.addLast(messageContent to aiResponseContent)
+
                 val initialMsg = event.channel.sendMessage("AI 답변 생성 중...").complete()
                 val chunkSize = 2
                 val content = aiResponseContent
