@@ -130,9 +130,18 @@ class AdminAssistant(
                 ?.orElse(null)
 
             if (!aiResponseContent.isNullOrEmpty()) {
-                for (chunk in splitMessage(aiResponseContent)) {
-                    event.channel.sendMessage(chunk).queue()
+                val initialMsg = event.channel.sendMessage("AI 답변 생성 중...").complete()
+                val chunkSize = 2
+                val content = aiResponseContent
+                var current = ""
+                for (i in content.indices step chunkSize) {
+                    val nextChunk = content.substring(i, minOf(i + chunkSize, content.length))
+                    current += nextChunk
+                    initialMsg.editMessage(current).queue()
+                    Thread.sleep(300) // 레이트리밋 보호
                 }
+                // 마지막 완성 메시지로 한 번 더 갱신
+                initialMsg.editMessage(current).queue()
             } else {
                 event.channel.sendMessage("AI로부터 응답을 받았으나 내용이 비어있습니다.").queue()
             }
