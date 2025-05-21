@@ -67,6 +67,51 @@ class Main : JavaPlugin() {
         return DriverManager.getConnection(jdbcUrl, user, password)
     }
 
+    /**
+     * 현재 실행 중인 서버를 보다 쉬운 방법으로 식별하기 위한 함수
+     */
+    fun getServerType(): String {
+        return serviceType
+    }
+    
+    /**
+     * 서버 간 통신을 위한 플러그인 메시지 채널 등록
+     */
+    private fun registerPluginMessageChannels() {
+        // 서버 통신을 위한 채널 등록
+        server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST)
+        server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE)
+        
+        try {
+            // 서버 타입에 따라 리스너 등록
+            if (serviceType == "Lobby") {
+                // 로비 서버: 야생 서버에 상태 요청 & 응답 처리
+                val requester = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusRequester.getInstance(this)
+                server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE, requester)
+                logger.info("[서버 통신] 로비 서버 모드로 메시지 채널 초기화")
+            } else {
+                // 야생 서버: 로비 서버의 요청에 응답
+                val listener = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusListener.getInstance(this)
+                server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST, listener)
+                logger.info("[서버 통신] 야생 서버 모드로 메시지 채널 초기화")
+            }
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 리스너 등록 오류: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    companion object {
+        @JvmStatic
+        fun getPlugin(): Main {
+            return getPlugin(Main::class.java)
+        }
+        
+        // 서버 간 통신을 위한 채널 상수
+        const val CHANNEL_SERVER_STATUS_REQUEST = "lukevanilla:serverstatus_request"
+        const val CHANNEL_SERVER_STATUS_RESPONSE = "lukevanilla:serverstatus_response"
+    }
+    
     override fun onEnable() {
         // DataBase Logic
         saveDefaultConfig()
@@ -76,6 +121,15 @@ class Main : JavaPlugin() {
 
         // Read service type from config
         serviceType = config.getString("service.type") ?: "Vanilla"
+        
+        // 서버 간 메시지 채널 등록 (서버 상태 요청/응답)
+        try {
+            registerPluginMessageChannels()
+            logger.info("[서버 통신] 플러그인 메시지 채널 등록 완료")
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 플러그인 메시지 채널 등록 중 오류: ${e.message}")
+            e.printStackTrace()
+        }
 
         // Discord Bot 초기화
         val discordToken = database.getSettingValue("DiscordToken")
