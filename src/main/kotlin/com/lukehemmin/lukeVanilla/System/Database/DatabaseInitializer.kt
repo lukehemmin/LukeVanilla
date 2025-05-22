@@ -20,6 +20,7 @@ class DatabaseInitializer(private val database: Database) {
         createNextseasonItemTable()
         createShopsTable()
         createValentineShieldTable()
+        createPlayerItemsStateTable()
         //createLockTable() // block_locks 테이블 생성 추가 - moved to createTables()
         // 다른 테이블 생성 코드 추가 가능
     }
@@ -139,6 +140,30 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
+    private fun createHalloweenItemReceiveTable() { // 할로윈 아이템 수령 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Halloween_Item_Receive (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `sword` TINYINT(1) NOT NULL DEFAULT 0,
+                `pickaxe` TINYINT(1) NOT NULL DEFAULT 0,
+                `axe` TINYINT(1) NOT NULL DEFAULT 0,
+                `shovel` TINYINT(1) NOT NULL DEFAULT 0,
+                `hoe` TINYINT(1) NOT NULL DEFAULT 0,
+                `bow` TINYINT(1) NOT NULL DEFAULT 0,
+                `fishing_rod` TINYINT(1) NOT NULL DEFAULT 0,
+                `hammer` TINYINT(1) NOT NULL DEFAULT 0,
+                `hat` TINYINT(1) NOT NULL DEFAULT 0,
+                `scythe` TINYINT(1) NOT NULL DEFAULT 0,
+                `spear` TINYINT(1) NOT NULL DEFAULT 0
+            );
+            """.trimIndent()
+            )
+        }
+    }
+
     private fun createChristmasItemOwnerTable() { // 크리스마스 아이템 소유자 테이블
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
@@ -168,6 +193,35 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
+    private fun createChristmasItemReceiveTable() { // 크리스마스 아이템 수령 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Christmas_Item_Receive (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `sword` TINYINT(1) NOT NULL DEFAULT 0,
+                `pickaxe` TINYINT(1) NOT NULL DEFAULT 0,
+                `axe` TINYINT(1) NOT NULL DEFAULT 0,
+                `shovel` TINYINT(1) NOT NULL DEFAULT 0,
+                `hoe` TINYINT(1) NOT NULL DEFAULT 0,
+                `bow` TINYINT(1) NOT NULL DEFAULT 0,
+                `crossbow` TINYINT(1) NOT NULL DEFAULT 0,
+                `fishing_rod` TINYINT(1) NOT NULL DEFAULT 0,
+                `hammer` TINYINT(1) NOT NULL DEFAULT 0,
+                `shield` TINYINT(1) NOT NULL DEFAULT 0,
+                `head` TINYINT(1) NOT NULL DEFAULT 0,
+                `helmet` TINYINT(1) NOT NULL DEFAULT 0,
+                `chestplate` TINYINT(1) NOT NULL DEFAULT 0,
+                `leggings` TINYINT(1) NOT NULL DEFAULT 0,
+                `boots` TINYINT(1) NOT NULL DEFAULT 0,
+                `last_received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """.trimIndent()
+            )
+        }
+    }
+
     private fun createValentineItemOwnerTable() { // 발렌타인 아이템 소유자 테이블
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
@@ -191,6 +245,35 @@ class DatabaseInitializer(private val database: Database) {
                 `head` TINYINT(1) NOT NULL DEFAULT 0,
                 `shield` TINYINT(1) NOT NULL DEFAULT 0,
                 `registered_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """.trimIndent()
+            )
+        }
+    }
+
+    private fun createValentineItemReceiveTable() { // 발렌타인 아이템 수령 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Valentine_Item_Receive (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `sword` TINYINT(1) NOT NULL DEFAULT 0,
+                `pickaxe` TINYINT(1) NOT NULL DEFAULT 0,
+                `axe` TINYINT(1) NOT NULL DEFAULT 0,
+                `shovel` TINYINT(1) NOT NULL DEFAULT 0,
+                `hoe` TINYINT(1) NOT NULL DEFAULT 0,
+                `fishing_rod` TINYINT(1) NOT NULL DEFAULT 0,
+                `bow` TINYINT(1) NOT NULL DEFAULT 0,
+                `crossbow` TINYINT(1) NOT NULL DEFAULT 0,
+                `hammer` TINYINT(1) NOT NULL DEFAULT 0,
+                `helmet` TINYINT(1) NOT NULL DEFAULT 0,
+                `chestplate` TINYINT(1) NOT NULL DEFAULT 0,
+                `leggings` TINYINT(1) NOT NULL DEFAULT 0,
+                `boots` TINYINT(1) NOT NULL DEFAULT 0,
+                `head` TINYINT(1) NOT NULL DEFAULT 0,
+                `shield` TINYINT(1) NOT NULL DEFAULT 0,
+                `last_received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             """.trimIndent()
             )
@@ -244,88 +327,6 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
-    private fun createHalloweenItemReceiveTable() { // 할로윈 아이템 수령 테이블
-        database.getConnection().use { connection ->
-            val statement = connection.createStatement()
-            statement.executeUpdate(
-                """
-            CREATE TABLE IF NOT EXISTS Halloween_Item_Receive (
-                `UUID` VARCHAR(36) PRIMARY KEY,
-                `sword` TINYINT(1) NOT NULL DEFAULT 0,
-                `pickaxe` TINYINT(1) NOT NULL DEFAULT 0,
-                `axe` TINYINT(1) NOT NULL DEFAULT 0,
-                `shovel` TINYINT(1) NOT NULL DEFAULT 0,
-                `hoe` TINYINT(1) NOT NULL DEFAULT 0,
-                `bow` TINYINT(1) NOT NULL DEFAULT 0,
-                `fishing_rod` TINYINT(1) NOT NULL DEFAULT 0,
-                `hammer` TINYINT(1) NOT NULL DEFAULT 0,
-                `hat` TINYINT(1) NOT NULL DEFAULT 0,
-                `scythe` TINYINT(1) NOT NULL DEFAULT 0,
-                `spear` TINYINT(1) NOT NULL DEFAULT 0
-            );
-            """.trimIndent()
-            )
-        }
-    }
-
-    private fun createChristmasItemReceiveTable() { // 크리스마스 아이템 수령 테이블
-        database.getConnection().use { connection ->
-            val statement = connection.createStatement()
-            statement.executeUpdate(
-                """
-            CREATE TABLE IF NOT EXISTS Christmas_Item_Receive (
-                `UUID` VARCHAR(36) PRIMARY KEY,
-                `sword` TINYINT(1) NOT NULL DEFAULT 0,
-                `pickaxe` TINYINT(1) NOT NULL DEFAULT 0,
-                `axe` TINYINT(1) NOT NULL DEFAULT 0,
-                `shovel` TINYINT(1) NOT NULL DEFAULT 0,
-                `hoe` TINYINT(1) NOT NULL DEFAULT 0,
-                `bow` TINYINT(1) NOT NULL DEFAULT 0,
-                `crossbow` TINYINT(1) NOT NULL DEFAULT 0,
-                `fishing_rod` TINYINT(1) NOT NULL DEFAULT 0,
-                `hammer` TINYINT(1) NOT NULL DEFAULT 0,
-                `shield` TINYINT(1) NOT NULL DEFAULT 0,
-                `head` TINYINT(1) NOT NULL DEFAULT 0,
-                `helmet` TINYINT(1) NOT NULL DEFAULT 0,
-                `chestplate` TINYINT(1) NOT NULL DEFAULT 0,
-                `leggings` TINYINT(1) NOT NULL DEFAULT 0,
-                `boots` TINYINT(1) NOT NULL DEFAULT 0,
-                `last_received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """.trimIndent()
-            )
-        }
-    }
-
-    private fun createValentineItemReceiveTable() { // 발렌타인 아이템 수령 테이블
-        database.getConnection().use { connection ->
-            val statement = connection.createStatement()
-            statement.executeUpdate(
-                """
-            CREATE TABLE IF NOT EXISTS Valentine_Item_Receive (
-                `UUID` VARCHAR(36) PRIMARY KEY,
-                `sword` TINYINT(1) NOT NULL DEFAULT 0,
-                `pickaxe` TINYINT(1) NOT NULL DEFAULT 0,
-                `axe` TINYINT(1) NOT NULL DEFAULT 0,
-                `shovel` TINYINT(1) NOT NULL DEFAULT 0,
-                `hoe` TINYINT(1) NOT NULL DEFAULT 0,
-                `fishing_rod` TINYINT(1) NOT NULL DEFAULT 0,
-                `bow` TINYINT(1) NOT NULL DEFAULT 0,
-                `crossbow` TINYINT(1) NOT NULL DEFAULT 0,
-                `hammer` TINYINT(1) NOT NULL DEFAULT 0,
-                `helmet` TINYINT(1) NOT NULL DEFAULT 0,
-                `chestplate` TINYINT(1) NOT NULL DEFAULT 0,
-                `leggings` TINYINT(1) NOT NULL DEFAULT 0,
-                `boots` TINYINT(1) NOT NULL DEFAULT 0,
-                `head` TINYINT(1) NOT NULL DEFAULT 0,
-                `shield` TINYINT(1) NOT NULL DEFAULT 0,
-                `last_received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """.trimIndent()
-            )
-        }
-    }
-
     private fun createShopsTable() { // 상점 테이블
         database.getConnection().use { connection ->
             connection.createStatement().use { statement ->
@@ -367,6 +368,22 @@ class DatabaseInitializer(private val database: Database) {
                 CREATE TABLE IF NOT EXISTS Valentine_Shield (
                     `UUID` VARCHAR(36) PRIMARY KEY,
                     `received` TINYINT(1) NOT NULL DEFAULT 0
+                );
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun createPlayerItemsStateTable() { // 플레이어 아이템 상태 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS Player_Items_State (
+                    `UUID` VARCHAR(36) NOT NULL,
+                    `ItemID` VARCHAR(255) NOT NULL,
+                    `State` VARCHAR(50) NOT NULL,
+                    PRIMARY KEY (`UUID`, `ItemID`)
                 );
                 """.trimIndent()
             )

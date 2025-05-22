@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 class SupportCaseListener(private val database: Database, private val discordBot: DiscordBot) : ListenerAdapter() {
 
     private val supportCaseManager = SupportCaseManager(database, discordBot)
+    private val seasonItemViewer = SeasonItemViewer(database)
 
     override fun onButtonInteraction(event: ButtonInteractionEvent) {
         when {
@@ -32,17 +33,48 @@ class SupportCaseListener(private val database: Database, private val discordBot
                 }
             }
             event.componentId == "halloween_info" -> {
+                // 시즌 선택 버튼 표시 (할로윈, 크리스마스, 발렌타인)
+                seasonItemViewer.showSeasonSelectionButtons(event)
+            }
+            event.componentId == "season_halloween" -> {
                 event.deferReply(true).queue()
-                val halloweenViewer = HalloweenItemViewer(database)
-                halloweenViewer.createItemInfoEmbed(event.user.id)
+                seasonItemViewer.createHalloweenItemInfoEmbed(event.user.id)
                     .onSuccess { embed ->
                         event.hook.sendMessageEmbeds(embed)
-                            .setEphemeral(true)
+                            .setEphemeral(true) // 에피머럴 메시지는 사용자에게만 표시됨
                             .queue()
                     }
                     .onFailure { error ->
                         event.hook.sendMessage(error.message ?: "오류가 발생했습니다.")
-                            .setEphemeral(true)
+                            .setEphemeral(true) // 에피머럴 메시지는 사용자에게만 표시됨
+                            .queue()
+                    }
+            }
+            event.componentId == "season_christmas" -> {
+                event.deferReply(true).queue()
+                seasonItemViewer.createChristmasItemInfoEmbed(event.user.id)
+                    .onSuccess { embed ->
+                        event.hook.sendMessageEmbeds(embed)
+                            .setEphemeral(true) // 에피머럴 메시지는 사용자에게만 표시됨
+                            .queue()
+                    }
+                    .onFailure { error ->
+                        event.hook.sendMessage(error.message ?: "오류가 발생했습니다.")
+                            .setEphemeral(true) // 에피머럴 메시지는 사용자에게만 표시됨
+                            .queue()
+                    }
+            }
+            event.componentId == "season_valentine" -> {
+                event.deferReply(true).queue()
+                seasonItemViewer.createValentineItemInfoEmbed(event.user.id)
+                    .onSuccess { embed ->
+                        event.hook.sendMessageEmbeds(embed)
+                            .setEphemeral(true) // 에피머럴 메시지는 사용자에게만 표시됨
+                            .queue()
+                    }
+                    .onFailure { error ->
+                        event.hook.sendMessage(error.message ?: "오류가 발생했습니다.")
+                            .setEphemeral(true) // 에피머럴 메시지는 사용자에게만 표시됨
                             .queue()
                     }
             }
@@ -77,15 +109,13 @@ class SupportCaseListener(private val database: Database, private val discordBot
             if (supportChannelLink != null) {
                 event.reply("문의가 접수되었습니다. 채널 링크: $supportChannelLink")
                     .setEphemeral(true)
-                    .queue { interactionHook ->
-                        interactionHook.deleteOriginal().queueAfter(1, TimeUnit.MINUTES)
-                    }
+                    // 1분 후 자동 삭제 (에피머럴로 설정되어 있으므로 별도로 삭제할 필요 없음)
+                    .queue()
             } else {
                 event.reply("열려 있는 문의가 최대 3개입니다.\n기존 문의를 종료한 후 다시 시도해주세요.")
                     .setEphemeral(true)
-                    .queue { interactionHook ->
-                        interactionHook.deleteOriginal().queueAfter(1, TimeUnit.MINUTES)
-                    }
+                    // 1분 후 자동 삭제 (에피머럴로 설정되어 있으므로 별도로 삭제할 필요 없음)
+                    .queue()
             }
         }
     }

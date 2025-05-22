@@ -55,7 +55,7 @@ class SupportSystem(private val discordBot: DiscordBot, private val database: Da
         val buttons = listOf(
             Button.primary("my_info", "내 정보"),
             Button.secondary("admin_support", "관리자 문의"),
-            Button.success("halloween_info", "할로윈 아이템 등록 정보")
+            Button.success("halloween_info", "아이템 등록 정보 보기")
         )
 
         channel.sendMessageEmbeds(embed)
