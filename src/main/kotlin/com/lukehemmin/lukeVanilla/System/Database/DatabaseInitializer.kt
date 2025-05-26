@@ -42,7 +42,7 @@ class DatabaseInitializer(private val database: Database) {
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
             statement.executeUpdate(
-                "CREATE TABLE IF NOT EXISTS Player_Data (`UUID` VARCHAR(36) NOT NULL, `NickName` VARCHAR(30) NOT NULL, `DiscordID` VARCHAR(30), PRIMARY KEY (`UUID`))"
+                "CREATE TABLE IF NOT EXISTS Player_Data (`UUID` VARCHAR(36) NOT NULL, `NickName` VARCHAR(30) NOT NULL, `DiscordID` VARCHAR(30), `Lastest_IP` VARCHAR(45), `IsBanned` TINYINT(1) NOT NULL DEFAULT 0, PRIMARY KEY (`UUID`))"
             )
         }
     }

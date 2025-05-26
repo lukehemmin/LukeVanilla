@@ -21,20 +21,24 @@ class PlayerLoginListener(private val database: Database) : Listener {
                 checkPlayerData.setString(1, uuid)
                 checkPlayerData.executeQuery().use { playerDataResult ->
                     if (playerDataResult.next()) {
-                        // 기존 행이 있으면 NickName을 업데이트
-                        connection.prepareStatement("UPDATE Player_Data SET NickName = ? WHERE UUID = ?").use { updateNickName ->
-                            updateNickName.setString(1, nickname)
-                            updateNickName.setString(2, uuid)
-                            updateNickName.executeUpdate()
+                        // 기존 행이 있으면 NickName과 Lastest_IP를 업데이트
+                        val ipAddress = event.address.hostAddress
+                        connection.prepareStatement("UPDATE Player_Data SET NickName = ?, Lastest_IP = ? WHERE UUID = ?").use { updateData ->
+                            updateData.setString(1, nickname)
+                            updateData.setString(2, ipAddress)
+                            updateData.setString(3, uuid)
+                            updateData.executeUpdate()
                         }
                     } else {
-                        // 행이 없으면 새로운 행을 추가
+                        // 행이 없으면 새로운 행을 추가 (아이피 주소 포함)
+                        val ipAddress = event.address.hostAddress
                         connection.prepareStatement(
-                            "INSERT INTO Player_Data (UUID, NickName, DiscordID) VALUES (?, ?, ?)"
+                            "INSERT INTO Player_Data (UUID, NickName, DiscordID, Lastest_IP) VALUES (?, ?, ?, ?)"
                         ).use { insertPlayerData ->
                             insertPlayerData.setString(1, uuid)
                             insertPlayerData.setString(2, nickname)
                             insertPlayerData.setString(3, "") // DiscordID 빈칸
+                            insertPlayerData.setString(4, ipAddress) // IP 주소 추가
                             insertPlayerData.executeUpdate()
                         }
                     }
