@@ -9,8 +9,8 @@ import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
 import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
-// 할로윈 임포트 주석 처리
-// import com.lukehemmin.lukeVanilla.System.Items.Halloween.*
+// 할로윈 임포트
+import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.Items.UpgradeItem
 // import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
@@ -19,7 +19,6 @@ import com.lukehemmin.lukeVanilla.System.Items.ItemSeasonSystem.ItemCommand
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.ChatSystem.*
 import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
-import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
 import com.lukehemmin.lukeVanilla.System.LockSystem.LockSystem
 import com.lukehemmin.lukeVanilla.System.NexoCraftingRestriction
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
@@ -29,13 +28,15 @@ import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.ItemStatsCommand
 import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
+import java.sql.Connection 
+import java.sql.DriverManager 
 
 class Main : JavaPlugin() {
     lateinit var database: Database
     private lateinit var serviceType: String
     private lateinit var nametagManager: NametagManager
     private lateinit var discordRoleManager: DiscordRoleManager
-    lateinit var discordBot: DiscordBot // 추가된 라인
+    lateinit var discordBot: DiscordBot 
     private lateinit var itemRestoreLogger: ItemRestoreLogger
     lateinit var nextSeasonGUI: NextSeasonItemGUI
     private val nexoCraftingRestriction = NexoCraftingRestriction(this)
@@ -46,7 +47,25 @@ class Main : JavaPlugin() {
 //    lateinit var shopManager: ShopManager
 //    lateinit var shopPriceListener: ShopPriceListener
 //    lateinit var shopManager: ShopManager
-//    lateinit var priceEditManager: PriceEditManager // 추가
+//    lateinit var priceEditManager: PriceEditManager 
+
+    // AdminAssistant에 데이터베이스 연결을 제공하는 함수
+    // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
+    // 실제 운영 환경에서는 커넥션 풀 사용을 고려해야 합니다.
+    private fun provideDbConnection(): Connection {
+        val host = config.getString("database.host", "localhost")
+        val port = config.getInt("database.port", 3306)
+        val dbName = config.getString("database.name", "lukevanilla")
+        val user = config.getString("database.user", "root")
+        val password = config.getString("database.password", "")
+        // MySQL JDBC URL 예시입니다. 다른 DB 사용 시 수정 필요.
+        // JDBC 드라이버가 클래스패스에 있는지 확인하세요 (예: build.gradle에 mysql-connector-java 의존성 추가).
+        val jdbcUrl = "jdbc:mysql://$host:$port/$dbName?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
+
+        // 드라이버 로딩 (최초 한 번만 필요, Database 클래스에서 이미 처리했을 수 있음)
+        // try { Class.forName("com.mysql.cj.jdbc.Driver") } catch (e: ClassNotFoundException) { logger.severe("MySQL JDBC 드라이버를 찾을 수 없습니다!"); throw RuntimeException(e) }
+        return DriverManager.getConnection(jdbcUrl, user, password)
+    }
 
     override fun onEnable() {
         // DataBase Logic
@@ -60,6 +79,8 @@ class Main : JavaPlugin() {
 
         // Discord Bot 초기화
         val discordToken = database.getSettingValue("DiscordToken")
+        val openAiApiKey = database.getSettingValue("OpenAI_API_Token") // 키 이름 AdminAssistant.kt와 일치
+
         if (discordToken != null) {
             discordBot = DiscordBot()
             discordBot.start(discordToken)
@@ -75,7 +96,7 @@ class Main : JavaPlugin() {
 
             // DiscordLeave 초기화 및 리스너 등록 (모든 서버 공통)
             val discordLeave = DiscordLeave(database, this, discordBot.jda)
-            discordBot.jda.addEventListener(discordLeave) 
+            discordBot.jda.addEventListener(discordLeave)
             server.pluginManager.registerEvents(discordLeave, this)
             
             // 티토커 채팅 리스너 등록 (모든 서버 공통)
@@ -90,11 +111,22 @@ class Main : JavaPlugin() {
 
             if (serviceType == "Lobby") {
                 // 서비스 타입이 "Lobby"인 경우에만 관리자 어시스턴트 초기화
-                val adminAssistant = AdminAssistant(this)
-                adminAssistant.initialize()
+                if (openAiApiKey != null) {
+                    val adminAssistant = AdminAssistant(
+                        dbConnectionProvider = ::provideDbConnection,
+                        openAIApiKey = openAiApiKey // API 키를 생성자에 전달
+                    )
+                    discordBot.jda.addEventListener(adminAssistant)
+                    logger.info("[AdminAssistant] 로비 서버에서 관리자 어시스턴트 초기화 완료.")
+                } else {
+                    logger.warning("[AdminAssistant] OpenAI API 키를 찾을 수 없어 관리자 어시스턴트를 초기화할 수 없습니다. 데이터베이스 'Settings' 테이블에서 'OpenAI_ApiKey' 값을 확인해주세요.")
+                }
             }
         } else {
-            logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다.")
+            logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다. Discord 봇 관련 기능이 제한됩니다.")
+            if (openAiApiKey == null) { 
+                logger.warning("[AdminAssistant] OpenAI API 키도 찾을 수 없습니다. 관리자 어시스턴트 기능이 비활성화됩니다.")
+            }
         }
 
         // Discord Bot 초기화 부분 아래에 추가
@@ -124,12 +156,12 @@ class Main : JavaPlugin() {
         // 이벤트 리스너 등록
         server.pluginManager.registerEvents(PlayerLoginListener(database), this)
         server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this, database), this)
-        server.pluginManager.registerEvents(PlayerJoinListener(this, database, discordRoleManager), this) // PlayerJoinListener에 DiscordRoleManager 전달
+        server.pluginManager.registerEvents(PlayerJoinListener(this, database, discordRoleManager), this) 
 
         // Player_Join_And_Quit_Message 갱신 스케줄러
         server.scheduler.runTaskTimer(this, Runnable {
             Player_Join_And_Quit_Message_Listener.updateMessages(database)
-        }, 0L, 1200L) // 60초마다 실행 (1200 ticks)
+        }, 0L, 1200L) 
 
         // Nametag System
         nametagManager = NametagManager(this, database)
@@ -146,7 +178,7 @@ class Main : JavaPlugin() {
         // 통합 이벤트 아이템 시스템 초기화
 //        val eventItemCommand = EventItemCommand(this)
         // 아이템 명령어 등록 (ItemSeasonSystem)
-//        getCommand("아이템")?.setExecutor(eventItemCommand) // 이 줄은 이미 ItemSeasonSystem의 ItemCommand로 되어있으므로 변경 없음
+//        getCommand("아이템")?.setExecutor(eventItemCommand) 
 //        getCommand("아이템")?.tabCompleter = EventItemCommandCompleter()
 
         // 아이템 GUI 리스너 등록 (CustomItemSystem)
@@ -237,16 +269,16 @@ class Main : JavaPlugin() {
         // 아이템 시즌 시스템 설정
         // ItemReceiveSystem 인스턴스 생성 및 이벤트 리스너로 등록
         val itemReceiveSystem = ItemReceiveSystem()
-        itemReceiveSystem.plugin = this // 플러그인 인스턴스 설정
-        itemReceiveSystem.database = database // 데이터베이스 인스턴스 설정
-        server.pluginManager.registerEvents(itemReceiveSystem, this) // 이벤트 리스너로 등록
+        itemReceiveSystem.plugin = this 
+        itemReceiveSystem.database = database 
+        server.pluginManager.registerEvents(itemReceiveSystem, this) 
         
         // ItemCommand에 단일 ItemReceiveSystem 인스턴스 전달
         val itemSeasonSystemCommand = ItemCommand(itemReceiveSystem)
-        getCommand("아이템")?.setExecutor(itemSeasonSystemCommand) // 한글 명령어 등록
-        getCommand("아이템")?.tabCompleter = itemSeasonSystemCommand // 동일 인스턴스를 TabCompleter로 설정
-        getCommand("item")?.setExecutor(itemSeasonSystemCommand) // 영어 명령어도 동일 인스턴스 사용
-        getCommand("item")?.tabCompleter = itemSeasonSystemCommand // 영어 명령어에도 동일 탭 컴플리터 사용
+        getCommand("아이템")?.setExecutor(itemSeasonSystemCommand) 
+        getCommand("아이템")?.tabCompleter = itemSeasonSystemCommand 
+        getCommand("item")?.setExecutor(itemSeasonSystemCommand) 
+        getCommand("item")?.tabCompleter = itemSeasonSystemCommand 
         
         // Christmas_sword 이벤트 리스너 등록 (UpgradeItem으로 통합)
         // Christmas_sword(this)

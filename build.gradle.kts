@@ -53,8 +53,7 @@ dependencies {
     // Netty buffer for PluginMessageEvent data
     implementation("io.netty:netty-buffer:4.1.99.Final")
     annotationProcessor("com.velocitypowered:velocity-api:3.1.1")
-    // implementation("com.openai:openai-java:0.12.0") // 기존 의존성 주석 처리
-    implementation("com.theokanning.openai-gpt3-java:service:0.12.0") // 새 의존성 추가
+    implementation("com.openai:openai-java:1.6.1")
 }
 
 val targetJavaVersion = 21
