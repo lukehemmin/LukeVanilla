@@ -21,6 +21,7 @@ class AdminAssistant(
     private var openAIModel: String? = null
 
     private var assistantChannelId: String? = null
+    private var assistantSecondaryChannelId: String? = null
     private val openAIClient: OpenAIClient by lazy {
         // API 키가 이미 주입되었으므로 다른 세팅만 로드
         loadOpenAISettings()
@@ -36,11 +37,18 @@ class AdminAssistant(
     }
 
     init {
-        assistantChannelId = fetchAssistantChannelId()
-        if (assistantChannelId == null) {
-            System.err.println("[AdminAssistant] 오류: 데이터베이스에서 Assistant_Channel ID를 찾을 수 없습니다. AdminAssistant가 작동하지 않습니다.")
+        assistantChannelId = fetchAssistantChannelId("Assistant_Channel")
+        assistantSecondaryChannelId = fetchAssistantChannelId("AssistantSecondaryChannel")
+        
+        if (assistantChannelId == null && assistantSecondaryChannelId == null) {
+            System.err.println("[AdminAssistant] 오류: 데이터베이스에서 채널 ID를 찾을 수 없습니다. AdminAssistant가 작동하지 않습니다.")
         } else {
-            println("[AdminAssistant] 초기화 완료. 채널 ID: $assistantChannelId 에서 수신 대기 중...")
+            val channelInfo = buildString {
+                if (assistantChannelId != null) append("채널 ID: $assistantChannelId")
+                if (assistantChannelId != null && assistantSecondaryChannelId != null) append(", ")
+                if (assistantSecondaryChannelId != null) append("보조 채널 ID: $assistantSecondaryChannelId")
+            }
+            println("[AdminAssistant] 초기화 완료. $channelInfo 에서 수신 대기 중...")
         }
     }
 
@@ -76,8 +84,11 @@ class AdminAssistant(
         return null
     }
 
-    private fun fetchAssistantChannelId(): String? {
-        val query = "SELECT setting_value FROM lukevanilla.Settings WHERE setting_type='Assistant_Channel';"
+    /**
+     * 지정된 setting_type의 채널 ID를 lukevanilla.Settings에서 조회
+     */
+    private fun fetchAssistantChannelId(settingType: String): String? {
+        val query = "SELECT setting_value FROM lukevanilla.Settings WHERE setting_type='$settingType';"
         try {
             dbConnectionProvider().use { connection ->
                 connection.createStatement().use { statement ->
@@ -89,7 +100,7 @@ class AdminAssistant(
                 }
             }
         } catch (e: Exception) {
-            System.err.println("[AdminAssistant] 채널 ID 조회 중 데이터베이스 오류: ${e.message}")
+            System.err.println("[AdminAssistant] $settingType 채널 ID 조회 중 데이터베이스 오류: ${e.message}")
             e.printStackTrace()
         }
         return null
@@ -100,7 +111,11 @@ class AdminAssistant(
 
     override fun onMessageReceived(event: MessageReceivedEvent) {
         if (event.author.isBot) return
-        if (assistantChannelId == null || event.channel.id != assistantChannelId) return
+        
+        // 두 채널 중 하나라도 일치하면 처리
+        val channelMatches = (assistantChannelId != null && event.channel.id == assistantChannelId) || 
+                            (assistantSecondaryChannelId != null && event.channel.id == assistantSecondaryChannelId)
+        if (!channelMatches) return
 
         // 관리자 권한 체크 제거: 해당 채널에서 메시지를 보낼 수 있는 유저라면 누구나 가능
         val member = event.member
