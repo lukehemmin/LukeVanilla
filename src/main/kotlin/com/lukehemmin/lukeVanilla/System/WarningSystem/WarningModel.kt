@@ -36,7 +36,7 @@ data class WarningRecord(
         val baseInfo = "경고 ID: $warningId | 상태: $activeText | 관리자: $adminName | 시각: $createdAt\n사유: $reason"
         
         return if (!isActive && pardonedAt != null && pardonedByName != null) {
-            "$baseInfo\n차감 정보: $pardonedByName이(가) $pardonedAt에 차감함\n차감 사유: $pardonReason"
+            "$baseInfo\n차감 정보: ${pardonedByName}이(가) ${pardonedAt}에 차감함\n차감 사유: $pardonReason"
         } else {
             baseInfo
         }

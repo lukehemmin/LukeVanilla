@@ -89,7 +89,7 @@ class WarningNotifier {
             .append(Component.text(adminName, NamedTextColor.YELLOW))
             .append(Component.text("님이 ", NamedTextColor.WHITE))
             .append(Component.text(playerName, NamedTextColor.YELLOW))
-            .append(Component.text("님의 $targetText를 차감했습니다.", NamedTextColor.WHITE))
+            .append(Component.text("님의 ${targetText}를 차감했습니다.", NamedTextColor.WHITE))
             .append(Component.newline())
             .append(Component.text("사유: ", NamedTextColor.GOLD))
             .append(Component.text(reason, NamedTextColor.YELLOW))

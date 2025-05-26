@@ -200,7 +200,7 @@ class WarningCommand(database: Database) : CommandExecutor, TabCompleter {
                 )
                 
                 if (success) {
-                    sender.sendMessage(createSuccessMessage("'${targetPlayerName}'의 경고 ID $number를 차감했습니다."))
+                    sender.sendMessage(createSuccessMessage("'${targetPlayerName}'의 경고 ID ${number}를 차감했습니다."))
                     
                     // 플레이어가 온라인이면 알림
                     targetPlayer?.let {
@@ -224,7 +224,7 @@ class WarningCommand(database: Database) : CommandExecutor, TabCompleter {
                 )
                 
                 if (success) {
-                    sender.sendMessage(createSuccessMessage("'${targetPlayerName}'의 경고 $actualPardoned회를 차감했습니다."))
+                    sender.sendMessage(createSuccessMessage("'${targetPlayerName}'의 경고 ${actualPardoned}회를 차감했습니다."))
                     
                     // 플레이어가 온라인이면 알림
                     targetPlayer?.let {
