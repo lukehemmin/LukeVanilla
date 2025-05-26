@@ -21,6 +21,7 @@ class DatabaseInitializer(private val database: Database) {
         createShopsTable()
         createValentineShieldTable()
         createPlayerItemsStateTable()
+        createConnectionIPTable()
         //createLockTable() // block_locks 테이블 생성 추가 - moved to createTables()
         // 다른 테이블 생성 코드 추가 가능
     }
@@ -384,6 +385,25 @@ class DatabaseInitializer(private val database: Database) {
                     `ItemID` VARCHAR(255) NOT NULL,
                     `State` VARCHAR(50) NOT NULL,
                     PRIMARY KEY (`UUID`, `ItemID`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+    
+    private fun createConnectionIPTable() { // 유저 IP 접속 기록 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS Connection_IP (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `UUID` VARCHAR(36) NOT NULL,
+                    `NickName` VARCHAR(30) NOT NULL,
+                    `IP` VARCHAR(45) NOT NULL,
+                    `ConnectedAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_uuid` (`UUID`),
+                    INDEX `idx_ip` (`IP`)
                 );
                 """.trimIndent()
             )
