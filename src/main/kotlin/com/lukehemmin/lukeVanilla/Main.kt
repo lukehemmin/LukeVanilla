@@ -112,6 +112,15 @@ class Main : JavaPlugin() {
             logger.info("${serviceType} 서버에서는 고객지원 시스템이 비활성화됩니다.")
         }
 
+        // 로비 서버일 때만 눈싸움 미니게임 초기화
+        if (serviceType == "Lobby") {
+            // 눈싸움 미니게임 초기화 및 인스턴스 저장
+            snowMinigame = SnowMinigame(this)
+            // 눈싸움 관리 명령어 등록
+            getCommand("snowgame")?.setExecutor(SnowGameCommand(snowMinigame))
+            logger.info("눈싸움 미니게임이 초기화되었습니다.")
+        }
+
         // 이벤트 리스너 등록
         server.pluginManager.registerEvents(PlayerLoginListener(database), this)
         server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this, database), this)
@@ -250,11 +259,6 @@ class Main : JavaPlugin() {
 
         // 플러그인 메시지 채널 등록
         VanillaShutdownNotifier.registerChannel(this)
-
-        // 눈싸움 미니게임 초기화 및 인스턴스 저장
-        snowMinigame = SnowMinigame(this)
-        // 눈싸움 관리 명령어 등록
-        getCommand("snowgame")?.setExecutor(SnowGameCommand(snowMinigame))
     }
 
     // 이름을 다르게 하여 충돌 방지
