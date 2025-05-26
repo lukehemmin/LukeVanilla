@@ -26,6 +26,7 @@ import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.StatsSystem
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.ItemStatsCommand
 import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
+import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -272,6 +273,13 @@ class Main : JavaPlugin() {
         itemReceiveSystem.plugin = this 
         itemReceiveSystem.database = database 
         server.pluginManager.registerEvents(itemReceiveSystem, this) 
+        
+        // 경고 시스템 초기화
+        val warningCommand = WarningCommand(database)
+        getCommand("경고")?.setExecutor(warningCommand)
+        getCommand("경고")?.tabCompleter = warningCommand
+        getCommand("warn")?.setExecutor(warningCommand)
+        getCommand("warn")?.tabCompleter = warningCommand
         
         // ItemCommand에 단일 ItemReceiveSystem 인스턴스 전달
         val itemSeasonSystemCommand = ItemCommand(itemReceiveSystem)
