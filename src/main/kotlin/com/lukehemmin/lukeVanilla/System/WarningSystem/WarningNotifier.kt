@@ -55,7 +55,47 @@ class WarningNotifier {
     
     /**
      * 권한이 있는 관리자들에게 경고 부여 알림
+     * 
+     * @param targetPlayer 경고 대상 플레이어
+     * @param adminName 경고를 부여한 관리자 이름
+     * @param reason 경고 사유
+     * @param warningCount 현재 경고 횟수
+     * @param notifyPermission 알림을 받을 권한
+     * @param autoBanned 자동 차단 여부
      */
+    fun notifyAdmins(
+        targetPlayer: Player, 
+        adminName: String, 
+        reason: String, 
+        warningCount: Int,
+        notifyPermission: String,
+        autoBanned: Boolean = false
+    ) {
+        val message = Component.text()
+            .append(Component.text("[경고 시스템] ", NamedTextColor.GOLD))
+            .append(Component.text(adminName, NamedTextColor.YELLOW))
+            .append(Component.text("님이 ", NamedTextColor.WHITE))
+            .append(Component.text(targetPlayer.name, NamedTextColor.YELLOW))
+            .append(Component.text("님에게 경고를 부여했습니다. ", NamedTextColor.WHITE))
+            .append(Component.text("(현재 ${warningCount}회)", NamedTextColor.RED, TextDecoration.BOLD))
+            
+        if (autoBanned) {
+            message.append(Component.newline())
+                .append(Component.text("⚠ 경고 횟수 초과로 자동 차단되었습니다. ", NamedTextColor.RED, TextDecoration.BOLD))
+                .append(Component.text("(${WarningService.AUTO_BAN_THRESHOLD}회 이상)", NamedTextColor.GOLD))
+        }
+            
+        message.append(Component.newline())
+            .append(Component.text("사유: ", NamedTextColor.GOLD))
+            .append(Component.text(reason, NamedTextColor.YELLOW))
+        
+        broadcastToAdmins(message.build(), notifyPermission)
+    }
+    
+    /**
+     * 권한이 있는 관리자들에게 경고 부여 알림 (이전 버전 호환용)
+     */
+    @Deprecated("notifyAdmins 메서드로 대체되었습니다", ReplaceWith("notifyAdmins(targetPlayer, adminName, reason, 0, permission)"))
     fun notifyAdminsWarned(adminName: String, playerName: String, reason: String, permission: String) {
         val message = Component.text()
             .append(Component.text("[경고 시스템] ", NamedTextColor.GOLD))

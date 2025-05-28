@@ -27,6 +27,7 @@ import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.StatsSystem
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.ItemStatsCommand
 import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
+import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -113,9 +114,14 @@ class Main : JavaPlugin() {
             if (serviceType == "Lobby") {
                 // 서비스 타입이 "Lobby"인 경우에만 관리자 어시스턴트 초기화
                 if (openAiApiKey != null) {
+                    // WarningService 인스턴스 생성
+                    val warningService = WarningService(database, discordBot.jda)
+                    
                     val adminAssistant = AdminAssistant(
                         dbConnectionProvider = ::provideDbConnection,
-                        openAIApiKey = openAiApiKey // API 키를 생성자에 전달
+                        openAIApiKey = openAiApiKey, // API 키를 생성자에 전달
+                        database = database,
+                        warningService = warningService
                     )
                     discordBot.jda.addEventListener(adminAssistant)
                     logger.info("[AdminAssistant] 로비 서버에서 관리자 어시스턴트 초기화 완료.")
@@ -275,7 +281,7 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(itemReceiveSystem, this) 
         
         // 경고 시스템 초기화
-        val warningCommand = WarningCommand(database)
+        val warningCommand = WarningCommand(database, discordBot.jda)
         getCommand("경고")?.setExecutor(warningCommand)
         getCommand("경고")?.tabCompleter = warningCommand
         getCommand("warn")?.setExecutor(warningCommand)

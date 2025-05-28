@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.WarningSystem
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import net.dv8tion.jda.api.JDA
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.TextComponent
 import net.kyori.adventure.text.event.ClickEvent
@@ -19,9 +20,9 @@ import java.util.logging.Logger
 /**
  * 경고 시스템 명령어 처리 클래스
  */
-class WarningCommand(database: Database) : CommandExecutor, TabCompleter {
+class WarningCommand(database: Database, jda: JDA) : CommandExecutor, TabCompleter {
     private val logger = Logger.getLogger(WarningCommand::class.java.name)
-    private val warningService = WarningService(database)
+    private val warningService = WarningService(database, jda)
     private val warningNotifier = WarningNotifier()
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     
@@ -109,26 +110,48 @@ class WarningCommand(database: Database) : CommandExecutor, TabCompleter {
             adminUuid = sender.uniqueId
             adminName = sender.name
         } else {
-            adminUuid = UUID.fromString("00000000-0000-0000-0000-000000000000")
+            adminUuid = UUID(0, 0) // 콘솔용 더미 UUID
             adminName = "콘솔"
         }
         
-        val (success, warningCount) = warningService.addWarning(
+        val result = warningService.addWarning(
             targetPlayer = targetPlayer,
             adminUuid = adminUuid,
             adminName = adminName,
             reason = reason
         )
         
-        if (success) {
-            // 명령어 실행자에게 알림
-            sender.sendMessage(createSuccessMessage("'${targetPlayer.name}'에게 경고를 부여했습니다. (현재 경고: $warningCount)"))
+        if (result.first) {
+            val warningCount = result.second
+            val autoBanned = result.third
             
-            // 경고 대상 플레이어에게 알림
-            warningNotifier.notifyPlayerWarned(targetPlayer, adminName, reason, warningCount)
+            // 성공 메시지 전송
+            val successMessage = if (autoBanned) {
+                "${targetPlayer.name}님에게 경고를 부여했습니다. (현재 ${warningCount}회) - 경고 횟수 초과로 자동 차단되었습니다."
+            } else {
+                "${targetPlayer.name}님에게 경고를 부여했습니다. (현재 ${warningCount}회)"
+            }
+            sender.sendMessage(createSuccessMessage(successMessage))
             
-            // 권한 있는 관리자들에게 알림
-            warningNotifier.notifyAdminsWarned(adminName, targetPlayer.name, reason, NOTIFY_WARN_PERMISSION)
+            // 대상 플레이어에게 알림 (자동 차단되지 않은 경우에만)
+            if (!autoBanned) {
+                warningNotifier.notifyPlayerWarned(
+                    player = targetPlayer,
+                    adminName = adminName,
+                    reason = reason,
+                    warningCount = warningCount
+                )
+            }
+            
+            // 알림 권한이 있는 관리자들에게 알림
+            warningNotifier.notifyAdmins(
+                targetPlayer = targetPlayer,
+                adminName = adminName,
+                reason = reason,
+                warningCount = warningCount,
+                notifyPermission = NOTIFY_WARN_PERMISSION,
+                autoBanned = autoBanned
+            )
         } else {
             sender.sendMessage(createErrorMessage("경고 부여 중 오류가 발생했습니다."))
         }
@@ -204,7 +227,13 @@ class WarningCommand(database: Database) : CommandExecutor, TabCompleter {
                     
                     // 플레이어가 온라인이면 알림
                     targetPlayer?.let {
-                        warningNotifier.notifyPlayerPardoned(it, adminName, reason, 1, true)
+                        warningNotifier.notifyPlayerPardoned(
+                            player = it,
+                            adminName = adminName,
+                            reason = reason,
+                            count = 1,
+                            isIdBased = true
+                        )
                     }
                     
                     // 권한 있는 관리자들에게 알림
@@ -228,7 +257,13 @@ class WarningCommand(database: Database) : CommandExecutor, TabCompleter {
                     
                     // 플레이어가 온라인이면 알림
                     targetPlayer?.let {
-                        warningNotifier.notifyPlayerPardoned(it, adminName, reason, actualPardoned, false)
+                        warningNotifier.notifyPlayerPardoned(
+                            player = it,
+                            adminName = adminName,
+                            reason = reason,
+                            count = actualPardoned,
+                            isIdBased = false
+                        )
                     }
                     
                     // 권한 있는 관리자들에게 알림
@@ -346,7 +381,7 @@ class WarningCommand(database: Database) : CommandExecutor, TabCompleter {
         sender.sendMessage(createInfoMessage("/경고 또는 /경고 도움말 - 이 도움말을 표시합니다."))
         
         if (sender.hasPermission(WARN_PERMISSION)) {
-            sender.sendMessage(createInfoMessage("/경고 주기 <플레이어> <사유> - 플레이어에게 경고를 부여합니다."))
+            sender.sendMessage(createInfoMessage("/경고 주기 <플레이어> <사유> - 플레이어에게 경고를 부여합니다. ${WarningService.AUTO_BAN_THRESHOLD}회 이상 누적 시 자동 차단됩니다."))
         }
         
         if (sender.hasPermission(PARDON_PERMISSION)) {
