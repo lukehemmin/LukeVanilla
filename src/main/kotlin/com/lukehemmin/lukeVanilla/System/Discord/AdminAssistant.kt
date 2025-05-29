@@ -288,6 +288,16 @@ class AdminAssistant(
 
         val messageContent = event.message.contentRaw
         
+        // 특정 플레이어 경고 조회 요청 패턴 감지
+        val warningQueryPattern = Regex("(.+?)\\s*(?:유저|플레이어)?의?\\s*경고\\s*(?:내역|기록|목록)")
+        val warningMatch = warningQueryPattern.find(messageContent.trim())
+
+        if (warningMatch != null) {
+            val playerName = warningMatch.groupValues[1].trim()
+            processPlayerWarningQuery(event, playerName)
+            return
+        }
+
         // AI에게 보낼 메시지 컨텍스트 구성
         if (messageContent.isBlank()) return
 
@@ -648,6 +658,64 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
         }
         
         return embed.build()
+    }
+
+    /**
+     * 특정 플레이어의 경고 내역 조회 처리
+     */
+    private fun processPlayerWarningQuery(event: MessageReceivedEvent, playerName: String) {
+        try {
+            // 플레이어 정보 먼저 조회
+            val playerInfo = findPlayerInfo(playerName)
+            if (playerInfo == null) {
+                event.channel.sendMessage("플레이어 '${playerName}'을(를) 찾을 수 없습니다.").queue()
+                return
+            }
+
+            // WarningService를 통해 특정 플레이어의 경고 내역 조회
+            val playerUuid = UUID.fromString(playerInfo.uuid)
+            val playerWarnings = warningService.getPlayerWarnings(playerUuid)
+
+            val embed = EmbedBuilder().apply {
+                setTitle("${playerInfo.nickname}의 경고 내역")
+                setColor(Color.YELLOW)
+
+                if (playerWarnings.isEmpty()) {
+                    addField("경고 내역", "해당 플레이어는 경고 내역이 없습니다.", false)
+                } else {
+                    // 경고 총 횟수
+                    addField("총 경고 횟수", "${playerWarnings.size}회", true)
+
+                    // 최근 경고들 (최대 5개)
+                    val recentWarnings = playerWarnings.take(5)
+                    val warningList = recentWarnings.mapIndexed { index, warning ->
+                        val dateStr = warning.createdAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                        "${index + 1}. **사유**: ${warning.reason}\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
+                    }.joinToString("\n\n")
+
+                    addField("최근 경고 내역", warningList, false)
+
+                    if (playerWarnings.size > 5) {
+                        addField("", "※ ${playerWarnings.size - 5}개의 추가 경고 내역이 있습니다.", false)
+                    }
+                }
+
+                // 플레이어 기본 정보
+                addField("플레이어 정보", 
+                    "**UUID**: ${playerInfo.uuid}\n" +
+                    "**밴 상태**: ${if (playerInfo.isBanned) "차단됨" else "정상"}\n" +
+                    "**인증 상태**: ${if (playerInfo.isAuth) "인증됨" else "미인증"}", 
+                    false)
+
+                setFooter("조회 시간: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Date())}")
+            }.build()
+
+            event.channel.sendMessageEmbeds(embed).queue()
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            event.channel.sendMessage("경고 내역 조회 중 오류가 발생했습니다: ${e.message}").queue()
+        }
     }
     
     /**
