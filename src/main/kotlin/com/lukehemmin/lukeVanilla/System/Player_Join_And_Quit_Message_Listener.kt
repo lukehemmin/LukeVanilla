@@ -92,7 +92,7 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
 
                     // 특수 효과 재생
                     player.world.playSound(player.location, org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
-                    player.world.spawnParticle(org.bukkit.Particle.VILLAGER_HAPPY, player.location.add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.1)
+                    player.world.spawnParticle(org.bukkit.Particle.valueOf("VILLAGER_HAPPY"), player.location.add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.1)
                 }, 40L)
 
                 joinMessages["VanillaServerFirstJoin"]?.replace("{playerName}", player.name)
