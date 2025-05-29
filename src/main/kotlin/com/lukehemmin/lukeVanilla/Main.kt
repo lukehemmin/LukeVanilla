@@ -314,6 +314,12 @@ class Main : JavaPlugin() {
         // VPN 방지 실행
         server.pluginManager.registerEvents(AntiVPN(this), this)
 
+        // SafeZoneManager는 야생 서버에서만 실행
+        if (serviceType == "Vanilla") {
+            server.pluginManager.registerEvents(SafeZoneManager(this), this)
+            logger.info("[SafeZoneManager] 야생 서버에서 안전 구역 관리자 초기화 완료.")
+        }
+
         // LockSystem 활성화
 //        lockSystem = LockSystem(this)
 //        lockSystem.enable()
