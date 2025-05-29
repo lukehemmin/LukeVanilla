@@ -11,8 +11,8 @@ import org.bukkit.entity.Player
 class NametagCommand(private val database: Database, private val nametagManager: NametagManager) : CommandExecutor {
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if (sender !is Player || !sender.isOp) {
-            sender.sendMessage("§c§l이 명령어는 관리자만 사용할 수 있습니다.")
+        if (sender !is Player || (!sender.isOp && !sender.hasPermission("lukevanilla.nametag"))) {
+            sender.sendMessage("§c§l이 명령어는 관리자나 적절한 권한을 가진 사용자만 사용할 수 있습니다.")
             return true
         }
 

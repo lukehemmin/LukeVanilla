@@ -21,7 +21,13 @@ class DatabaseInitializer(private val database: Database) {
         createShopsTable()
         createValentineShieldTable()
         createPlayerItemsStateTable()
+        createConnectionIPTable()
         //createLockTable() // block_locks 테이블 생성 추가 - moved to createTables()
+        
+        // 경고 시스템 테이블 생성
+        createWarningsPlayersTable()
+        createWarningsRecordsTable()
+        createWarningsPardonsTable()
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -42,7 +48,7 @@ class DatabaseInitializer(private val database: Database) {
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
             statement.executeUpdate(
-                "CREATE TABLE IF NOT EXISTS Player_Data (`UUID` VARCHAR(36) NOT NULL, `NickName` VARCHAR(30) NOT NULL, `DiscordID` VARCHAR(30), PRIMARY KEY (`UUID`))"
+                "CREATE TABLE IF NOT EXISTS Player_Data (`UUID` VARCHAR(36) NOT NULL, `NickName` VARCHAR(30) NOT NULL, `DiscordID` VARCHAR(30), `Lastest_IP` VARCHAR(45), `IsBanned` TINYINT(1) NOT NULL DEFAULT 0, PRIMARY KEY (`UUID`))"
             )
         }
     }
@@ -384,6 +390,92 @@ class DatabaseInitializer(private val database: Database) {
                     `ItemID` VARCHAR(255) NOT NULL,
                     `State` VARCHAR(50) NOT NULL,
                     PRIMARY KEY (`UUID`, `ItemID`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+    
+    private fun createConnectionIPTable() { // 유저 IP 접속 기록 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS Connection_IP (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `UUID` VARCHAR(36) NOT NULL,
+                    `NickName` VARCHAR(30) NOT NULL,
+                    `IP` VARCHAR(45) NOT NULL,
+                    `ConnectedAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_uuid` (`UUID`),
+                    INDEX `idx_ip` (`IP`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+    
+    private fun createWarningsPlayersTable() { // 플레이어 경고 정보 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS warnings_players (
+                    `player_id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `uuid` VARCHAR(36) UNIQUE NOT NULL,
+                    `username` VARCHAR(50) NOT NULL,
+                    `last_warning_date` DATETIME,
+                    `active_warnings_count` INT DEFAULT 0,
+                    INDEX `idx_uuid` (`uuid`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+    
+    private fun createWarningsRecordsTable() { // 경고 내역 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS warnings_records (
+                    `warning_id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `player_id` INT NOT NULL,
+                    `admin_uuid` VARCHAR(36) NOT NULL,
+                    `admin_name` VARCHAR(50) NOT NULL,
+                    `reason` TEXT NOT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `is_active` BOOLEAN DEFAULT TRUE,
+                    `pardoned_at` DATETIME NULL,
+                    `pardoned_by_uuid` VARCHAR(36) NULL,
+                    `pardoned_by_name` VARCHAR(50) NULL,
+                    `pardon_reason` TEXT NULL,
+                    FOREIGN KEY (`player_id`) REFERENCES `warnings_players` (`player_id`) ON DELETE CASCADE,
+                    INDEX `idx_player_active` (`player_id`, `is_active`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+    
+    private fun createWarningsPardonsTable() { // 경고 차감 이력 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS warnings_pardons (
+                    `pardon_id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `player_id` INT NOT NULL,
+                    `admin_uuid` VARCHAR(36) NOT NULL,
+                    `admin_name` VARCHAR(50) NOT NULL,
+                    `count` INT NOT NULL DEFAULT 1,
+                    `reason` TEXT NOT NULL,
+                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    `is_id_based` BOOLEAN NOT NULL,
+                    `warning_id` INT NULL,
+                    FOREIGN KEY (`player_id`) REFERENCES `warnings_players` (`player_id`) ON DELETE CASCADE,
+                    FOREIGN KEY (`warning_id`) REFERENCES `warnings_records` (`warning_id`) ON DELETE SET NULL,
+                    INDEX `idx_player_id` (`player_id`)
                 );
                 """.trimIndent()
             )
