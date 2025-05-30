@@ -499,6 +499,8 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
 - 경고 명령어 형식: `경고 <유저닉네임> <사유>`
 - 경고 5회 누적 시 자동으로 차단됩니다. (IP 차단 포함)
 - 경고 조회 명령어: `경고 조회 <유저닉네임>`
+- **경고 ID 시스템**: 각 경고에는 고유 ID가 부여되며, 경고 조회 시 [ID: 123] 형태로 표시됩니다.
+- **경고 차감(사면) 기능**: 관리자는 특정 경고 ID를 통해 개별 경고를 차감할 수 있습니다.
 - 관리자가 특정 플레이어에게 경고를 주려고 할 때:
     1. 유저닉네임과 사유가 명확하면: `ACTION_PLAYER_WARNING: <유저닉네임>;<사유>` 형식으로만 응답
     2. 정보가 불명확하면 사용자에게 다시 질문
@@ -765,7 +767,7 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                         } else {
                             "**사유**: ~~${warning.reason}~~ (차감됨)"
                         }
-                        "${index + 1}. $reason\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
+                        "${index + 1}. **[ID: ${warning.warningId}]** $reason\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
                     }.joinToString("\n\n")
 
                     addField("최근 경고 내역", warningList, false)
