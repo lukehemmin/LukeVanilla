@@ -81,26 +81,72 @@ class Main : JavaPlugin() {
      * 서버 간 통신을 위한 플러그인 메시지 채널 등록
      */
     private fun registerPluginMessageChannels() {
-        // 서버 통신을 위한 채널 등록
-        server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST)
-        server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE)
-        
         try {
-            // 서버 타입에 따라 리스너 등록
+            // 아웃고잉 채널 등록 (중복 확인)
+            if (!server.messenger.isOutgoingChannelRegistered(this, CHANNEL_SERVER_STATUS_REQUEST)) {
+                server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST)
+                logger.info("[서버 통신] 아웃고잉 채널 등록: $CHANNEL_SERVER_STATUS_REQUEST")
+            }
+            if (!server.messenger.isOutgoingChannelRegistered(this, CHANNEL_SERVER_STATUS_RESPONSE)) {
+                server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE)
+                logger.info("[서버 통신] 아웃고잉 채널 등록: $CHANNEL_SERVER_STATUS_RESPONSE")
+            }
+            
+            // 서버 타입에 따라 인커밍 리스너 등록 (중복 확인)
             if (serviceType == "Lobby") {
                 // 로비 서버: 야생 서버에 상태 요청 & 응답 처리
-                val requester = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusRequester.getInstance(this)
-                server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE, requester)
-                logger.info("[서버 통신] 로비 서버 모드로 메시지 채널 초기화")
+                if (!server.messenger.isIncomingChannelRegistered(this, CHANNEL_SERVER_STATUS_RESPONSE)) {
+                    val requester = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusRequester.getInstance(this)
+                    server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE, requester)
+                    logger.info("[서버 통신] 로비 서버 인커밍 채널 등록: $CHANNEL_SERVER_STATUS_RESPONSE")
+                } else {
+                    logger.info("[서버 통신] 로비 서버 인커밍 채널 이미 등록됨: $CHANNEL_SERVER_STATUS_RESPONSE")
+                }
             } else {
                 // 야생 서버: 로비 서버의 요청에 응답
-                val listener = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusListener.getInstance(this)
-                server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST, listener)
-                logger.info("[서버 통신] 야생 서버 모드로 메시지 채널 초기화")
+                if (!server.messenger.isIncomingChannelRegistered(this, CHANNEL_SERVER_STATUS_REQUEST)) {
+                    val listener = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusListener.getInstance(this)
+                    server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST, listener)
+                    logger.info("[서버 통신] 야생 서버 인커밍 채널 등록: $CHANNEL_SERVER_STATUS_REQUEST")
+                } else {
+                    logger.info("[서버 통신] 야생 서버 인커밍 채널 이미 등록됨: $CHANNEL_SERVER_STATUS_REQUEST")
+                }
             }
         } catch (e: Exception) {
-            logger.warning("[서버 통신] 리스너 등록 오류: ${e.message}")
+            logger.warning("[서버 통신] 채널 등록 오류: ${e.message}")
             e.printStackTrace()
+        }
+    }
+
+    /**
+     * 플러그인 메시지 채널 등록 해제
+     */
+    private fun unregisterPluginMessageChannels() {
+        try {
+            // 아웃고잉 채널 해제
+            if (server.messenger.isOutgoingChannelRegistered(this, CHANNEL_SERVER_STATUS_REQUEST)) {
+                server.messenger.unregisterOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST)
+                logger.info("[서버 통신] 아웃고잉 채널 해제: $CHANNEL_SERVER_STATUS_REQUEST")
+            }
+            if (server.messenger.isOutgoingChannelRegistered(this, CHANNEL_SERVER_STATUS_RESPONSE)) {
+                server.messenger.unregisterOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE)
+                logger.info("[서버 통신] 아웃고잉 채널 해제: $CHANNEL_SERVER_STATUS_RESPONSE")
+            }
+            
+            // 인커밍 채널 해제
+            if (serviceType == "Lobby") {
+                if (server.messenger.isIncomingChannelRegistered(this, CHANNEL_SERVER_STATUS_RESPONSE)) {
+                    server.messenger.unregisterIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE)
+                    logger.info("[서버 통신] 로비 서버 인커밍 채널 해제: $CHANNEL_SERVER_STATUS_RESPONSE")
+                }
+            } else {
+                if (server.messenger.isIncomingChannelRegistered(this, CHANNEL_SERVER_STATUS_REQUEST)) {
+                    server.messenger.unregisterIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST)
+                    logger.info("[서버 통신] 야생 서버 인커밍 채널 해제: $CHANNEL_SERVER_STATUS_REQUEST")
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 채널 해제 오류: ${e.message}")
         }
     }
 
@@ -376,6 +422,14 @@ class Main : JavaPlugin() {
     override fun onDisable() {
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         VanillaShutdownNotifier.notifyShutdownImminent(this)
+        
+        // 플러그인 메시지 채널 등록 해제
+        try {
+            unregisterPluginMessageChannels()
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 채널 해제 중 오류: ${e.message}")
+        }
+        
         try {
             // Discord 봇 종료를 먼저 실행
             if (::discordBot.isInitialized) {
