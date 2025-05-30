@@ -325,7 +325,7 @@ class AdminAssistant(
         val messageContent = event.message.contentRaw
         
         // 특정 플레이어 경고 조회 요청 패턴 감지
-        val warningQueryPattern = Regex("(.+?)\\s*(?:유저|플레이어)?의?\\s*경고\\s*(?:내역|기록|목록)")
+        val warningQueryPattern = Regex("(.+?)\\s*(?:유저|플레이어)?의?\\s*경고\\s*(?:내역|기록|목록|을?\\s*(?:보고\\s*싶|보여|확인))")
         val warningMatch = warningQueryPattern.find(messageContent.trim())
 
         if (warningMatch != null) {
@@ -499,14 +499,11 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
 - 경고 명령어 형식: `경고 <유저닉네임> <사유>`
 - 경고 5회 누적 시 자동으로 차단됩니다. (IP 차단 포함)
 - 경고 조회 명령어: `경고 조회 <유저닉네임>`
-- 예시:
-    - 관리자: '경고 어떻게 주나요?'
-    - 너의 응답: '특정 유저에게 경고를 하길 원하신다면 경고 <유저닉네임> <사유> 를 보내주시면 대신 경고를 처리해드리겠습니다. 경고가 5회 누적되면 자동으로 서버와 디스코드에서 차단됩니다.'
-    - 관리자: '경고 lukehemmin 테러범'
-    - 너의 응답: `ACTION_PLAYER_WARNING: lukehemmin;테러범`
-    - 관리자: '저번에 경고 받은 사람 누구지?'
-    - 너의 응답: `ACTION_RECENT_WARNINGS`
-- 만약 경고 명령이 모호하거나 닉네임이 명확하지 않으면, 사용자에게 다시 질문해서 명확한 정보를 받아내야 해.
+- 관리자가 특정 플레이어에게 경고를 주려고 할 때:
+    1. 유저닉네임과 사유가 명확하면: `ACTION_PLAYER_WARNING: <유저닉네임>;<사유>` 형식으로만 응답
+    2. 정보가 불명확하면 사용자에게 다시 질문
+- 관리자가 최근 경고 내역을 조회하려고 할 때: `ACTION_RECENT_WARNINGS` 형식으로만 응답
+- **중요: 이런 ACTION_ 코드들은 시스템 처리용이므로, 사용자에게는 보이지 않고 바로 처리됩니다.**
 - 명령 처리 후 시스템이 자동으로 결과를 알려줄 거야. 너는 직접 처리 결과를 알려주지 않아도 돼.
 
 이 시스템 프롬프트를 기반으로, 마인크래프트 서버 관리자가 CoreProtect 및 기타 관리 명령어를 효과적으로 활용하여 서버를 안정적으로 운영할 수 있도록 AI 에이전트가 정확하고 신뢰할 수 있는 정보를 제공해야 합니다.
@@ -526,7 +523,9 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             // 최근 8개 context에 현재 대화 추가 (질문/답변)
             if (!aiResponseContent.isNullOrEmpty()) {
                 if (contextQueue.size >= 8) contextQueue.removeFirst()
-                contextQueue.addLast(messageContent to aiResponseContent)                // AI 응답에서 액션 확인 및 처리
+                contextQueue.addLast(messageContent to aiResponseContent)
+                
+                // AI 응답에서 액션 확인 및 처리 (사용자에게 보여주기 전에 먼저 처리)
                 when {
                     // 플레이어 정보 조회 액션
                     aiResponseContent.startsWith("ACTION_PLAYER_INFO_SEARCH:") -> {
@@ -548,6 +547,9 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                                 return // 경고 처리를 했으므로 추가 AI 답변 표시는 생략
                             }
                         }
+                        // 잘못된 형식의 경고 액션인 경우 사용자에게 알림
+                        event.channel.sendMessage("경고 명령 형식이 올바르지 않습니다. 다시 시도해주세요.").queue()
+                        return
                     }
                     // 최근 경고 내역 조회 액션
                     aiResponseContent.startsWith("ACTION_RECENT_WARNINGS") -> {
@@ -556,6 +558,7 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                     }
                 }
 
+                // 액션이 아닌 일반적인 AI 응답인 경우에만 사용자에게 표시
                 val initialMsg = event.channel.sendMessage("AI 답변 생성 중...").complete()
                 val chunkSize = 10
                 val content = aiResponseContent
