@@ -141,6 +141,42 @@ class AdminAssistant(
     }
     
     /**
+     * 디스코드 ID로 플레이어 정보를 조회
+     */
+    private fun findPlayerInfoByDiscordId(discordId: String): PlayerInfo? {
+        val query = "SELECT pd.UUID, pd.NickName, pd.DiscordID, pd.Lastest_IP, pd.IsBanned, pa.IsAuth, pa.IsFirst, pt.Tag " +
+                   "FROM lukevanilla.Player_Data pd " +
+                   "LEFT JOIN lukevanilla.Player_Auth pa ON pd.UUID = pa.UUID " +
+                   "LEFT JOIN lukevanilla.Player_NameTag pt ON pd.UUID = pt.UUID " +
+                   "WHERE pd.DiscordID = '$discordId';"
+        
+        try {
+            dbConnectionProvider().use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery(query).use { resultSet ->
+                        if (resultSet.next()) {
+                            return PlayerInfo(
+                                uuid = resultSet.getString("UUID") ?: "",
+                                nickname = resultSet.getString("NickName") ?: "",
+                                discordId = resultSet.getString("DiscordID"),
+                                ip = resultSet.getString("Lastest_IP"),
+                                isBanned = resultSet.getBoolean("IsBanned"),
+                                isAuth = resultSet.getBoolean("IsAuth"),
+                                isFirst = resultSet.getBoolean("IsFirst"),
+                                nameTag = resultSet.getString("Tag")
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdminAssistant] 디스코드 ID로 플레이어 정보 조회 중 오류: ${e.message}")
+            e.printStackTrace()
+        }
+        return null
+    }
+    
+    /**
      * 플레이어가 소유한 아이템 정보를 조회
      */
     private fun getPlayerItems(uuid: String): Map<String, List<String>> {
@@ -490,14 +526,33 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             // 최근 8개 context에 현재 대화 추가 (질문/답변)
             if (!aiResponseContent.isNullOrEmpty()) {
                 if (contextQueue.size >= 8) contextQueue.removeFirst()
-                contextQueue.addLast(messageContent to aiResponseContent)
-
-                // AI 응답에서 플레이어 정보 조회 액션 확인
-                if (aiResponseContent.startsWith("ACTION_PLAYER_INFO_SEARCH:")) {
-                    val playerIdentifier = aiResponseContent.substring("ACTION_PLAYER_INFO_SEARCH:".length).trim()
-                    if (playerIdentifier.isNotEmpty()) {
-                        processPlayerInfoRequest(event, playerIdentifier)
-                        return // 플레이어 정보 조회를 처리했으므로 추가 AI 답변 표시는 생략
+                contextQueue.addLast(messageContent to aiResponseContent)                // AI 응답에서 액션 확인 및 처리
+                when {
+                    // 플레이어 정보 조회 액션
+                    aiResponseContent.startsWith("ACTION_PLAYER_INFO_SEARCH:") -> {
+                        val playerIdentifier = aiResponseContent.substring("ACTION_PLAYER_INFO_SEARCH:".length).trim()
+                        if (playerIdentifier.isNotEmpty()) {
+                            processPlayerInfoRequest(event, playerIdentifier)
+                            return // 플레이어 정보 조회를 처리했으므로 추가 AI 답변 표시는 생략
+                        }
+                    }
+                    // 플레이어 경고 액션
+                    aiResponseContent.startsWith("ACTION_PLAYER_WARNING:") -> {
+                        val warningData = aiResponseContent.substring("ACTION_PLAYER_WARNING:".length).trim()
+                        if (warningData.contains(";")) {
+                            val parts = warningData.split(";", limit = 2)
+                            if (parts.size == 2) {
+                                val playerName = parts[0].trim()
+                                val reason = parts[1].trim()
+                                processPlayerWarningRequest(event, playerName, reason, event.author.id)
+                                return // 경고 처리를 했으므로 추가 AI 답변 표시는 생략
+                            }
+                        }
+                    }
+                    // 최근 경고 내역 조회 액션
+                    aiResponseContent.startsWith("ACTION_RECENT_WARNINGS") -> {
+                        processRecentWarningsRequest(event)
+                        return // 경고 내역 조회를 처리했으므로 추가 AI 답변 표시는 생략
                     }
                 }
 
@@ -539,11 +594,21 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             return chunks
         }
     }
-    
-    /**
+      /**
      * 메시지에서 플레이어 식별자(닉네임 또는 UUID)를 추출
      */
     private fun extractPlayerIdentifier(message: String): String? {
+        // 디스코드 사용자 멘션 패턴 먼저 확인 (<@사용자ID>)
+        val mentionPattern = "<@(\\d+)>".toRegex()
+        mentionPattern.find(message)?.let { match ->
+            val discordId = match.groupValues[1]
+            // 디스코드 ID로 플레이어 정보 조회
+            val playerInfo = findPlayerInfoByDiscordId(discordId)
+            if (playerInfo != null) {
+                return playerInfo.nickname
+            }
+        }
+        
         // UUID 패턴 (대시 포함 또는 미포함)
         val uuidPattern = "\\b([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9a-f]{32})\\b".toRegex(RegexOption.IGNORE_CASE)
         uuidPattern.find(message)?.let {
@@ -670,11 +735,10 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             if (playerInfo == null) {
                 event.channel.sendMessage("플레이어 '${playerName}'을(를) 찾을 수 없습니다.").queue()
                 return
-            }
-
-            // WarningService를 통해 특정 플레이어의 경고 내역 조회
+            }            // WarningService를 통해 특정 플레이어의 경고 내역 조회
             val playerUuid = UUID.fromString(playerInfo.uuid)
             val playerWarnings = warningService.getPlayerWarnings(playerUuid)
+            val playerWarning = warningService.getPlayerWarning(playerUuid, playerInfo.nickname)
 
             val embed = EmbedBuilder().apply {
                 setTitle("${playerInfo.nickname}의 경고 내역")
@@ -683,14 +747,22 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                 if (playerWarnings.isEmpty()) {
                     addField("경고 내역", "해당 플레이어는 경고 내역이 없습니다.", false)
                 } else {
-                    // 경고 총 횟수
-                    addField("총 경고 횟수", "${playerWarnings.size}회", true)
+                    // 현재 활성 경고 횟수 표시
+                    addField("현재 경고 횟수", "${playerWarning.activeWarningsCount}회", true)
+                    
+                    // 전체 경고 기록 수
+                    addField("전체 기록 수", "${playerWarnings.size}회", true)
 
                     // 최근 경고들 (최대 5개)
                     val recentWarnings = playerWarnings.take(5)
                     val warningList = recentWarnings.mapIndexed { index, warning ->
                         val dateStr = warning.createdAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                        "${index + 1}. **사유**: ${warning.reason}\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
+                        val reason = if (warning.isActive) {
+                            "**사유**: ${warning.reason}"
+                        } else {
+                            "**사유**: ~~${warning.reason}~~ (차감됨)"
+                        }
+                        "${index + 1}. $reason\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
                     }.joinToString("\n\n")
 
                     addField("최근 경고 내역", warningList, false)
@@ -717,8 +789,7 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             event.channel.sendMessage("경고 내역 조회 중 오류가 발생했습니다: ${e.message}").queue()
         }
     }
-    
-    /**
+      /**
      * 플레이어 경고 요청 처리
      */
     private fun processPlayerWarningRequest(event: MessageReceivedEvent, playerName: String, reason: String, adminDiscordId: String) {
@@ -729,8 +800,23 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                 return
             }
             
+            // 플레이어 이름이 디스코드 멘션인지 확인
+            val actualPlayerName = if (playerName.startsWith("<@") && playerName.endsWith(">")) {
+                // 디스코드 멘션에서 ID 추출
+                val discordId = playerName.substring(2, playerName.length - 1)
+                val playerInfo = findPlayerInfoByDiscordId(discordId)
+                if (playerInfo != null) {
+                    playerInfo.nickname
+                } else {
+                    event.channel.sendMessage("해당 디스코드 사용자의 마인크래프트 계정을 찾을 수 없습니다.").queue()
+                    return
+                }
+            } else {
+                playerName
+            }
+            
             // 서버에 접속한 플레이어 정보 찾기
-            val onlinePlayer = Bukkit.getPlayer(playerName)
+            val onlinePlayer = Bukkit.getPlayer(actualPlayerName)
             
             if (onlinePlayer != null) {
                 // 온라인 플레이어에게 경고 부여
@@ -742,20 +828,19 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                     var playerUuid: String? = null
                     
                     connection.prepareStatement(selectUuidQuery).use { statement ->
-                        statement.setString(1, playerName)
+                        statement.setString(1, actualPlayerName)
                         statement.executeQuery().use { resultSet ->
                             if (resultSet.next()) {
                                 playerUuid = resultSet.getString("UUID")
                             }
                         }
                     }
-                    
-                    if (playerUuid == null) {
-                        event.channel.sendMessage("플레이어 '$playerName'의 정보를 찾을 수 없습니다.").queue()
+                      if (playerUuid == null) {
+                        event.channel.sendMessage("플레이어 '$actualPlayerName'의 정보를 찾을 수 없습니다.").queue()
                         return
                     }
                     
-                    processOfflinePlayerWarning(event, playerName, UUID.fromString(playerUuid), reason, adminDiscordId)
+                    processOfflinePlayerWarning(event, actualPlayerName, UUID.fromString(playerUuid), reason, adminDiscordId)
                 }
             }
         } catch (e: Exception) {

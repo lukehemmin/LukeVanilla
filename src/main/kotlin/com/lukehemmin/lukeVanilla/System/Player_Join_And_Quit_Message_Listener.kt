@@ -33,6 +33,23 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
         val player = event.player
         val uuid = player.uniqueId.toString()
 
+        // 처음 접속한 플레이어를 특정 위치로 텔레포트
+        if (!player.hasPlayedBefore()) {
+            // 다음 틱에 텔레포트 실행 (안정적인 텔레포트를 위해)
+            Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+                // 스폰 위치 설정 (안전 구역 내 위치로 설정)
+                val spawnLocation = org.bukkit.Location(
+                    Bukkit.getWorld("world"), // 월드 이름 설정
+                    0.0, // x 좌표 (안전 구역 내 중앙 지점)
+                    70.0, // y 좌표
+                    67.0, // z 좌표 (안전 구역 내 지점)
+                    0f, // yaw (수평 회전)
+                    0f  // pitch (수직 회전)
+                )
+                player.teleport(spawnLocation)
+            }, 20L) // 1초(20틱) 후 텔레포트 실행
+        }
+
         // Player_Auth 테이블에서 IsAuth 확인
         var isAuth = true
         database.getConnection().use { connection ->
@@ -61,6 +78,23 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
         if (serviceType == "Vanilla") {
             // Vanilla Server Join
             val message = if (!player.hasPlayedBefore()) {
+                joinMessages["VanillaServerFirstJoin"]?.replace("{playerName}", player.name)
+
+                // 처음 접속한 플레이어에게 제목(title)과 부제목(subtitle) 메시지 표시
+                Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+                    player.sendTitle(
+                        "§a§l서버에 오신 것을 환영합니다!", // 메인 타이틀
+                        "§f§l우리 서버를 즐겨주세요", // 서브 타이틀
+                        20, // 페이드 인 시간(틱)
+                        100, // 표시 시간(틱)
+                        20 // 페이드 아웃 시간(틱)
+                    )
+
+                    // 특수 효과 재생
+                    player.world.playSound(player.location, org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
+                    player.world.spawnParticle(org.bukkit.Particle.valueOf("VILLAGER_HAPPY"), player.location.add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.1)
+                }, 40L)
+
                 joinMessages["VanillaServerFirstJoin"]?.replace("{playerName}", player.name)
             } else {
                 joinMessages["VanillaServerJoin"]?.replace("{playerName}", player.name)

@@ -51,7 +51,8 @@ class ServerStatusRequester(private val plugin: Main) : PluginMessageListener {
         
         // 타임아웃 설정 (3초 후 응답 없으면 기본값 반환)
         Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, Runnable {
-            if (!future.isDone) {
+            val future = pendingRequests[requestId]
+            if (future != null && !future.isDone) {
                 val fallbackData = mapOf(
                     "tps" to "N/A",
                     "mspt" to "N/A",
@@ -62,7 +63,7 @@ class ServerStatusRequester(private val plugin: Main) : PluginMessageListener {
                 )
                 future.complete(fallbackData)
                 pendingRequests.remove(requestId)
-                plugin.logger.warning("[서버 상태] 야생 서버 상태 요청 시간 초과")
+                plugin.logger.warning("[서버 상태] 야생 서버 상태 요청 시간 초과 (ID: $requestId)")
             }
         }, 60L) // 3초 (20틱/초)
         
@@ -154,5 +155,48 @@ class ServerStatusRequester(private val plugin: Main) : PluginMessageListener {
             future.complete(fallbackData)
             pendingRequests.remove(requestId)
         }
+    }
+    
+    /**
+     * 대기 중인 요청 수 반환 (관리 명령어용)
+     */
+    fun getPendingRequestsCount(): Int {
+        return pendingRequests.size
+    }
+    
+    /**
+     * 대기 중인 모든 요청을 강제로 정리 (관리 명령어용)
+     */
+    fun clearPendingRequests(): Int {
+        val count = pendingRequests.size
+        
+        // 모든 대기 중인 요청에 타임아웃 응답 전송
+        pendingRequests.forEach { (requestId, future) ->
+            val fallbackData = mapOf(
+                "tps" to "N/A",
+                "mspt" to "N/A", 
+                "onlinePlayers" to 0,
+                "maxPlayers" to 0,
+                "serverName" to "야생 서버",
+                "error" to "관리자에 의해 강제 정리됨"
+            )
+            future.complete(fallbackData)
+        }
+        
+        // 맵 비우기
+        pendingRequests.clear()
+        
+        plugin.logger.info("[서버 상태] 대기 중인 요청 ${count}개를 관리자가 강제로 정리했습니다.")
+        return count
+    }
+    
+    /**
+     * 연결 상태 초기화 (채널 재등록 등)
+     */
+    fun resetConnection() {
+        // 대기 중인 요청 모두 정리
+        clearPendingRequests()
+        
+        plugin.logger.info("[서버 상태] 연결 상태가 초기화되었습니다.")
     }
 }

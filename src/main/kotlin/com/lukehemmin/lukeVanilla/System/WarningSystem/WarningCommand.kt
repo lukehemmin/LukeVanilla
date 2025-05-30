@@ -375,8 +375,41 @@ class WarningCommand(database: Database, jda: JDA) : CommandExecutor, TabComplet
     
     /**
      * 도움말 메시지 전송
-     */
-    private fun sendHelpMessage(sender: CommandSender) {
+     */    private fun sendHelpMessage(sender: CommandSender) {
+        // 일반 유저인 경우 (관리자 권한이 없는 경우)
+        if (!sender.hasPermission(WARN_PERMISSION) && !sender.hasPermission(PARDON_PERMISSION) && 
+            !sender.hasPermission(CHECK_PERMISSION) && !sender.hasPermission(LIST_PERMISSION)) {
+            
+            if (sender is Player) {
+                // 플레이어 자신의 경고 현황 표시
+                val playerWarning = warningService.getPlayerWarning(sender.uniqueId, sender.name)
+                
+                sender.sendMessage(createInfoHeader("내 경고 현황"))
+                sender.sendMessage(createInfoMessage("현재 누적 경고 횟수: ${playerWarning.activeWarningsCount}회"))
+                
+                if (playerWarning.activeWarningsCount > 0) {
+                    val remainingWarnings = WarningService.AUTO_BAN_THRESHOLD - playerWarning.activeWarningsCount
+                    if (remainingWarnings > 0) {
+                        sender.sendMessage(createWarningMessage("⚠️ ${remainingWarnings}회 더 경고를 받으면 자동으로 차단됩니다."))
+                    } else {
+                        sender.sendMessage(createErrorMessage("⚠️ 경고 한계치에 도달했습니다. 추가 경고 시 즉시 차단됩니다."))
+                    }
+                } else {
+                    sender.sendMessage(createSuccessMessage("✅ 현재 경고가 없습니다."))
+                }
+                
+                sender.sendMessage(createInfoMessage(""))
+                sender.sendMessage(createInfoMessage("📋 경고 시스템 안내:"))
+                sender.sendMessage(createInfoMessage("• 누적 ${WarningService.AUTO_BAN_THRESHOLD}회 경고 시 자동 차단됩니다"))
+                sender.sendMessage(createInfoMessage("• 경고는 서버 규칙 위반 시 부여됩니다"))
+                sender.sendMessage(createInfoMessage("• 경고에 대해 이의가 있으시면 관리자에게 문의하세요"))
+            } else {
+                sender.sendMessage(createInfoMessage("경고 시스템은 플레이어만 사용할 수 있습니다."))
+            }
+            return
+        }
+        
+        // 관리자인 경우 기존 명령어 도움말 표시
         sender.sendMessage(createInfoHeader("경고 시스템 명령어 도움말"))
         sender.sendMessage(createInfoMessage("/경고 또는 /경고 도움말 - 이 도움말을 표시합니다."))
         
@@ -456,11 +489,17 @@ class WarningCommand(database: Database, jda: JDA) : CommandExecutor, TabComplet
     private fun createSuccessMessage(message: String): TextComponent {
         return Component.text(message, NamedTextColor.GREEN)
     }
-    
-    /**
+      /**
      * 오류 메시지 생성
      */
     private fun createErrorMessage(message: String): TextComponent {
         return Component.text(message, NamedTextColor.RED)
+    }
+    
+    /**
+     * 경고 메시지 생성
+     */
+    private fun createWarningMessage(message: String): TextComponent {
+        return Component.text(message, NamedTextColor.GOLD)
     }
 }
