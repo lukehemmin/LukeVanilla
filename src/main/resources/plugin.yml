@@ -101,6 +101,16 @@ commands:
     usage: "/snowgame <시작|중지|참가|나가기>"
     permission: "lukevanilla.snowgame.admin"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  서버연결:
+    description: "서버 간 연결 상태를 관리합니다 (로비서버 전용)"
+    usage: "/서버연결 <status|test|clear|reset>"
+    permission: "lukevanilla.admin"
+    permission-message: "You do not have permission to use this command."
+  serverconnection:
+    description: "Manage server connection status (Lobby server only)"
+    usage: "/serverconnection <status|test|clear|reset>"
+    permission: "lukevanilla.admin"
+    permission-message: "You do not have permission to use this command."
 
 permissions:
   lukevanilla.nametag:

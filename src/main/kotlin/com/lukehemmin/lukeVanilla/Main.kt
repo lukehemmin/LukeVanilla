@@ -29,6 +29,7 @@ import com.lukehemmin.lukeVanilla.System.SafeZoneManager
 import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
+import com.lukehemmin.lukeVanilla.System.Command.ServerConnectionCommand
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -81,20 +82,37 @@ class Main : JavaPlugin() {
      * 서버 간 통신을 위한 플러그인 메시지 채널 등록
      */
     private fun registerPluginMessageChannels() {
+        // 아웃고잉 채널 등록 (개별 try-catch 처리)
         try {
-            // 아웃고잉 채널 등록 (중복 확인)
             if (!server.messenger.isOutgoingChannelRegistered(this, CHANNEL_SERVER_STATUS_REQUEST)) {
                 server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST)
                 logger.info("[서버 통신] 아웃고잉 채널 등록: $CHANNEL_SERVER_STATUS_REQUEST")
+            } else {
+                logger.info("[서버 통신] 아웃고잉 채널 이미 등록됨: $CHANNEL_SERVER_STATUS_REQUEST")
             }
+        } catch (e: IllegalArgumentException) {
+            logger.info("[서버 통신] 아웃고잉 채널 이미 등록됨 (예외): $CHANNEL_SERVER_STATUS_REQUEST")
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 아웃고잉 채널 등록 오류: $CHANNEL_SERVER_STATUS_REQUEST - ${e.message}")
+        }
+        
+        try {
             if (!server.messenger.isOutgoingChannelRegistered(this, CHANNEL_SERVER_STATUS_RESPONSE)) {
                 server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE)
                 logger.info("[서버 통신] 아웃고잉 채널 등록: $CHANNEL_SERVER_STATUS_RESPONSE")
+            } else {
+                logger.info("[서버 통신] 아웃고잉 채널 이미 등록됨: $CHANNEL_SERVER_STATUS_RESPONSE")
             }
-            
-            // 서버 타입에 따라 인커밍 리스너 등록 (중복 확인)
-            if (serviceType == "Lobby") {
-                // 로비 서버: 야생 서버에 상태 요청 & 응답 처리
+        } catch (e: IllegalArgumentException) {
+            logger.info("[서버 통신] 아웃고잉 채널 이미 등록됨 (예외): $CHANNEL_SERVER_STATUS_RESPONSE")
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 아웃고잉 채널 등록 오류: $CHANNEL_SERVER_STATUS_RESPONSE - ${e.message}")
+        }
+        
+        // 서버 타입에 따라 인커밍 리스너 등록 (개별 try-catch 처리)
+        if (serviceType == "Lobby") {
+            // 로비 서버: 야생 서버에 상태 요청 & 응답 처리
+            try {
                 if (!server.messenger.isIncomingChannelRegistered(this, CHANNEL_SERVER_STATUS_RESPONSE)) {
                     val requester = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusRequester.getInstance(this)
                     server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE, requester)
@@ -102,8 +120,14 @@ class Main : JavaPlugin() {
                 } else {
                     logger.info("[서버 통신] 로비 서버 인커밍 채널 이미 등록됨: $CHANNEL_SERVER_STATUS_RESPONSE")
                 }
-            } else {
-                // 야생 서버: 로비 서버의 요청에 응답
+            } catch (e: IllegalArgumentException) {
+                logger.info("[서버 통신] 로비 서버 인커밍 채널 이미 등록됨 (예외): $CHANNEL_SERVER_STATUS_RESPONSE")
+            } catch (e: Exception) {
+                logger.warning("[서버 통신] 로비 서버 인커밍 채널 등록 오류: $CHANNEL_SERVER_STATUS_RESPONSE - ${e.message}")
+            }
+        } else {
+            // 야생 서버: 로비 서버의 요청에 응답
+            try {
                 if (!server.messenger.isIncomingChannelRegistered(this, CHANNEL_SERVER_STATUS_REQUEST)) {
                     val listener = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusListener.getInstance(this)
                     server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST, listener)
@@ -111,10 +135,11 @@ class Main : JavaPlugin() {
                 } else {
                     logger.info("[서버 통신] 야생 서버 인커밍 채널 이미 등록됨: $CHANNEL_SERVER_STATUS_REQUEST")
                 }
+            } catch (e: IllegalArgumentException) {
+                logger.info("[서버 통신] 야생 서버 인커밍 채널 이미 등록됨 (예외): $CHANNEL_SERVER_STATUS_REQUEST")
+            } catch (e: Exception) {
+                logger.warning("[서버 통신] 야생 서버 인커밍 채널 등록 오류: $CHANNEL_SERVER_STATUS_REQUEST - ${e.message}")
             }
-        } catch (e: Exception) {
-            logger.warning("[서버 통신] 채널 등록 오류: ${e.message}")
-            e.printStackTrace()
         }
     }
 
@@ -412,6 +437,15 @@ class Main : JavaPlugin() {
 
         // 플러그인 메시지 채널 등록
         VanillaShutdownNotifier.registerChannel(this)
+
+        // 서버 연결 관리 명령어 등록 (로비서버 전용)
+        if (serviceType == "Lobby") {
+            getCommand("서버연결")?.setExecutor(ServerConnectionCommand(this))
+            getCommand("서버연결")?.tabCompleter = ServerConnectionCommand(this)
+            getCommand("serverconnection")?.setExecutor(ServerConnectionCommand(this))
+            getCommand("serverconnection")?.tabCompleter = ServerConnectionCommand(this)
+            logger.info("[서버 연결 관리] 로비서버에서 연결 관리 명령어 등록 완료.")
+        }
     }
 
     // 이름을 다르게 하여 충돌 방지
