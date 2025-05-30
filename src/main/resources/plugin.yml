@@ -90,6 +90,12 @@ commands:
     usage: "/itemstats log <on|off>"
     permission: "itemstats.admin"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  경고:
+    description: "플레이어에게 경고를 부여하거나 차감하고, 경고 내역을 확인합니다."
+    usage: "/경고 [주기|차감|확인|목록] <인자>"
+    permission: "advancedwarnings.use"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
+    aliases: [ warn ]  
 
 permissions:
   lukevanilla.nametag:
@@ -125,4 +131,25 @@ permissions:
     default: op
   itemstats.admin:
     description: "아이템 통계 시스템 관리 명령어 사용 권한"
+    default: op
+  advancedwarnings.use:
+    description: "경고 시스템 기본 사용 권한"
+    default: op
+  advancedwarnings.warn:
+    description: "경고 부여 권한"
+    default: op
+  advancedwarnings.pardon:
+    description: "경고 차감 권한"
+    default: op
+  advancedwarnings.check:
+    description: "경고 내역 확인 권한"
+    default: op
+  advancedwarnings.list:
+    description: "경고 목록 조회 권한"
+    default: op
+  advancedwarnings.notify.warn:
+    description: "경고 부여 시 알림 수신 권한"
+    default: op
+  advancedwarnings.notify.pardon:
+    description: "경고 차감 시 알림 수신 권한"
     default: op

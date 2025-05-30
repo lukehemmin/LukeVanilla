@@ -24,8 +24,8 @@ class NoExplosionListener(private val plugin: JavaPlugin) : Listener {
         if (isExplosionAllowedWorld(event.location.world!!)) return
 
         val entity = event.entity
-        // Wither와 WitherSkull 추가
-        if (entity is Creeper || entity is TNTPrimed || entity is Wither || entity is WitherSkull) {
+        // Wither와 WitherSkull, EndCrystal 추가
+        if (entity is Creeper || entity is TNTPrimed || entity is Wither || entity is WitherSkull || entity is EnderCrystal) {
             event.isCancelled = true
             event.blockList().clear()
             plugin.logger.info("Cancelled explosion from ${entity.type} in ${event.location.world?.name}")
@@ -46,8 +46,8 @@ class NoExplosionListener(private val plugin: JavaPlugin) : Listener {
         if (isExplosionAllowedWorld(event.entity.world)) return
 
         val damager = event.damager
-        // Wither와 WitherSkull에 의한 데미지 취소
-        if (damager is TNTPrimed || damager is Creeper || damager is Wither || damager is WitherSkull) {
+        // Wither와 WitherSkull, EnderCrystal에 의한 데미지 취소
+        if (damager is TNTPrimed || damager is Creeper || damager is Wither || damager is WitherSkull || damager is EnderCrystal) {
             event.isCancelled = true
             plugin.logger.info("Cancelled damage to ${event.entityType} from ${damager.type} in ${event.entity.world.name}")
         }
@@ -68,8 +68,8 @@ class NoExplosionListener(private val plugin: JavaPlugin) : Listener {
         if (isExplosionAllowedWorld(event.entity.world)) return
 
         val remover = event.remover
-        // Wither와 WitherSkull 추가
-        if (remover is TNTPrimed || remover is Creeper || remover is Wither || remover is WitherSkull) {
+        // Wither와 WitherSkull, EnderCrystal 추가
+        if (remover is TNTPrimed || remover is Creeper || remover is Wither || remover is WitherSkull || remover is EnderCrystal) {
             event.isCancelled = true
             plugin.logger.info("Cancelled hanging entity break by ${remover.type} at ${event.entity.location}")
         }
@@ -86,7 +86,7 @@ class NoExplosionListener(private val plugin: JavaPlugin) : Listener {
                     event.isCancelled = true
                     plugin.logger.info("Cancelled boat destruction due to explosion at ${vehicle.location}")
                 }
-            } else if (attacker is TNTPrimed || attacker is Creeper || attacker is Wither || attacker is WitherSkull) {
+            } else if (attacker is TNTPrimed || attacker is Creeper || attacker is Wither || attacker is WitherSkull || attacker is EnderCrystal) {
                 event.isCancelled = true
                 plugin.logger.info("Cancelled vehicle destruction by ${attacker.type} at ${vehicle.location}")
             }

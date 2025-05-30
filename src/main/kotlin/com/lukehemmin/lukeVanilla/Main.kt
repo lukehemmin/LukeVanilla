@@ -26,6 +26,8 @@ import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.StatsSystem
 import com.lukehemmin.lukeVanilla.System.Items.StatsSystem.ItemStatsCommand
 import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
+import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
+import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -67,6 +69,51 @@ class Main : JavaPlugin() {
         return DriverManager.getConnection(jdbcUrl, user, password)
     }
 
+    /**
+     * 현재 실행 중인 서버를 보다 쉬운 방법으로 식별하기 위한 함수
+     */
+    fun getServerType(): String {
+        return serviceType
+    }
+    
+    /**
+     * 서버 간 통신을 위한 플러그인 메시지 채널 등록
+     */
+    private fun registerPluginMessageChannels() {
+        // 서버 통신을 위한 채널 등록
+        server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST)
+        server.messenger.registerOutgoingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE)
+        
+        try {
+            // 서버 타입에 따라 리스너 등록
+            if (serviceType == "Lobby") {
+                // 로비 서버: 야생 서버에 상태 요청 & 응답 처리
+                val requester = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusRequester.getInstance(this)
+                server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_RESPONSE, requester)
+                logger.info("[서버 통신] 로비 서버 모드로 메시지 채널 초기화")
+            } else {
+                // 야생 서버: 로비 서버의 요청에 응답
+                val listener = com.lukehemmin.lukeVanilla.System.Discord.ServerStatusListener.getInstance(this)
+                server.messenger.registerIncomingPluginChannel(this, CHANNEL_SERVER_STATUS_REQUEST, listener)
+                logger.info("[서버 통신] 야생 서버 모드로 메시지 채널 초기화")
+            }
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 리스너 등록 오류: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    companion object {
+        @JvmStatic
+        fun getPlugin(): Main {
+            return getPlugin(Main::class.java)
+        }
+        
+        // 서버 간 통신을 위한 채널 상수
+        const val CHANNEL_SERVER_STATUS_REQUEST = "lukevanilla:serverstatus_request"
+        const val CHANNEL_SERVER_STATUS_RESPONSE = "lukevanilla:serverstatus_response"
+    }
+    
     override fun onEnable() {
         // DataBase Logic
         saveDefaultConfig()
@@ -76,6 +123,15 @@ class Main : JavaPlugin() {
 
         // Read service type from config
         serviceType = config.getString("service.type") ?: "Vanilla"
+        
+        // 서버 간 메시지 채널 등록 (서버 상태 요청/응답)
+        try {
+            registerPluginMessageChannels()
+            logger.info("[서버 통신] 플러그인 메시지 채널 등록 완료")
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 플러그인 메시지 채널 등록 중 오류: ${e.message}")
+            e.printStackTrace()
+        }
 
         // Discord Bot 초기화
         val discordToken = database.getSettingValue("DiscordToken")
@@ -112,9 +168,14 @@ class Main : JavaPlugin() {
             if (serviceType == "Lobby") {
                 // 서비스 타입이 "Lobby"인 경우에만 관리자 어시스턴트 초기화
                 if (openAiApiKey != null) {
+                    // WarningService 인스턴스 생성
+                    val warningService = WarningService(database, discordBot.jda)
+                    
                     val adminAssistant = AdminAssistant(
                         dbConnectionProvider = ::provideDbConnection,
-                        openAIApiKey = openAiApiKey // API 키를 생성자에 전달
+                        openAIApiKey = openAiApiKey, // API 키를 생성자에 전달
+                        database = database,
+                        warningService = warningService
                     )
                     discordBot.jda.addEventListener(adminAssistant)
                     logger.info("[AdminAssistant] 로비 서버에서 관리자 어시스턴트 초기화 완료.")
@@ -142,6 +203,15 @@ class Main : JavaPlugin() {
             supportSystem.setupSupportChannel()
         } else {
             logger.info("${serviceType} 서버에서는 고객지원 시스템이 비활성화됩니다.")
+        }
+
+        // 로비 서버일 때만 눈싸움 미니게임 초기화
+        if (serviceType == "Lobby") {
+            // 눈싸움 미니게임 초기화 및 인스턴스 저장
+            snowMinigame = SnowMinigame(this)
+            // 눈싸움 관리 명령어 등록
+            getCommand("snowgame")?.setExecutor(SnowGameCommand(snowMinigame))
+            logger.info("눈싸움 미니게임이 초기화되었습니다.")
         }
 
         // 이벤트 리스너 등록
@@ -264,6 +334,13 @@ class Main : JavaPlugin() {
         itemReceiveSystem.database = database 
         server.pluginManager.registerEvents(itemReceiveSystem, this) 
         
+        // 경고 시스템 초기화
+        val warningCommand = WarningCommand(database, discordBot.jda)
+        getCommand("경고")?.setExecutor(warningCommand)
+        getCommand("경고")?.tabCompleter = warningCommand
+        getCommand("warn")?.setExecutor(warningCommand)
+        getCommand("warn")?.tabCompleter = warningCommand
+        
         // ItemCommand에 단일 ItemReceiveSystem 인스턴스 전달
         val itemSeasonSystemCommand = ItemCommand(itemReceiveSystem)
         getCommand("아이템")?.setExecutor(itemSeasonSystemCommand) 
@@ -282,11 +359,6 @@ class Main : JavaPlugin() {
 
         // 플러그인 메시지 채널 등록
         VanillaShutdownNotifier.registerChannel(this)
-
-        // 눈싸움 미니게임 초기화 및 인스턴스 저장
-        snowMinigame = SnowMinigame(this)
-        // 눈싸움 관리 명령어 등록
-        getCommand("snowgame")?.setExecutor(SnowGameCommand(snowMinigame))
     }
 
     // 이름을 다르게 하여 충돌 방지
