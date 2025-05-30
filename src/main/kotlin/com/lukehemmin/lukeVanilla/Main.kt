@@ -455,7 +455,11 @@ class Main : JavaPlugin() {
 
     override fun onDisable() {
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
-        VanillaShutdownNotifier.notifyShutdownImminent(this)
+        try {
+            VanillaShutdownNotifier.notifyShutdownImminent(this)
+        } catch (e: Exception) {
+            logger.warning("[서버 통신] 종료 알림 전송 중 오류: ${e.message}")
+        }
         
         // 플러그인 메시지 채널 등록 해제
         try {

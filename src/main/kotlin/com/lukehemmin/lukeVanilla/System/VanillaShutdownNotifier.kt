@@ -16,22 +16,30 @@ object VanillaShutdownNotifier {
      */
     fun registerChannel(plugin: JavaPlugin) {
         plugin.server.messenger.registerOutgoingPluginChannel(plugin, CHANNEL)
-    }
-
-    /**
+    }    /**
      * 서버 종료 예고 메시지 전송 (onDisable 직전에 호출)
      */
     fun notifyShutdownImminent(plugin: JavaPlugin) {
-        val baos = ByteArrayOutputStream()
-        val outStream = DataOutputStream(baos)
-        // 기록할 메시지
-        outStream.writeUTF("OFFLINE_IMMINENT")
-        val data = baos.toByteArray()
-
-        // 온라인 플레이어에게 플러그인 메시지 전송
-        plugin.server.onlinePlayers.forEach { player ->
-            player.sendPluginMessage(plugin, CHANNEL, data)
+        // 플러그인이 비활성화 중인 경우 메시지 전송 불가
+        if (!plugin.isEnabled) {
+            plugin.logger.warning("Plugin is disabled, cannot send shutdown notification")
+            return
         }
-        plugin.logger.info("Sent OFFLINE_IMMINENT to Velocity for ${plugin.server.onlinePlayers.size} players")
+        
+        try {
+            val baos = ByteArrayOutputStream()
+            val outStream = DataOutputStream(baos)
+            // 기록할 메시지
+            outStream.writeUTF("OFFLINE_IMMINENT")
+            val data = baos.toByteArray()
+
+            // 온라인 플레이어에게 플러그인 메시지 전송
+            plugin.server.onlinePlayers.forEach { player ->
+                player.sendPluginMessage(plugin, CHANNEL, data)
+            }
+            plugin.logger.info("Sent OFFLINE_IMMINENT to Velocity for ${plugin.server.onlinePlayers.size} players")
+        } catch (e: Exception) {
+            plugin.logger.warning("Failed to send shutdown notification: ${e.message}")
+        }
     }
 }
