@@ -1170,7 +1170,7 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
     private fun processWarningPardonRequest(event: MessageReceivedEvent, playerName: String, warningId: Int, pardonReason: String, adminDiscordId: String) {
         try {
             // 플레이어 정보 조회
-            val playerInfo = getPlayerInfoByName(playerName)
+            val playerInfo = findPlayerInfo(playerName)
             if (playerInfo == null) {
                 event.channel.sendMessage("'$playerName' 플레이어를 찾을 수 없습니다.").queue()
                 return
@@ -1182,9 +1182,9 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             val adminName = event.author.name
 
             // 경고 차감 처리
-            val success = warningRepository.pardonWarningById(
+            val success = warningService.pardonWarningById(
+                targetPlayerUuid = UUID.fromString(playerInfo.uuid),
                 warningId = warningId,
-                playerUuid = UUID.fromString(playerInfo.uuid),
                 adminUuid = adminUuid,
                 adminName = adminName,
                 reason = pardonReason
@@ -1192,8 +1192,8 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
 
             if (success) {
                 // 업데이트된 플레이어 정보 조회
-                val updatedPlayerWarning = warningRepository.getPlayerWarningByUuid(UUID.fromString(playerInfo.uuid))
-                val currentWarnings = updatedPlayerWarning?.activeWarningsCount ?: 0
+                val updatedPlayerWarning = warningService.getPlayerWarnings(UUID.fromString(playerInfo.uuid))
+                val currentWarnings = updatedPlayerWarning.count { it.isActive }
                 
                 event.channel.sendMessage(
                     "'$playerName'님의 경고 ID $warningId 가 차감되었습니다. " +
