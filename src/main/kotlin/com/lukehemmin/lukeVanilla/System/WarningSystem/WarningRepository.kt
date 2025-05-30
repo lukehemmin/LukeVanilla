@@ -479,7 +479,16 @@ class WarningRepository(private val database: Database) {
     private fun resultSetToWarningRecord(resultSet: ResultSet): WarningRecord {
         val warningId = resultSet.getInt("warning_id")
         val playerId = resultSet.getInt("player_id")
-        val adminUuid = UUID.fromString(resultSet.getString("admin_uuid"))
+        
+        // admin_uuid 안전하게 파싱 (Discord ID인 경우 더미 UUID 생성)
+        val adminUuidString = resultSet.getString("admin_uuid")
+        val adminUuid = try {
+            UUID.fromString(adminUuidString)
+        } catch (e: IllegalArgumentException) {
+            // Discord ID인 경우 더미 UUID 생성 (Discord ID를 기반으로 고정된 UUID 생성)
+            UUID.nameUUIDFromBytes("discord_$adminUuidString".toByteArray())
+        }
+        
         val adminName = resultSet.getString("admin_name")
         val reason = resultSet.getString("reason")
         val createdAt = resultSet.getTimestamp("created_at").toLocalDateTime()
@@ -489,7 +498,13 @@ class WarningRepository(private val database: Database) {
         val pardonedAt = pardonedAtTimestamp?.toLocalDateTime()
         
         val pardonedByUuidString = resultSet.getString("pardoned_by_uuid")
-        val pardonedByUuid = if (pardonedByUuidString != null) UUID.fromString(pardonedByUuidString) else null
+        val pardonedByUuid = if (pardonedByUuidString != null) {
+            try {
+                UUID.fromString(pardonedByUuidString)
+            } catch (e: IllegalArgumentException) {
+                UUID.nameUUIDFromBytes("discord_$pardonedByUuidString".toByteArray())
+            }
+        } else null
         
         val pardonedByName = resultSet.getString("pardoned_by_name")
         val pardonReason = resultSet.getString("pardon_reason")

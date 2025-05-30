@@ -858,7 +858,9 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
     private fun processOnlinePlayerWarning(event: MessageReceivedEvent, player: Player, reason: String, adminDiscordId: String) {
         // 관리자 정보 생성
         val adminName = event.author.name
-        val adminUuid = UUID.fromString(adminDiscordId) // 디스코드 ID를 UUID로 변환
+        // Discord ID로 실제 마인크래프트 UUID 조회
+        val adminUuid = getMinecraftUuidByDiscordId(adminDiscordId) 
+            ?: UUID.nameUUIDFromBytes("discord_$adminDiscordId".toByteArray()) // 백업용
         
         // WarningService를 통해 경고 부여
         val result = warningService.addWarning(
@@ -938,9 +940,13 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                     VALUES (?, ?, ?, ?)
                 """.trimIndent()
                 
+                // Discord ID로 실제 마인크래프트 UUID 조회
+                val adminUuid = getMinecraftUuidByDiscordId(adminDiscordId) 
+                    ?: UUID.nameUUIDFromBytes("discord_$adminDiscordId".toByteArray()) // 백업용
+                
                 connection.prepareStatement(insertWarningQuery).use { statement ->
                     statement.setInt(1, playerId)
-                    statement.setString(2, adminDiscordId)
+                    statement.setString(2, adminUuid.toString())
                     statement.setString(3, adminName)
                     statement.setString(4, reason)
                     statement.executeUpdate()
@@ -1103,6 +1109,29 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             event.hook.sendMessageEmbeds(embed).queue()
         } else {
             event.hook.sendMessage("플레이어 정보를 찾을 수 없습니다. (UUID: $uuid)").queue()
+        }
+    }
+    
+    /**
+     * Discord ID로 Player_Data 테이블에서 마인크래프트 UUID 조회
+     */
+    private fun getMinecraftUuidByDiscordId(discordId: String): UUID? {
+        return try {
+            dbConnectionProvider().use { connection ->
+                val query = "SELECT UUID FROM Player_Data WHERE DiscordID = ?"
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, discordId)
+                    statement.executeQuery().use { resultSet ->
+                        if (resultSet.next()) {
+                            val uuidString = resultSet.getString("UUID")
+                            UUID.fromString(uuidString)
+                        } else null
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdminAssistant] Discord ID로 UUID 조회 중 오류: ${e.message}")
+            null
         }
     }
 }
