@@ -504,6 +504,9 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
 - 관리자가 특정 플레이어에게 경고를 주려고 할 때:
     1. 유저닉네임과 사유가 명확하면: `ACTION_PLAYER_WARNING: <유저닉네임>;<사유>` 형식으로만 응답
     2. 정보가 불명확하면 사용자에게 다시 질문
+- 관리자가 경고를 차감(사면)하려고 할 때:
+    1. 플레이어명과 경고 ID가 명확하면: `ACTION_PARDON_WARNING: <유저닉네임>;<경고ID>;<사면사유>` 형식으로만 응답
+    2. 정보가 불명확하면 사용자에게 다시 질문
 - 관리자가 최근 경고 내역을 조회하려고 할 때: `ACTION_RECENT_WARNINGS` 형식으로만 응답
 - **중요: 이런 ACTION_ 코드들은 시스템 처리용이므로, 사용자에게는 보이지 않고 바로 처리됩니다.**
 - 명령 처리 후 시스템이 자동으로 결과를 알려줄 거야. 너는 직접 처리 결과를 알려주지 않아도 돼.
@@ -551,6 +554,30 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                         }
                         // 잘못된 형식의 경고 액션인 경우 사용자에게 알림
                         event.channel.sendMessage("경고 명령 형식이 올바르지 않습니다. 다시 시도해주세요.").queue()
+                        return
+                    }
+                    // 경고 차감(사면) 액션
+                    aiResponseContent.startsWith("ACTION_PARDON_WARNING:") -> {
+                        val pardonData = aiResponseContent.substring("ACTION_PARDON_WARNING:".length).trim()
+                        if (pardonData.contains(";")) {
+                            val parts = pardonData.split(";", limit = 3)
+                            if (parts.size >= 2) {
+                                val playerName = parts[0].trim()
+                                val warningIdStr = parts[1].trim()
+                                val pardonReason = if (parts.size >= 3) parts[2].trim() else "관리자 판단"
+                                
+                                try {
+                                    val warningId = warningIdStr.toInt()
+                                    processWarningPardonRequest(event, playerName, warningId, pardonReason, event.author.id)
+                                    return // 경고 차감 처리를 했으므로 추가 AI 답변 표시는 생략
+                                } catch (e: NumberFormatException) {
+                                    event.channel.sendMessage("경고 ID는 숫자여야 합니다. 다시 시도해주세요.").queue()
+                                    return
+                                }
+                            }
+                        }
+                        // 잘못된 형식의 경고 차감 액션인 경우 사용자에게 알림
+                        event.channel.sendMessage("경고 차감 명령 형식이 올바르지 않습니다. 다시 시도해주세요.").queue()
                         return
                     }
                     // 최근 경고 내역 조회 액션
@@ -1134,6 +1161,55 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
         } catch (e: Exception) {
             System.err.println("[AdminAssistant] Discord ID로 UUID 조회 중 오류: ${e.message}")
             null
+        }
+    }
+    
+    /**
+     * 경고 차감(사면) 요청 처리
+     */
+    private fun processWarningPardonRequest(event: MessageReceivedEvent, playerName: String, warningId: Int, pardonReason: String, adminDiscordId: String) {
+        try {
+            // 플레이어 정보 조회
+            val playerInfo = getPlayerInfoByName(playerName)
+            if (playerInfo == null) {
+                event.channel.sendMessage("'$playerName' 플레이어를 찾을 수 없습니다.").queue()
+                return
+            }
+
+            // 관리자 UUID 조회
+            val adminUuid = getMinecraftUuidByDiscordId(adminDiscordId) 
+                ?: UUID.nameUUIDFromBytes("discord_$adminDiscordId".toByteArray())
+            val adminName = event.author.name
+
+            // 경고 차감 처리
+            val success = warningRepository.pardonWarningById(
+                warningId = warningId,
+                playerUuid = UUID.fromString(playerInfo.uuid),
+                adminUuid = adminUuid,
+                adminName = adminName,
+                reason = pardonReason
+            )
+
+            if (success) {
+                // 업데이트된 플레이어 정보 조회
+                val updatedPlayerWarning = warningRepository.getPlayerWarningByUuid(UUID.fromString(playerInfo.uuid))
+                val currentWarnings = updatedPlayerWarning?.activeWarningsCount ?: 0
+                
+                event.channel.sendMessage(
+                    "'$playerName'님의 경고 ID $warningId 가 차감되었습니다. " +
+                    "(현재 활성 경고: ${currentWarnings}회)\n" +
+                    "차감 사유: $pardonReason"
+                ).queue()
+            } else {
+                event.channel.sendMessage(
+                    "경고 차감에 실패했습니다. 경고 ID $warningId 가 존재하지 않거나 이미 차감된 경고일 수 있습니다."
+                ).queue()
+            }
+
+        } catch (e: Exception) {
+            System.err.println("[AdminAssistant] 경고 차감 처리 중 예외 발생: ${e.message}")
+            e.printStackTrace()
+            event.channel.sendMessage("경고 차감 처리 중 오류가 발생했습니다: ${e.message}").queue()
         }
     }
 }
