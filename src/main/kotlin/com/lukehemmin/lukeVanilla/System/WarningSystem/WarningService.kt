@@ -207,6 +207,20 @@ class WarningService(private val database: Database, jda: JDA) {
     }
     
     /**
+     * 플레이어 경고 정보 조회
+     * 
+     * @param playerUuid 조회할 플레이어 UUID
+     * @param playerName 플레이어 이름 (플레이어 정보가 없을 경우 생성에 사용)
+     * @return 플레이어 경고 정보
+     */
+    fun getPlayerWarning(playerUuid: UUID, playerName: String): PlayerWarning {
+        return warningRepository.getOrCreatePlayerWarning(
+            uuid = playerUuid,
+            username = playerName
+        )
+    }
+
+    /**
      * 플레이어의 현재 유효 경고 횟수 조회
      * 
      * @param playerUuid 조회할 플레이어 UUID

@@ -670,11 +670,10 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             if (playerInfo == null) {
                 event.channel.sendMessage("플레이어 '${playerName}'을(를) 찾을 수 없습니다.").queue()
                 return
-            }
-
-            // WarningService를 통해 특정 플레이어의 경고 내역 조회
+            }            // WarningService를 통해 특정 플레이어의 경고 내역 조회
             val playerUuid = UUID.fromString(playerInfo.uuid)
             val playerWarnings = warningService.getPlayerWarnings(playerUuid)
+            val playerWarning = warningService.getPlayerWarning(playerUuid, playerInfo.nickname)
 
             val embed = EmbedBuilder().apply {
                 setTitle("${playerInfo.nickname}의 경고 내역")
@@ -683,14 +682,22 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                 if (playerWarnings.isEmpty()) {
                     addField("경고 내역", "해당 플레이어는 경고 내역이 없습니다.", false)
                 } else {
-                    // 경고 총 횟수
-                    addField("총 경고 횟수", "${playerWarnings.size}회", true)
+                    // 현재 활성 경고 횟수 표시
+                    addField("현재 경고 횟수", "${playerWarning.activeWarningsCount}회", true)
+                    
+                    // 전체 경고 기록 수
+                    addField("전체 기록 수", "${playerWarnings.size}회", true)
 
                     // 최근 경고들 (최대 5개)
                     val recentWarnings = playerWarnings.take(5)
                     val warningList = recentWarnings.mapIndexed { index, warning ->
                         val dateStr = warning.createdAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                        "${index + 1}. **사유**: ${warning.reason}\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
+                        val reason = if (warning.isActive) {
+                            "**사유**: ${warning.reason}"
+                        } else {
+                            "**사유**: ~~${warning.reason}~~ (차감됨)"
+                        }
+                        "${index + 1}. $reason\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
                     }.joinToString("\n\n")
 
                     addField("최근 경고 내역", warningList, false)
