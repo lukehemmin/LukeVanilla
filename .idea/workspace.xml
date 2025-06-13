@@ -19,10 +19,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="feat: 서버 연결 관리 명령어 추가 및 상태 확인 기능 구현&#10;&#10;로비 서버에서만 사용할 수 있는 서버 연결 관리 명령어를 추가했습니다. 연결 상태 확인, 테스트, 초기화, 요청 강제 정리 등 다양한 기능을 제공하며, 이를 통해 서버 상태 관리와 디버깅 효율성을 크게 향상시켰습니다. 예외 처리 및 안정성 강화 작업도 포함되었습니다.">
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemReceiveSystem.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemReceiveSystem.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenCommand.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenCommandCompleter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenGUIListener.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenItemGetCommand.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenItemListCommand.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenItemOwnerCommand.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/Halloween_Item.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/hscroll.kt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -115,7 +121,7 @@
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" />
       <window_info id="Learn" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.3295594" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21035156" />
       <window_info id="Commit" order="1" weight="0.3295594" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.3295594" />
       <window_info id="Welcome to GitHub Copilot" order="3" />
@@ -130,7 +136,7 @@
       <window_info anchor="bottom" id="Problems View" order="2" />
       <window_info anchor="bottom" id="Terminal" order="3" />
       <window_info anchor="bottom" id="Services" order="4" />
-      <window_info active="true" anchor="bottom" id="Run" order="5" visible="true" weight="0.33014113" />
+      <window_info active="true" anchor="bottom" id="Run" order="5" visible="true" weight="0.23527299" />
       <window_info anchor="right" id="Endpoints" />
       <window_info anchor="right" id="Notifications" order="0" weight="0.20226438" />
       <window_info anchor="right" id="AIAssistant" order="1" weight="0.32984102" />
@@ -320,7 +326,7 @@
       <workItem from="1748535725144" duration="8366000" />
       <workItem from="1749798603473" duration="721000" />
       <workItem from="1749799378820" duration="414000" />
-      <workItem from="1749799823971" duration="5926000" />
+      <workItem from="1749799823971" duration="8847000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />
