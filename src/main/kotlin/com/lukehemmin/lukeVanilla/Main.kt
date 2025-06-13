@@ -308,6 +308,9 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(DurabilityListener(this), this)
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
         
+        // 스크롤 변환 시스템 초기화
+        server.pluginManager.registerEvents(ItemScrollTransformSystem(this), this)
+        
         // 통합 이벤트 아이템 시스템 초기화
 //        val eventItemCommand = EventItemCommand(this)
         // 아이템 명령어 등록 (ItemSeasonSystem)
