@@ -81,7 +81,7 @@ tasks.shadowJar {
     destinationDirectory.set(
         if (isCI) file("build/libs")
         else
-            file("/Users/lukehemmin/Documents")
+            file("/root/LukeVanilla/jars")
             //file("E:/server")
     )
     manifest {
