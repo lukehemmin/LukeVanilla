@@ -51,11 +51,11 @@ class ItemScrollTransformSystem(private val plugin: JavaPlugin) : Listener {
         
         val newCursorAmount = cursorItem.amount - 1
         if (newCursorAmount <= 0) {
-            event.cursor = null
+            event.setCursor(null)
         } else {
             val newCursorItem = cursorItem.clone()
             newCursorItem.amount = newCursorAmount
-            event.cursor = newCursorItem
+            event.setCursor(newCursorItem)
         }
         
         player.updateInventory()
