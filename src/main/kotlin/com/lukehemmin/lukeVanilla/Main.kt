@@ -9,8 +9,6 @@ import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
 import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
-// 할로윈 임포트
-import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.Items.UpgradeItem
 // import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
@@ -48,10 +46,6 @@ class Main : JavaPlugin() {
     lateinit var lockSystem: LockSystem
     lateinit var statsSystem: StatsSystem
     lateinit var snowMinigame: SnowMinigame
-//    lateinit var shopManager: ShopManager
-//    lateinit var shopPriceListener: ShopPriceListener
-//    lateinit var shopManager: ShopManager
-//    lateinit var priceEditManager: PriceEditManager 
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -308,6 +302,9 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(DurabilityListener(this), this)
         server.pluginManager.registerEvents(EnchantmentLimitListener(), this)
         
+        // 스크롤 변환 시스템 초기화
+        server.pluginManager.registerEvents(ItemScrollTransformSystem(this), this)
+        
         // 통합 이벤트 아이템 시스템 초기화
 //        val eventItemCommand = EventItemCommand(this)
         // 아이템 명령어 등록 (ItemSeasonSystem)
@@ -326,7 +323,7 @@ class Main : JavaPlugin() {
         
         server.pluginManager.registerEvents(TransparentFrame(), this)
         server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
-        server.pluginManager.registerEvents(hscroll(), this)
+        //server.pluginManager.registerEvents(hscroll(), this)
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
