@@ -9,8 +9,6 @@ import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
 import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
-// 할로윈 임포트
-// import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.Items.UpgradeItem
 // import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
@@ -48,10 +46,6 @@ class Main : JavaPlugin() {
     lateinit var lockSystem: LockSystem
     lateinit var statsSystem: StatsSystem
     lateinit var snowMinigame: SnowMinigame
-//    lateinit var shopManager: ShopManager
-//    lateinit var shopPriceListener: ShopPriceListener
-//    lateinit var shopManager: ShopManager
-//    lateinit var priceEditManager: PriceEditManager 
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
