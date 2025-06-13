@@ -10,7 +10,7 @@ import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
 import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
 // 할로윈 임포트
-import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
+// import com.lukehemmin.lukeVanilla.System.Items.Halloween.hscroll
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.Items.UpgradeItem
 // import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
@@ -326,7 +326,7 @@ class Main : JavaPlugin() {
         
         server.pluginManager.registerEvents(TransparentFrame(), this)
         server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
-        server.pluginManager.registerEvents(hscroll(), this)
+        //server.pluginManager.registerEvents(hscroll(), this)
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
