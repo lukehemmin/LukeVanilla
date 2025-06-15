@@ -57,8 +57,8 @@ class ItemReceiveSystem : Listener {
     
     // 시즌별 아이템 수령 가능 여부 설정
     private var isHalloweenReceivable = true
-    private var isChristmasReceivable = false
-    private var isValentineReceivable = false
+    private var isChristmasReceivable = true
+    private var isValentineReceivable = true
     
     // 이벤트 타입 목록
     private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인")
@@ -73,6 +73,8 @@ class ItemReceiveSystem : Listener {
     private lateinit var christmasGuiKey: NamespacedKey
     private lateinit var valentineGuiKey: NamespacedKey
     private lateinit var ownerKey: NamespacedKey
+    private lateinit var pageKey: NamespacedKey
+    private lateinit var navKey: NamespacedKey
     
     // 할로윈 아이템 매핑
     private val halloweenScrollItems = mapOf(
@@ -103,23 +105,26 @@ class ItemReceiveSystem : Listener {
         "spear" to "halloween_spear"
     )
     
-    // 크리스마스 아이템 매핑
-    private val christmasScrollItems = mapOf(
+    // 크리스마스 아이템 매핑 (페이지별)
+    private val christmasScrollItemsPage1 = mapOf(
         10 to "c_sword_scroll",
         12 to "c_pickaxe_scroll",
         14 to "c_axe_scroll",
         16 to "c_shovel_scroll",
-        18 to "c_hoe_scroll",
-        20 to "c_bow_scroll",
-        22 to "c_crossbow_scroll",
-        24 to "c_fishing_rod_scroll",
-        26 to "c_hammer_scroll",
-        28 to "c_shield_scroll",
-        30 to "c_head_scroll",
-        31 to "c_helmet_scroll",
-        32 to "c_chestplate_scroll",
-        33 to "c_leggings_scroll",
-        34 to "c_boots_scroll"
+        20 to "c_hoe_scroll",
+        22 to "c_bow_scroll",
+        24 to "c_crossbow_scroll",
+        28 to "c_fishing_rod_scroll",
+        30 to "c_hammer_scroll",
+        32 to "c_shield_scroll",
+        34 to "c_head_scroll"
+    )
+    
+    private val christmasScrollItemsPage2 = mapOf(
+        10 to "c_helmet_scroll",
+        12 to "c_chestplate_scroll",
+        14 to "c_leggings_scroll",
+        16 to "c_boots_scroll"
     )
     
     private val christmasItemMappings = mapOf(
@@ -140,23 +145,26 @@ class ItemReceiveSystem : Listener {
         "boots" to "merry_christmas_boots"
     )
     
-    // 발렌타인 아이템 매핑
-    private val valentineScrollItems = mapOf(
+    // 발렌타인 아이템 매핑 (페이지별)
+    private val valentineScrollItemsPage1 = mapOf(
         10 to "v_sword_scroll",
         12 to "v_pickaxe_scroll",
         14 to "v_axe_scroll",
         16 to "v_shovel_scroll",
-        18 to "v_hoe_scroll",
-        20 to "v_bow_scroll",
-        22 to "v_crossbow_scroll",
-        24 to "v_fishing_rod_scroll",
-        26 to "v_hammer_scroll",
-        28 to "v_helmet_scroll",
-        30 to "v_chestplate_scroll",
-        31 to "v_leggings_scroll",
-        32 to "v_boots_scroll",
-        33 to "v_head_scroll",
-        34 to "v_shield_scroll"
+        20 to "v_hoe_scroll",
+        22 to "v_bow_scroll",
+        24 to "v_crossbow_scroll",
+        28 to "v_fishing_rod_scroll",
+        30 to "v_hammer_scroll",
+        32 to "v_helmet_scroll",
+        34 to "v_chestplate_scroll"
+    )
+    
+    private val valentineScrollItemsPage2 = mapOf(
+        10 to "v_leggings_scroll",
+        12 to "v_boots_scroll",
+        14 to "v_head_scroll",
+        16 to "v_shield_scroll"
     )
     
     private val valentineItemMappings = mapOf(
@@ -189,6 +197,8 @@ class ItemReceiveSystem : Listener {
             christmasGuiKey = NamespacedKey(plugin, "christmas_gui")
             valentineGuiKey = NamespacedKey(plugin, "valentine_gui")
             ownerKey = NamespacedKey(plugin, "owner")
+            pageKey = NamespacedKey(plugin, "page")
+            navKey = NamespacedKey(plugin, "nav")
             
             // 이벤트 리스너 등록
             Bukkit.getPluginManager().registerEvents(this, plugin)
@@ -218,8 +228,8 @@ class ItemReceiveSystem : Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             when (eventTypeArg) {
                 "할로윈" -> openHalloweenGui(player)
-                "크리스마스" -> openChristmasGui(player)
-                "발렌타인" -> openValentineGui(player)
+                "크리스마스" -> openChristmasGui(player, 1)
+                "발렌타인" -> openValentineGui(player, 1)
                 else -> {
                     player.sendMessage("§c지원하지 않는 이벤트 타입입니다.")
                     return@Runnable
@@ -269,7 +279,7 @@ class ItemReceiveSystem : Listener {
                 
                 // GUI 생성 및 열기
                 Bukkit.getScheduler().runTask(plugin, Runnable {
-                    val gui = Bukkit.createInventory(player, 4 * 9, halloweenGuiTitle)
+                    val gui = Bukkit.createInventory(player, 5 * 9, halloweenGuiTitle)
                     
                     // 주황색 색유리판으로 배경 채우기
                     val orangePane = ItemStack(Material.ORANGE_STAINED_GLASS_PANE)
@@ -327,7 +337,7 @@ class ItemReceiveSystem : Listener {
     }
     
     // 크리스마스 GUI 열기
-    private fun openChristmasGui(player: Player) {
+    private fun openChristmasGui(player: Player, page: Int = 1) {
         try {
             database.getConnection().use { connection ->
                 val uuid = player.uniqueId.toString()
@@ -365,7 +375,7 @@ class ItemReceiveSystem : Listener {
                 
                 // GUI 생성 및 열기
                 Bukkit.getScheduler().runTask(plugin, Runnable {
-                    val gui = Bukkit.createInventory(player, 4 * 9, christmasGuiTitle)
+                    val gui = Bukkit.createInventory(player, 5 * 9, "$christmasGuiTitle - ${page}페이지")
                     
                     // 초록색 색유리판으로 배경 채우기
                     val greenPane = ItemStack(Material.GREEN_STAINED_GLASS_PANE)
@@ -376,8 +386,10 @@ class ItemReceiveSystem : Listener {
                         gui.setItem(i, greenPane)
                     }
                     
-                    // 각 슬롯에 아이템 배치
-                    for ((slot, scrollId) in christmasScrollItems) {
+                    // 페이지별 아이템 배치
+                    val currentPageItems = if (page == 1) christmasScrollItemsPage1 else christmasScrollItemsPage2
+                    
+                    for ((slot, scrollId) in currentPageItems) {
                         val columnName = getColumnNameByScrollId(scrollId)
                         when {
                             // 아이템을 등록하지 않은 경우 - 검은색 유리판
@@ -404,11 +416,15 @@ class ItemReceiveSystem : Listener {
                                 }
                                 val scrollMeta = scrollItem.itemMeta
                                 scrollMeta!!.persistentDataContainer.set(christmasGuiKey, PersistentDataType.STRING, scrollId)
+                                scrollMeta.persistentDataContainer.set(pageKey, PersistentDataType.INTEGER, page)
                                 scrollItem.itemMeta = scrollMeta
                                 gui.setItem(slot, scrollItem)
                             }
                         }
                     }
+                    
+                    // 네비게이션 버튼 추가
+                    addNavigationButtons(gui, page, 2, "christmas")
                     
                     // GUI 열기
                     player.openInventory(gui)
@@ -423,7 +439,7 @@ class ItemReceiveSystem : Listener {
     }
     
     // 발렌타인 GUI 열기
-    private fun openValentineGui(player: Player) {
+    private fun openValentineGui(player: Player, page: Int = 1) {
         try {
             database.getConnection().use { connection ->
                 val uuid = player.uniqueId.toString()
@@ -461,7 +477,7 @@ class ItemReceiveSystem : Listener {
                 
                 // GUI 생성 및 열기
                 Bukkit.getScheduler().runTask(plugin, Runnable {
-                    val gui = Bukkit.createInventory(player, 4 * 9, valentineGuiTitle)
+                    val gui = Bukkit.createInventory(player, 5 * 9, "$valentineGuiTitle - ${page}페이지")
                     
                     // 분홍색 색유리판으로 배경 채우기
                     val pinkPane = ItemStack(Material.PINK_STAINED_GLASS_PANE)
@@ -472,8 +488,10 @@ class ItemReceiveSystem : Listener {
                         gui.setItem(i, pinkPane)
                     }
                     
-                    // 각 슬롯에 아이템 배치
-                    for ((slot, scrollId) in valentineScrollItems) {
+                    // 페이지별 아이템 배치
+                    val currentPageItems = if (page == 1) valentineScrollItemsPage1 else valentineScrollItemsPage2
+                    
+                    for ((slot, scrollId) in currentPageItems) {
                         val columnName = getColumnNameByScrollId(scrollId)
                         when {
                             // 아이템을 등록하지 않은 경우 - 검은색 유리판
@@ -500,11 +518,15 @@ class ItemReceiveSystem : Listener {
                                 }
                                 val scrollMeta = scrollItem.itemMeta
                                 scrollMeta!!.persistentDataContainer.set(valentineGuiKey, PersistentDataType.STRING, scrollId)
+                                scrollMeta.persistentDataContainer.set(pageKey, PersistentDataType.INTEGER, page)
                                 scrollItem.itemMeta = scrollMeta
                                 gui.setItem(slot, scrollItem)
                             }
                         }
                     }
+                    
+                    // 네비게이션 버튼 추가
+                    addNavigationButtons(gui, page, 2, "valentine")
                     
                     // GUI 열기
                     player.openInventory(gui)
@@ -518,6 +540,60 @@ class ItemReceiveSystem : Listener {
         }
     }
     
+    // 네비게이션 처리
+    private fun handleNavigation(player: Player, navAction: String) {
+        val parts = navAction.split("_")
+        if (parts.size != 2) return
+        
+        val action = parts[0]
+        val eventType = parts[1]
+        
+        when (eventType) {
+            "christmas" -> {
+                when (action) {
+                    "prev" -> openChristmasGui(player, 1)
+                    "next" -> openChristmasGui(player, 2)
+                }
+            }
+            "valentine" -> {
+                when (action) {
+                    "prev" -> openValentineGui(player, 1)
+                    "next" -> openValentineGui(player, 2)
+                }
+            }
+        }
+    }
+    
+    // 네비게이션 버튼 추가
+    private fun addNavigationButtons(gui: Inventory, currentPage: Int, totalPages: Int, eventType: String) {
+        // 페이지 표시 (40번 슬롯)
+        val pageDisplay = ItemStack(Material.PAPER)
+        val pageMeta = pageDisplay.itemMeta
+        pageMeta!!.setDisplayName("${ChatColor.YELLOW}${currentPage}페이지 / ${totalPages}페이지")
+        pageDisplay.itemMeta = pageMeta
+        gui.setItem(40, pageDisplay)
+        
+        // 이전 페이지 버튼 (39번 슬롯) - 2페이지에서만 표시
+        if (currentPage > 1) {
+            val prevButton = ItemStack(Material.ARROW)
+            val prevMeta = prevButton.itemMeta
+            prevMeta!!.setDisplayName("${ChatColor.GREEN}이전 페이지")
+            prevMeta.persistentDataContainer.set(navKey, PersistentDataType.STRING, "prev_$eventType")
+            prevButton.itemMeta = prevMeta
+            gui.setItem(39, prevButton)
+        }
+        
+        // 다음 페이지 버튼 (41번 슬롯) - 1페이지에서만 표시  
+        if (currentPage < totalPages) {
+            val nextButton = ItemStack(Material.ARROW)
+            val nextMeta = nextButton.itemMeta
+            nextMeta!!.setDisplayName("${ChatColor.GREEN}다음 페이지")
+            nextMeta.persistentDataContainer.set(navKey, PersistentDataType.STRING, "next_$eventType")
+            nextButton.itemMeta = nextMeta
+            gui.setItem(41, nextButton)
+        }
+    }
+    
     // 인벤토리 클릭 이벤트 처리
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
@@ -527,7 +603,7 @@ class ItemReceiveSystem : Listener {
         
         // 해당 GUI가 아닌 경우 무시
         val title = event.view.title
-        if (title != halloweenGuiTitle && title != christmasGuiTitle && title != valentineGuiTitle) {
+        if (!title.startsWith(halloweenGuiTitle) && !title.startsWith(christmasGuiTitle) && !title.startsWith(valentineGuiTitle)) {
             return
         }
         
@@ -549,12 +625,19 @@ class ItemReceiveSystem : Listener {
         val clickedItem = event.currentItem ?: return
         val meta = clickedItem.itemMeta ?: return
         
-        // 스크롤 아이템 여부 확인
+        // 네비게이션 버튼 처리
         val container = meta.persistentDataContainer
-        val scrollId: String? = when (title) {
-            halloweenGuiTitle -> container.get(halloweenGuiKey, PersistentDataType.STRING)
-            christmasGuiTitle -> container.get(christmasGuiKey, PersistentDataType.STRING)
-            valentineGuiTitle -> container.get(valentineGuiKey, PersistentDataType.STRING)
+        val navAction = container.get(navKey, PersistentDataType.STRING)
+        if (navAction != null) {
+            handleNavigation(player, navAction)
+            return
+        }
+        
+        // 스크롤 아이템 여부 확인
+        val scrollId: String? = when {
+            title.startsWith(halloweenGuiTitle) -> container.get(halloweenGuiKey, PersistentDataType.STRING)
+            title.startsWith(christmasGuiTitle) -> container.get(christmasGuiKey, PersistentDataType.STRING)
+            title.startsWith(valentineGuiTitle) -> container.get(valentineGuiKey, PersistentDataType.STRING)
             else -> null
         }
         

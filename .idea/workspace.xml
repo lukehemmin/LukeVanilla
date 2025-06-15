@@ -19,12 +19,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="feat: 서버 연결 관리 명령어 추가 및 상태 확인 기능 구현&#10;&#10;로비 서버에서만 사용할 수 있는 서버 연결 관리 명령어를 추가했습니다. 연결 상태 확인, 테스트, 초기화, 요청 강제 정리 등 다양한 기능을 제공하며, 이를 통해 서버 상태 관리와 디버깅 효율성을 크게 향상시켰습니다. 예외 처리 및 안정성 강화 작업도 포함되었습니다.">
-      <change afterPath="$PROJECT_DIR$/.aiignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Discord/AdminAssistant.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Discord/AdminAssistant.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/WarningSystem/WarningCommand.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/WarningSystem/WarningCommand.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/WarningSystem/WarningService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/WarningSystem/WarningService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenCommand.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenCommandCompleter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenGUIListener.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenItemGetCommand.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenItemListCommand.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/HalloweenItemOwnerCommand.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/Halloween_Item.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/Halloween/hscroll.kt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,23 +48,7 @@
         </task>
         <projects_view>
           <tree_state>
-            <expand>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-              </path>
-              <path>
-                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
-                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
-                <item name="Tasks" type="e4a08cd1:TasksNode" />
-                <item name="shadow" type="c8890929:TasksNode$1" />
-              </path>
-            </expand>
+            <expand />
             <select />
           </tree_state>
         </projects_view>
@@ -77,8 +65,14 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$PROJECT_DIR$/../.gradle/wrapper/dists/gradle-8.8-bin/dl7vupf4psengwqhwktix4v1/gradle-8.8" javaHome="$PROJECT_DIR$/../.jdks/temurin-21.0.7" />
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/Database.kt" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="InvalidFacetManager">
+    <ignored-facets>
+      <facet id="LukeVanilla.main/invalid/Minecraft" />
+    </ignored-facets>
   </component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
@@ -94,31 +88,66 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Gradle.Build LukeVanilla.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.C:/Users/Administrator/Documents/GitHub/LukeVanilla [wrapper].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [build].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [jar].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [shadowJar].executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;develop&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;SDKs&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.44252872&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.Build LukeVanilla.executor": "Run",
+    "Gradle.C:/Users/Administrator/Documents/GitHub/LukeVanilla [wrapper].executor": "Run",
+    "Gradle.LukeVanilla [build].executor": "Run",
+    "Gradle.LukeVanilla [jar].executor": "Run",
+    "Gradle.LukeVanilla [shadowJar].executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "develop",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "프로젝트",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.44252872",
+    "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
+  <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
+    <layout>
+      <window_info id="Bookmarks" side_tool="true" />
+      <window_info id="Merge Requests" />
+      <window_info id="Backup and Sync History" />
+      <window_info id="Commit_Guest" show_stripe_button="false" />
+      <window_info id="Pull Requests" />
+      <window_info id="Learn" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21035156" />
+      <window_info id="Commit" order="1" weight="0.3295594" />
+      <window_info id="Structure" order="2" side_tool="true" weight="0.3295594" />
+      <window_info id="Welcome to GitHub Copilot" order="3" />
+      <window_info anchor="bottom" id="Database Changes" />
+      <window_info anchor="bottom" id="TypeScript" />
+      <window_info anchor="bottom" id="Profiler" />
+      <window_info anchor="bottom" id="Build" />
+      <window_info anchor="bottom" id="TODO" />
+      <window_info anchor="bottom" id="File Transfer" />
+      <window_info anchor="bottom" id="Version Control" order="0" />
+      <window_info anchor="bottom" id="Problems" order="1" />
+      <window_info anchor="bottom" id="Problems View" order="2" />
+      <window_info anchor="bottom" id="Terminal" order="3" />
+      <window_info anchor="bottom" id="Services" order="4" />
+      <window_info active="true" anchor="bottom" id="Run" order="5" visible="true" weight="0.23527299" />
+      <window_info anchor="right" id="Endpoints" />
+      <window_info anchor="right" id="Notifications" order="0" weight="0.20226438" />
+      <window_info anchor="right" id="AIAssistant" order="1" weight="0.32984102" />
+      <window_info anchor="right" id="Database" order="2" weight="0.32984102" />
+      <window_info anchor="right" id="Gradle" order="3" weight="0.32984102" />
+      <window_info anchor="right" id="Maven" order="4" weight="0.25" />
+      <window_info anchor="right" id="Coverage" order="5" side_tool="true" weight="0.3295594" />
+      <window_info anchor="right" id="github.copilotToolWindow" order="6" />
+      <window_info anchor="right" id="GitHub Copilot Chat" order="7" />
+    </layout>
+  </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Administrator\Documents\GitHub\LukeVanilla\src\main\kotlin\com\lukehemmin\lukeVanilla\System\Npc\Shop" />
@@ -208,8 +237,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.25410.129" />
-        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-IU-251.25410.129" />
+        <option value="bundled-jdk-9823dce3aa75-64226f0f93ec-intellij.indexing.shared.core-IU-252.19874.12" />
+        <option value="bundled-js-predefined-d6986cc7102b-e0793c8bcbd6-JavaScript-IU-252.19874.12" />
       </set>
     </attachedChunks>
   </component>
@@ -295,6 +324,9 @@
       <workItem from="1748503482778" duration="128000" />
       <workItem from="1748503628567" duration="6134000" />
       <workItem from="1748535725144" duration="8366000" />
+      <workItem from="1749798603473" duration="721000" />
+      <workItem from="1749799378820" duration="414000" />
+      <workItem from="1749799823971" duration="8847000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />

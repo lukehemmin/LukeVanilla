@@ -9,7 +9,6 @@ import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.EntityDamageEvent
-import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
 
@@ -70,33 +69,10 @@ class SafeZoneManager(private val plugin: JavaPlugin) : Listener {
     // 엔티티 데미지 이벤트 처리
     @EventHandler(priority = EventPriority.HIGH)
     fun onEntityDamage(event: EntityDamageEvent) {
-        val entity = event.entity
-
-        // 플레이어만 처리하고 안전 구역 내에 있는지 확인
+        val entity = event.entity        // 플레이어만 처리하고 안전 구역 내에 있는지 확인
         if (entity is Player && isInSafeZone(entity.location)) {
             // 모든 데미지 취소
             event.isCancelled = true
-        }
-    }
-
-    // 플레이어 움직임 이벤트 처리 (밀림 방지)
-    @EventHandler(priority = EventPriority.HIGH)
-    fun onPlayerMove(event: PlayerMoveEvent) {
-        val player = event.player
-        val from = event.from
-        val to = event.to ?: return
-
-        // 안전 구역 내에서만 처리
-        if (isInSafeZone(from) && isInSafeZone(to)) {
-            // 플레이어가 다른 엔티티에 의해 밀렸는지 확인
-            // velocity가 설정되어 있으면 밀린 것으로 간주 (충돌 등으로 인한)
-            if (!player.velocity.equals(Vector(0, 0, 0)) && 
-                !player.isFlying && 
-                player.velocity.length() > 0.05) { // 약간의 임계값 설정
-
-                // 밀림 효과 취소 (플레이어의 속도를 0으로 설정)
-                player.velocity = Vector(0, 0, 0)
-            }
         }
     }
 }

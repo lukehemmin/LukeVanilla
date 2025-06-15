@@ -325,7 +325,7 @@ class AdminAssistant(
         val messageContent = event.message.contentRaw
         
         // 특정 플레이어 경고 조회 요청 패턴 감지
-        val warningQueryPattern = Regex("(.+?)\\s*(?:유저|플레이어)?의?\\s*경고\\s*(?:내역|기록|목록)")
+        val warningQueryPattern = Regex("(.+?)\\s*(?:유저|플레이어)?의?\\s*경고\\s*(?:내역|기록|목록|을?\\s*(?:보고\\s*싶|보여|확인))")
         val warningMatch = warningQueryPattern.find(messageContent.trim())
 
         if (warningMatch != null) {
@@ -499,14 +499,16 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
 - 경고 명령어 형식: `경고 <유저닉네임> <사유>`
 - 경고 5회 누적 시 자동으로 차단됩니다. (IP 차단 포함)
 - 경고 조회 명령어: `경고 조회 <유저닉네임>`
-- 예시:
-    - 관리자: '경고 어떻게 주나요?'
-    - 너의 응답: '특정 유저에게 경고를 하길 원하신다면 경고 <유저닉네임> <사유> 를 보내주시면 대신 경고를 처리해드리겠습니다. 경고가 5회 누적되면 자동으로 서버와 디스코드에서 차단됩니다.'
-    - 관리자: '경고 lukehemmin 테러범'
-    - 너의 응답: `ACTION_PLAYER_WARNING: lukehemmin;테러범`
-    - 관리자: '저번에 경고 받은 사람 누구지?'
-    - 너의 응답: `ACTION_RECENT_WARNINGS`
-- 만약 경고 명령이 모호하거나 닉네임이 명확하지 않으면, 사용자에게 다시 질문해서 명확한 정보를 받아내야 해.
+- **경고 ID 시스템**: 각 경고에는 고유 ID가 부여되며, 경고 조회 시 [ID: 123] 형태로 표시됩니다.
+- **경고 차감(사면) 기능**: 관리자는 특정 경고 ID를 통해 개별 경고를 차감할 수 있습니다.
+- 관리자가 특정 플레이어에게 경고를 주려고 할 때:
+    1. 유저닉네임과 사유가 명확하면: `ACTION_PLAYER_WARNING: <유저닉네임>;<사유>` 형식으로만 응답
+    2. 정보가 불명확하면 사용자에게 다시 질문
+- 관리자가 경고를 차감(사면)하려고 할 때:
+    1. 플레이어명과 경고 ID가 명확하면: `ACTION_PARDON_WARNING: <유저닉네임>;<경고ID>;<사면사유>` 형식으로만 응답
+    2. 정보가 불명확하면 사용자에게 다시 질문
+- 관리자가 최근 경고 내역을 조회하려고 할 때: `ACTION_RECENT_WARNINGS` 형식으로만 응답
+- **중요: 이런 ACTION_ 코드들은 시스템 처리용이므로, 사용자에게는 보이지 않고 바로 처리됩니다.**
 - 명령 처리 후 시스템이 자동으로 결과를 알려줄 거야. 너는 직접 처리 결과를 알려주지 않아도 돼.
 
 이 시스템 프롬프트를 기반으로, 마인크래프트 서버 관리자가 CoreProtect 및 기타 관리 명령어를 효과적으로 활용하여 서버를 안정적으로 운영할 수 있도록 AI 에이전트가 정확하고 신뢰할 수 있는 정보를 제공해야 합니다.
@@ -526,7 +528,9 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             // 최근 8개 context에 현재 대화 추가 (질문/답변)
             if (!aiResponseContent.isNullOrEmpty()) {
                 if (contextQueue.size >= 8) contextQueue.removeFirst()
-                contextQueue.addLast(messageContent to aiResponseContent)                // AI 응답에서 액션 확인 및 처리
+                contextQueue.addLast(messageContent to aiResponseContent)
+                
+                // AI 응답에서 액션 확인 및 처리 (사용자에게 보여주기 전에 먼저 처리)
                 when {
                     // 플레이어 정보 조회 액션
                     aiResponseContent.startsWith("ACTION_PLAYER_INFO_SEARCH:") -> {
@@ -548,6 +552,33 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                                 return // 경고 처리를 했으므로 추가 AI 답변 표시는 생략
                             }
                         }
+                        // 잘못된 형식의 경고 액션인 경우 사용자에게 알림
+                        event.channel.sendMessage("경고 명령 형식이 올바르지 않습니다. 다시 시도해주세요.").queue()
+                        return
+                    }
+                    // 경고 차감(사면) 액션
+                    aiResponseContent.startsWith("ACTION_PARDON_WARNING:") -> {
+                        val pardonData = aiResponseContent.substring("ACTION_PARDON_WARNING:".length).trim()
+                        if (pardonData.contains(";")) {
+                            val parts = pardonData.split(";", limit = 3)
+                            if (parts.size >= 2) {
+                                val playerName = parts[0].trim()
+                                val warningIdStr = parts[1].trim()
+                                val pardonReason = if (parts.size >= 3) parts[2].trim() else "관리자 판단"
+                                
+                                try {
+                                    val warningId = warningIdStr.toInt()
+                                    processWarningPardonRequest(event, playerName, warningId, pardonReason, event.author.id)
+                                    return // 경고 차감 처리를 했으므로 추가 AI 답변 표시는 생략
+                                } catch (e: NumberFormatException) {
+                                    event.channel.sendMessage("경고 ID는 숫자여야 합니다. 다시 시도해주세요.").queue()
+                                    return
+                                }
+                            }
+                        }
+                        // 잘못된 형식의 경고 차감 액션인 경우 사용자에게 알림
+                        event.channel.sendMessage("경고 차감 명령 형식이 올바르지 않습니다. 다시 시도해주세요.").queue()
+                        return
                     }
                     // 최근 경고 내역 조회 액션
                     aiResponseContent.startsWith("ACTION_RECENT_WARNINGS") -> {
@@ -556,6 +587,7 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                     }
                 }
 
+                // 액션이 아닌 일반적인 AI 응답인 경우에만 사용자에게 표시
                 val initialMsg = event.channel.sendMessage("AI 답변 생성 중...").complete()
                 val chunkSize = 10
                 val content = aiResponseContent
@@ -762,7 +794,7 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                         } else {
                             "**사유**: ~~${warning.reason}~~ (차감됨)"
                         }
-                        "${index + 1}. $reason\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
+                        "${index + 1}. **[ID: ${warning.warningId}]** $reason\n   **일시**: $dateStr\n   **관리자**: ${warning.adminName ?: "시스템"}"
                     }.joinToString("\n\n")
 
                     addField("최근 경고 내역", warningList, false)
@@ -855,7 +887,9 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
     private fun processOnlinePlayerWarning(event: MessageReceivedEvent, player: Player, reason: String, adminDiscordId: String) {
         // 관리자 정보 생성
         val adminName = event.author.name
-        val adminUuid = UUID.fromString(adminDiscordId) // 디스코드 ID를 UUID로 변환
+        // Discord ID로 실제 마인크래프트 UUID 조회
+        val adminUuid = getMinecraftUuidByDiscordId(adminDiscordId) 
+            ?: UUID.nameUUIDFromBytes("discord_$adminDiscordId".toByteArray()) // 백업용
         
         // WarningService를 통해 경고 부여
         val result = warningService.addWarning(
@@ -935,9 +969,13 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
                     VALUES (?, ?, ?, ?)
                 """.trimIndent()
                 
+                // Discord ID로 실제 마인크래프트 UUID 조회
+                val adminUuid = getMinecraftUuidByDiscordId(adminDiscordId) 
+                    ?: UUID.nameUUIDFromBytes("discord_$adminDiscordId".toByteArray()) // 백업용
+                
                 connection.prepareStatement(insertWarningQuery).use { statement ->
                     statement.setInt(1, playerId)
-                    statement.setString(2, adminDiscordId)
+                    statement.setString(2, adminUuid.toString())
                     statement.setString(3, adminName)
                     statement.setString(4, reason)
                     statement.executeUpdate()
@@ -1100,6 +1138,78 @@ CoreProtect 명령어의 효과를 정밀하게 제어하기 위해 다음 파�
             event.hook.sendMessageEmbeds(embed).queue()
         } else {
             event.hook.sendMessage("플레이어 정보를 찾을 수 없습니다. (UUID: $uuid)").queue()
+        }
+    }
+    
+    /**
+     * Discord ID로 Player_Data 테이블에서 마인크래프트 UUID 조회
+     */
+    private fun getMinecraftUuidByDiscordId(discordId: String): UUID? {
+        return try {
+            dbConnectionProvider().use { connection ->
+                val query = "SELECT UUID FROM Player_Data WHERE DiscordID = ?"
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, discordId)
+                    statement.executeQuery().use { resultSet ->
+                        if (resultSet.next()) {
+                            val uuidString = resultSet.getString("UUID")
+                            UUID.fromString(uuidString)
+                        } else null
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdminAssistant] Discord ID로 UUID 조회 중 오류: ${e.message}")
+            null
+        }
+    }
+    
+    /**
+     * 경고 차감(사면) 요청 처리
+     */
+    private fun processWarningPardonRequest(event: MessageReceivedEvent, playerName: String, warningId: Int, pardonReason: String, adminDiscordId: String) {
+        try {
+            // 플레이어 정보 조회
+            val playerInfo = findPlayerInfo(playerName)
+            if (playerInfo == null) {
+                event.channel.sendMessage("'$playerName' 플레이어를 찾을 수 없습니다.").queue()
+                return
+            }
+
+            // 관리자 UUID 조회
+            val adminUuid = getMinecraftUuidByDiscordId(adminDiscordId) 
+                ?: UUID.nameUUIDFromBytes("discord_$adminDiscordId".toByteArray())
+            val adminName = event.author.name
+
+            // 경고 차감 처리
+            val success = warningService.pardonWarningById(
+                targetPlayerUuid = UUID.fromString(playerInfo.uuid),
+                warningId = warningId,
+                adminUuid = adminUuid,
+                adminName = adminName,
+                reason = pardonReason
+            )
+
+            if (success) {
+                // 업데이트된 플레이어 정보 조회
+                val updatedPlayerWarning = warningService.getPlayerWarnings(UUID.fromString(playerInfo.uuid))
+                val currentWarnings = updatedPlayerWarning.count { it.isActive }
+                
+                event.channel.sendMessage(
+                    "'$playerName'님의 경고 ID $warningId 가 차감되었습니다. " +
+                    "(현재 활성 경고: ${currentWarnings}회)\n" +
+                    "차감 사유: $pardonReason"
+                ).queue()
+            } else {
+                event.channel.sendMessage(
+                    "경고 차감에 실패했습니다. 경고 ID $warningId 가 존재하지 않거나 이미 차감된 경고일 수 있습니다."
+                ).queue()
+            }
+
+        } catch (e: Exception) {
+            System.err.println("[AdminAssistant] 경고 차감 처리 중 예외 발생: ${e.message}")
+            e.printStackTrace()
+            event.channel.sendMessage("경고 차감 처리 중 오류가 발생했습니다: ${e.message}").queue()
         }
     }
 }
