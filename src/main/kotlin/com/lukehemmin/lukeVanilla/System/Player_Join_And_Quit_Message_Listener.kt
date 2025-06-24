@@ -33,18 +33,18 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
         val player = event.player
         val uuid = player.uniqueId.toString()
 
-        // 처음 접속한 플레이어를 특정 위치로 텔레포트
-        if (!player.hasPlayedBefore()) {
+        // 야생 서버에서만 처음 접속한 플레이어를 특정 위치로 텔레포트
+        if (serviceType == "Vanilla" && !player.hasPlayedBefore()) {
             // 다음 틱에 텔레포트 실행 (안정적인 텔레포트를 위해)
             Bukkit.getScheduler().runTaskLater(plugin, Runnable {
                 // 스폰 위치 설정 (안전 구역 내 위치로 설정)
                 val spawnLocation = org.bukkit.Location(
                     Bukkit.getWorld("world"), // 월드 이름 설정
-                    0.0, // x 좌표 (안전 구역 내 중앙 지점)
-                    70.0, // y 좌표
-                    67.0, // z 좌표 (안전 구역 내 지점)
-                    0f, // yaw (수평 회전)
-                    0f  // pitch (수직 회전)
+                    0.5, // x 좌표
+                    64.0, // y 좌표
+                    70.0, // z 좌표
+                    180f, // yaw (수평 회전)
+                    1.2f  // pitch (수직 회전)
                 )
                 player.teleport(spawnLocation)
             }, 20L) // 1초(20틱) 후 텔레포트 실행
