@@ -16,6 +16,7 @@ class DatabaseInitializer(private val database: Database) {
         createValentineItemOwnerTable()
         createValentineItemReceiveTable()
         createTitokerMessageSettingTable()
+        createVoiceChannelMessageSettingTable()
         createSupportChatLinkTable()
         createNextseasonItemTable()
         createShopsTable()
@@ -292,6 +293,20 @@ class DatabaseInitializer(private val database: Database) {
             statement.executeUpdate(
                 """
             CREATE TABLE IF NOT EXISTS Titoker_Message_Setting (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `IsEnabled` BOOLEAN DEFAULT false
+            )
+            """
+            )
+        }
+    }
+
+    private fun createVoiceChannelMessageSettingTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Voice_Channel_Message_Setting (
                 `UUID` VARCHAR(36) PRIMARY KEY,
                 `IsEnabled` BOOLEAN DEFAULT false
             )

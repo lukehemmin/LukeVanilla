@@ -212,6 +212,9 @@ class Main : JavaPlugin() {
 
             // DiscordVoiceChannelListener 초기화 및 리스너 등록
             discordBot.jda.addEventListener(DiscordVoiceChannelListener(this))
+            
+            // VoiceChannelTextListener 초기화 및 리스너 등록
+            discordBot.jda.addEventListener(VoiceChannelTextListener(this))
 
             // ItemRestoreLogger 초기화
             itemRestoreLogger = ItemRestoreLogger(database, this, discordBot.jda)
@@ -344,6 +347,10 @@ class Main : JavaPlugin() {
         getCommand("티토커메시지")?.setExecutor(TitokerMessageCommand(this))
         getCommand("티토커메시지")?.tabCompleter = TitokerCommandCompleter()
 
+        // 음성채널 메시지 명령어 등록
+        getCommand("음성채널메시지")?.setExecutor(VoiceChannelMessageCommand(this))
+        getCommand("음성채널메시지")?.tabCompleter = VoiceChannelMessageCommandCompleter()
+
         // RefreshMessagesCommand 등록
         getCommand("refreshmessages")?.setExecutor(RefreshMessagesCommand(this))
 
@@ -389,9 +396,18 @@ class Main : JavaPlugin() {
             logger.info("[SafeZoneManager] 야생 서버에서 안전 구역 관리자 초기화 완료.")
         }
 
-        // LockSystem 활성화
-//        lockSystem = LockSystem(this)
-//        lockSystem.enable()
+        // LockSystem 활성화 (로비서버에서만)
+        if (serviceType == "Lobby") {
+            lockSystem = LockSystem(this)
+            lockSystem.initialize()
+            
+            // LockSystem 명령어 등록
+            getCommand("blockprot")?.setExecutor(lockSystem)
+            getCommand("blockprot")?.tabCompleter = lockSystem
+            logger.info("[LockSystem] 로비서버에서 블록 보호 시스템 초기화 완료.")
+        } else {
+            logger.info("[LockSystem] ${serviceType} 서버에서는 블록 보호 시스템이 비활성화됩니다.")
+        }
 
         // StatsSystem 초기화
         statsSystem = StatsSystem(this)
@@ -446,8 +462,8 @@ class Main : JavaPlugin() {
     }
 
     // 이름을 다르게 하여 충돌 방지
-    fun getLockSystemInstance(): LockSystem {
-        return lockSystem
+    fun getLockSystemInstance(): LockSystem? {
+        return if (::lockSystem.isInitialized) lockSystem else null
     }
 
     override fun onDisable() {
@@ -483,6 +499,12 @@ class Main : JavaPlugin() {
         } catch (e: Exception) {
             logger.severe("Discord 봇 종료 중 오류 발생: ${e.message}")
         } finally {
+            // LockSystem 종료
+            if (::lockSystem.isInitialized) {
+                lockSystem.shutdown()
+                logger.info("[LockSystem] 블록 보호 시스템이 종료되었습니다.")
+            }
+            
             // 데이터베이스 종료
             if (::database.isInitialized) {
                 database.close()
