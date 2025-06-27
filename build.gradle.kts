@@ -31,8 +31,7 @@ repositories {
 }
 
 dependencies {
-    //compileOnly("io.papermc.paper:paper-api:1.21.3-R0.1-SNAPSHOT")
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.zaxxer:HikariCP:5.0.1")
 //    compileOnly("io.th0rgal:oraxen:1.186.0")

@@ -17,7 +17,6 @@ import com.lukehemmin.lukeVanilla.System.Items.ItemSeasonSystem.ItemCommand
 import com.lukehemmin.lukeVanilla.System.NPC.NPCSitPreventer
 import com.lukehemmin.lukeVanilla.System.ChatSystem.*
 import com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem.*
-import com.lukehemmin.lukeVanilla.System.LockSystem.LockSystem
 import com.lukehemmin.lukeVanilla.System.NexoCraftingRestriction
 import com.lukehemmin.lukeVanilla.System.NoExplosionListener
 import com.lukehemmin.lukeVanilla.System.Player_Join_And_Quit_Message_Listener
@@ -43,7 +42,6 @@ class Main : JavaPlugin() {
     lateinit var nextSeasonGUI: NextSeasonItemGUI
     private val nexoCraftingRestriction = NexoCraftingRestriction(this)
     lateinit var economyManager: EconomyManager
-    lateinit var lockSystem: LockSystem
     lateinit var statsSystem: StatsSystem
     lateinit var snowMinigame: SnowMinigame
 
@@ -396,19 +394,6 @@ class Main : JavaPlugin() {
             logger.info("[SafeZoneManager] 야생 서버에서 안전 구역 관리자 초기화 완료.")
         }
 
-        // LockSystem 활성화 (로비서버에서만)
-        if (serviceType == "Lobby") {
-            lockSystem = LockSystem(this)
-            lockSystem.initialize()
-            
-            // LockSystem 명령어 등록
-            getCommand("blockprot")?.setExecutor(lockSystem)
-            getCommand("blockprot")?.tabCompleter = lockSystem
-            logger.info("[LockSystem] 로비서버에서 블록 보호 시스템 초기화 완료.")
-        } else {
-            logger.info("[LockSystem] ${serviceType} 서버에서는 블록 보호 시스템이 비활성화됩니다.")
-        }
-
         // StatsSystem 초기화
         statsSystem = StatsSystem(this)
         
@@ -461,11 +446,6 @@ class Main : JavaPlugin() {
         }
     }
 
-    // 이름을 다르게 하여 충돌 방지
-    fun getLockSystemInstance(): LockSystem? {
-        return if (::lockSystem.isInitialized) lockSystem else null
-    }
-
     override fun onDisable() {
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         try {
@@ -499,12 +479,6 @@ class Main : JavaPlugin() {
         } catch (e: Exception) {
             logger.severe("Discord 봇 종료 중 오류 발생: ${e.message}")
         } finally {
-            // LockSystem 종료
-            if (::lockSystem.isInitialized) {
-                lockSystem.shutdown()
-                logger.info("[LockSystem] 블록 보호 시스템이 종료되었습니다.")
-            }
-            
             // 데이터베이스 종료
             if (::database.isInitialized) {
                 database.close()
