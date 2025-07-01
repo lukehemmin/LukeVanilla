@@ -28,6 +28,7 @@ import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import com.lukehemmin.lukeVanilla.System.Command.ServerConnectionCommand
 import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
+import com.lukehemmin.lukeVanilla.System.NexoLuckPermsSystem.NexoLuckPermsGranter
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -46,6 +47,7 @@ class Main : JavaPlugin() {
     lateinit var statsSystem: StatsSystem
     lateinit var snowMinigame: SnowMinigame
     private var wardrobeLocationSystem: WardrobeLocationSystem? = null
+    private var nexoLuckPermsGranter: NexoLuckPermsGranter? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -505,6 +507,22 @@ class Main : JavaPlugin() {
             logger.info("[WardrobeLocationSystem] 야생서버에서 옷장 위치 시스템을 초기화합니다.")
         } else {
             logger.info("[WardrobeLocationSystem] $serviceType 서버에서는 옷장 위치 시스템이 비활성화됩니다.")
+        }
+
+        // NexoLuckPermsGranter 시스템 초기화
+        try {
+            // LuckPerms 플러그인이 활성화되어 있는지 확인
+            val luckPermsPlugin = server.pluginManager.getPlugin("LuckPerms")
+            if (luckPermsPlugin != null && luckPermsPlugin.isEnabled) {
+                nexoLuckPermsGranter = NexoLuckPermsGranter(this)
+                nexoLuckPermsGranter?.register()
+                logger.info("[NexoLuckPermsGranter] 권한 지급 시스템이 초기화되었습니다.")
+            } else {
+                logger.warning("[NexoLuckPermsGranter] LuckPerms 플러그인을 찾을 수 없습니다. 권한 지급 시스템이 비활성화됩니다.")
+            }
+        } catch (e: Exception) {
+            logger.severe("[NexoLuckPermsGranter] 권한 지급 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
         }
     }
 
