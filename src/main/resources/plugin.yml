@@ -4,7 +4,8 @@ main: com.lukehemmin.lukeVanilla.Main
 api-version: '1.21.4'
 author: LukeHemmin
 website: https://github.com/lukehemmin/LukeVanilla
-#depend:
+depend:
+  - HMCCosmetics
 softdepend:
   - Oraxen
   - Citizens

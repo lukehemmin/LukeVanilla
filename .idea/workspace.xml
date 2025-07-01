@@ -22,6 +22,8 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/Main.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/config.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/plugin.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/plugin.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,31 +83,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Gradle.Build LukeVanilla.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.C:/Users/Administrator/Documents/GitHub/LukeVanilla [wrapper].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [build].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [jar].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [shadowJar].executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;develop&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;프로젝트&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.44252872&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.gradle&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.Build LukeVanilla.executor": "Run",
+    "Gradle.C:/Users/Administrator/Documents/GitHub/LukeVanilla [wrapper].executor": "Run",
+    "Gradle.Gradle 종속성 로드.executor": "Run",
+    "Gradle.LukeVanilla [build].executor": "Run",
+    "Gradle.LukeVanilla [jar].executor": "Run",
+    "Gradle.LukeVanilla [shadowJar].executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "develop",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "프로젝트",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.44252872",
+    "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
     <layout>
       <window_info id="Bookmarks" side_tool="true" />
@@ -127,11 +130,12 @@
       <window_info anchor="bottom" id="Problems View" order="2" />
       <window_info anchor="bottom" x="44" y="496" width="1628" height="329" id="Terminal" order="3" weight="0.33023047" />
       <window_info anchor="bottom" id="Services" order="4" />
-      <window_info active="true" anchor="bottom" id="Run" order="5" visible="true" weight="0.3298611" />
+      <window_info active="true" anchor="bottom" id="Run" order="5" visible="true" />
       <window_info anchor="bottom" id="Profiler" order="6" weight="0.32982984" />
       <window_info anchor="bottom" id="Find" order="7" weight="0.33023047" />
       <window_info anchor="bottom" id="Debug" order="8" weight="0.3298611" />
       <window_info anchor="bottom" id="Build" order="9" weight="0.3298611" />
+      <window_info anchor="bottom" id="Windsurf Console" order="10" />
       <window_info anchor="right" id="Endpoints" />
       <window_info anchor="right" id="Notifications" order="0" weight="0.2634503" />
       <window_info anchor="right" id="AIAssistant" order="1" weight="0.2634503" />
@@ -140,7 +144,8 @@
       <window_info anchor="right" id="Maven" order="4" weight="0.25" />
       <window_info anchor="right" id="Coverage" order="5" side_tool="true" weight="0.3298442" />
       <window_info anchor="right" id="github.copilotToolWindow" order="6" />
-      <window_info anchor="right" id="GitHub Copilot Chat" order="7" weight="0.2634503" />
+      <window_info anchor="right" id="GitHub Copilot Chat" order="7" weight="0.3298442" />
+      <window_info anchor="right" id="Cascade" order="8" visible="true" weight="0.3298442" />
     </layout>
   </component>
   <component name="RecentsManager">
@@ -456,6 +461,17 @@
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance." />

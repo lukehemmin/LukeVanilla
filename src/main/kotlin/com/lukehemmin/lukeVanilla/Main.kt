@@ -27,6 +27,8 @@ import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import com.lukehemmin.lukeVanilla.System.Command.ServerConnectionCommand
+import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
+import com.lukehemmin.lukeVanilla.System.NexoPermissionSystem.NexoPermissionGranter
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -44,6 +46,7 @@ class Main : JavaPlugin() {
     lateinit var economyManager: EconomyManager
     lateinit var statsSystem: StatsSystem
     lateinit var snowMinigame: SnowMinigame
+    private var wardrobeLocationSystem: WardrobeLocationSystem? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -176,6 +179,56 @@ class Main : JavaPlugin() {
         // 서버 간 통신을 위한 채널 상수
         const val CHANNEL_SERVER_STATUS_REQUEST = "lukevanilla:serverstatus_request"
         const val CHANNEL_SERVER_STATUS_RESPONSE = "lukevanilla:serverstatus_response"
+    }
+
+    /**
+     * HMCCosmetics 옷장 위치 시스템을 초기화합니다
+     */
+    private fun initializeWardrobeLocationSystem() {
+        try {
+            // HMCCosmetics 플러그인이 활성화되어 있는지 확인
+            val hmcCosmeticsPlugin = server.pluginManager.getPlugin("HMCCosmetics")
+            if (hmcCosmeticsPlugin == null || !hmcCosmeticsPlugin.isEnabled) {
+                logger.warning("[WardrobeLocationSystem] HMCCosmetics 플러그인을 찾을 수 없습니다. 옷장 위치 시스템이 비활성화됩니다.")
+                return
+            }
+
+            // 옷장 위치 시스템 초기화 및 등록
+            wardrobeLocationSystem = WardrobeLocationSystem(this)
+            server.pluginManager.registerEvents(wardrobeLocationSystem!!, this)
+
+            // 설정에서 월드 이름 가져오기 (기본값: "world")
+            val wardrobeWorldName = config.getString("wardrobe.world", "world") ?: "world"
+            
+            // 월드가 로드되어 있다면 즉시 설정, 아니면 월드 로드 대기
+            val world = server.getWorld(wardrobeWorldName)
+            if (world != null) {
+                wardrobeLocationSystem!!.setWardrobeWorld(wardrobeWorldName)
+                logger.info("[WardrobeLocationSystem] 옷장 위치 시스템이 초기화되었습니다. 월드: $wardrobeWorldName")
+            } else {
+                logger.warning("[WardrobeLocationSystem] 월드 '$wardrobeWorldName'을 찾을 수 없습니다. 월드가 로드된 후 자동으로 설정됩니다.")
+                // 월드 로드 감지를 위한 스케줄러 (최대 30초 대기)
+                var attempts = 0
+                val maxAttempts = 30
+                var worldCheckTask: org.bukkit.scheduler.BukkitTask? = null
+                worldCheckTask = server.scheduler.runTaskTimer(this, Runnable {
+                    attempts++
+                    val checkWorld = server.getWorld(wardrobeWorldName)
+                    if (checkWorld != null) {
+                        wardrobeLocationSystem!!.setWardrobeWorld(wardrobeWorldName)
+                        logger.info("[WardrobeLocationSystem] 월드 '$wardrobeWorldName'이 로드되어 옷장 시스템이 활성화되었습니다.")
+                        worldCheckTask?.cancel()
+                    } else if (attempts >= maxAttempts) {
+                        logger.warning("[WardrobeLocationSystem] 월드 '$wardrobeWorldName' 로드 대기 시간이 초과되었습니다.")
+                        worldCheckTask?.cancel()
+                    }
+                }, 20L, 20L) // 1초마다 확인
+            }
+
+        } catch (e: Exception) {
+            logger.severe("[WardrobeLocationSystem] 옷장 위치 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
     }
     
     override fun onEnable() {
@@ -444,9 +497,38 @@ class Main : JavaPlugin() {
             getCommand("serverconnection")?.tabCompleter = ServerConnectionCommand(this)
             logger.info("[서버 연결 관리] 로비서버에서 연결 관리 명령어 등록 완료.")
         }
+
+        // Nexo 권한 지급 시스템 초기화
+        try {
+            // Nexo 플러그인이 활성화되어 있는지 확인
+            val nexoPlugin = server.pluginManager.getPlugin("Nexo")
+            if (nexoPlugin != null && nexoPlugin.isEnabled) {
+                val nexoPermissionGranter = NexoPermissionGranter(this)
+                nexoPermissionGranter.register()
+                logger.info("[NexoPermissionGranter] Nexo 권한 지급 시스템이 초기화되었습니다.")
+            } else {
+                logger.warning("[NexoPermissionGranter] Nexo 플러그인을 찾을 수 없습니다. 권한 지급 시스템이 비활성화됩니다.")
+            }
+        } catch (e: Exception) {
+            logger.severe("[NexoPermissionGranter] Nexo 권한 지급 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
+
+        // HMCCosmetics 옷장 위치 시스템 초기화 (야생서버에서만 실행)
+        if (serviceType == "Vanilla") {
+            server.scheduler.runTaskLater(this, Runnable {
+                initializeWardrobeLocationSystem()
+            }, 20L) // 1초 후 실행
+            logger.info("[WardrobeLocationSystem] 야생서버에서 옷장 위치 시스템을 초기화합니다.")
+        } else {
+            logger.info("[WardrobeLocationSystem] $serviceType 서버에서는 옷장 위치 시스템이 비활성화됩니다.")
+        }
     }
 
     override fun onDisable() {
+        // 옷장 위치 시스템 정리
+        wardrobeLocationSystem?.cleanup()
+        
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         try {
             VanillaShutdownNotifier.notifyShutdownImminent(this)
