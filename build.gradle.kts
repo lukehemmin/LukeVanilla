@@ -54,9 +54,6 @@ dependencies {
     // HMCCosmetics API 의존성 추가
     compileOnly("com.hibiscusmc:HMCCosmetics:2.7.9-ff1addfd")
     
-    // LuckPerms API 의존성 추가
-    compileOnly("net.luckperms:api:5.4")
-    
     // Velocity API 의존성 - 버전 수정
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
     // Netty buffer for PluginMessageEvent data
