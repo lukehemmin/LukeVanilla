@@ -28,7 +28,6 @@ import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import com.lukehemmin.lukeVanilla.System.Command.ServerConnectionCommand
 import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
-import com.lukehemmin.lukeVanilla.System.NexoPermissionSystem.NexoPermissionGranter
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -496,22 +495,6 @@ class Main : JavaPlugin() {
             getCommand("serverconnection")?.setExecutor(ServerConnectionCommand(this))
             getCommand("serverconnection")?.tabCompleter = ServerConnectionCommand(this)
             logger.info("[서버 연결 관리] 로비서버에서 연결 관리 명령어 등록 완료.")
-        }
-
-        // Nexo 권한 지급 시스템 초기화
-        try {
-            // Nexo 플러그인이 활성화되어 있는지 확인
-            val nexoPlugin = server.pluginManager.getPlugin("Nexo")
-            if (nexoPlugin != null && nexoPlugin.isEnabled) {
-                val nexoPermissionGranter = NexoPermissionGranter(this)
-                nexoPermissionGranter.register()
-                logger.info("[NexoPermissionGranter] Nexo 권한 지급 시스템이 초기화되었습니다.")
-            } else {
-                logger.warning("[NexoPermissionGranter] Nexo 플러그인을 찾을 수 없습니다. 권한 지급 시스템이 비활성화됩니다.")
-            }
-        } catch (e: Exception) {
-            logger.severe("[NexoPermissionGranter] Nexo 권한 지급 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
-            e.printStackTrace()
         }
 
         // HMCCosmetics 옷장 위치 시스템 초기화 (야생서버에서만 실행)

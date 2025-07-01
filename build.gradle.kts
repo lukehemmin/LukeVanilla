@@ -51,6 +51,9 @@ dependencies {
         exclude(group = "com.github.Gecolay")
     }
     
+    // LuckPerms API 의존성 추가
+    compileOnly("net.luckperms:api:5.2")
+    
     // HMCCosmetics API 의존성 추가
     compileOnly("com.hibiscusmc:HMCCosmetics:2.7.9-ff1addfd")
     
