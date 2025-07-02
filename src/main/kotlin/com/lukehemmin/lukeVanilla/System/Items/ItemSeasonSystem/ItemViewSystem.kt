@@ -12,7 +12,7 @@ class ItemViewSystem {
     private lateinit var database: Database
     
     // 이벤트 타입 목록
-    private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인")
+    private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인", "봄")
     
     // 할로윈 아이템 목록
     private val halloweenItems = mapOf(
@@ -65,6 +65,23 @@ class ItemViewSystem {
         "boots" to "발렌타인 러브 트레커",
         "head" to "발렌타인 러버스 캡",
         "shield" to "발렌타인 방패"
+    )
+    
+    // 봄 아이템 목록
+    private val springItems = mapOf(
+        "helmet" to "봄의 시작 헬멧",
+        "chestplate" to "봄의 숨결 흉갑",
+        "leggings" to "봄의 활력 레깅스",
+        "boots" to "봄의 발걸음 부츠",
+        "sword" to "봄의 수호자 검",
+        "pickaxe" to "봄의 광부 곡괭이",
+        "axe" to "봄의 가지치기 도끼",
+        "hoe" to "봄의 경작 괭이",
+        "shovel" to "봄의 정원사 삽",
+        "bow" to "봄의 바람 활",
+        "crossbow" to "봄의 연꽃 석궁",
+        "shield" to "봄의 보호막 방패",
+        "hammer" to "봄의 대장장이 망치"
     )
     
     init {
@@ -184,6 +201,7 @@ class ItemViewSystem {
             "할로윈" -> "Halloween_Item_Owner"
             "크리스마스" -> "Christmas_Item_Owner"
             "발렌타인" -> "Valentine_Item_Owner"
+            "봄" -> "Spring_Item_Owner"
             else -> throw IllegalArgumentException("유효하지 않은 이벤트 타입: $eventType")
         }
     }
@@ -193,6 +211,7 @@ class ItemViewSystem {
             "할로윈" -> halloweenItems.keys.toList()
             "크리스마스" -> christmasItems.keys.toList()
             "발렌타인" -> valentineItems.keys.toList()
+            "봄" -> springItems.keys.toList()
             else -> emptyList()
         }
     }
@@ -202,6 +221,7 @@ class ItemViewSystem {
             "할로윈" -> halloweenItems[itemKey] ?: itemKey
             "크리스마스" -> christmasItems[itemKey] ?: itemKey
             "발렌타인" -> valentineItems[itemKey] ?: itemKey
+            "봄" -> springItems[itemKey] ?: itemKey
             else -> itemKey
         }
     }
