@@ -287,6 +287,42 @@ class Database(private val plugin: Main, config: FileConfiguration) {
         }
     }
 
+    fun addDynamicVoiceChannel(channelId: String, creatorId: String) {
+        val query = "INSERT INTO Dynamic_Voice_Channel (channel_id, creator_id) VALUES (?, ?)"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, channelId)
+                statement.setString(2, creatorId)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun removeDynamicVoiceChannel(channelId: String) {
+        val query = "DELETE FROM Dynamic_Voice_Channel WHERE channel_id = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, channelId)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun getDynamicVoiceChannels(): Set<String> {
+        val channels = mutableSetOf<String>()
+        val query = "SELECT channel_id FROM Dynamic_Voice_Channel"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.executeQuery().use { resultSet ->
+                    while (resultSet.next()) {
+                        channels.add(resultSet.getString("channel_id"))
+                    }
+                }
+            }
+        }
+        return channels
+    }
+
     fun getDiscordIDByUUID(uuid: String): String? {
         val query = "SELECT DiscordID FROM Player_Data WHERE UUID = ?"
         getConnection().use { connection ->
