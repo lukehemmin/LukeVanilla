@@ -60,7 +60,9 @@ class DynamicVoiceChannelManager(private val database: Database) : ListenerAdapt
 
             if (categoryId != null) {
                 val category = guild.getCategoryById(categoryId)
-                category?.createVoiceChannel("${member.effectiveName}의 방")
+                val baseName = "${member.effectiveName}의 방"
+                val channelName = if (baseName.length > 96) baseName.take(96) else baseName
+                category?.createVoiceChannel(channelName)
                     ?.addPermissionOverride(
                         member,
                         EnumSet.of(
