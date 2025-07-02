@@ -268,8 +268,16 @@ class Main : JavaPlugin() {
             // VoiceChannelTextListener 초기화 및 리스너 등록
             discordBot.jda.addEventListener(VoiceChannelTextListener(this))
 
-            // DynamicVoiceChannelManager 초기화 및 리스너 등록
-            discordBot.jda.addEventListener(DynamicVoiceChannelManager(database))
+            // DynamicVoiceChannelManager는 야생 서버에서만 실행
+            if (serviceType == "Vanilla") {
+                val guildId = database.getSettingValue("DiscordServerID")
+                guildId?.let {
+                    discordBot.jda.addEventListener(
+                        DynamicVoiceChannelManager(database, discordBot.jda, it)
+                    )
+                    logger.info("[DynamicVoiceChannelManager] 야생 서버에서 음성 채널 관리 기능을 활성화했습니다.")
+                }
+            }
 
             // ItemRestoreLogger 초기화
             itemRestoreLogger = ItemRestoreLogger(database, this, discordBot.jda)
