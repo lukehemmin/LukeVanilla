@@ -17,6 +17,7 @@ class DatabaseInitializer(private val database: Database) {
         createValentineItemReceiveTable()
         createTitokerMessageSettingTable()
         createVoiceChannelMessageSettingTable()
+        createDynamicVoiceChannelTable()
         createSupportChatLinkTable()
         createNextseasonItemTable()
         createShopsTable()
@@ -311,6 +312,21 @@ class DatabaseInitializer(private val database: Database) {
                 `IsEnabled` BOOLEAN DEFAULT false
             )
             """
+            )
+        }
+    }
+
+    private fun createDynamicVoiceChannelTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Dynamic_Voice_Channel (
+                `guild_id` VARCHAR(30) NOT NULL,
+                `channel_id` VARCHAR(30) PRIMARY KEY,
+                `owner_id` VARCHAR(30) NOT NULL
+            )
+            """.trimIndent()
             )
         }
     }
