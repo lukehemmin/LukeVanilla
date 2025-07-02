@@ -15,6 +15,9 @@ class DynamicVoiceChannelManager(private val database: Database) : ListenerAdapt
 
     private val createdChannels = mutableSetOf<String>()
 
+    /** Discord 채널 이름 최대 길이 대비 여유를 두기 위한 값 */
+    private val MAX_NAME_LENGTH = 96
+
     // Trigger voice channel IDs
     private val triggerChannel1 = database.getSettingValue("TRIGGER_VOICE_CHANNEL_ID_1")
     private val triggerChannel2 = database.getSettingValue("TRIGGER_VOICE_CHANNEL_ID_2")
@@ -61,7 +64,7 @@ class DynamicVoiceChannelManager(private val database: Database) : ListenerAdapt
             if (categoryId != null) {
                 val category = guild.getCategoryById(categoryId)
                 val baseName = "${member.effectiveName}의 방"
-                val channelName = if (baseName.length > 96) baseName.take(96) else baseName
+                val channelName = if (baseName.length > MAX_NAME_LENGTH) baseName.take(MAX_NAME_LENGTH) else baseName
                 category?.createVoiceChannel(channelName)
                     ?.addPermissionOverride(
                         member,
