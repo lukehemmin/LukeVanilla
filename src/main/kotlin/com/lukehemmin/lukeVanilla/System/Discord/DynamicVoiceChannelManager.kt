@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.Discord
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import net.dv8tion.jda.api.Permission
+import net.dv8tion.jda.api.events.guild.GuildReadyEvent
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import java.util.EnumSet
@@ -21,6 +22,27 @@ class DynamicVoiceChannelManager(private val database: Database) : ListenerAdapt
     // Category IDs where the new channels will be created
     private val category1 = database.getSettingValue("VOICE_CATEGORY_ID_1")
     private val category2 = database.getSettingValue("VOICE_CATEGORY_ID_2")
+
+    override fun onGuildReady(event: GuildReadyEvent) {
+        // Load existing dynamic channels from the database and clean up stale ones
+        val storedChannels = database.getDynamicVoiceChannels(event.guild.id)
+        for (record in storedChannels) {
+            val channel = event.guild.getVoiceChannelById(record.channelId)
+            if (channel == null) {
+                // Channel no longer exists
+                database.deleteDynamicVoiceChannel(record.channelId)
+                continue
+            }
+
+            if (channel.members.isEmpty()) {
+                // Delete empty channels left from previous session
+                database.deleteDynamicVoiceChannel(channel.id)
+                channel.delete().queue()
+            } else {
+                createdChannels.add(channel.id)
+            }
+        }
+    }
 
     override fun onGuildVoiceUpdate(event: GuildVoiceUpdateEvent) {
         val member = event.member
@@ -51,6 +73,7 @@ class DynamicVoiceChannelManager(private val database: Database) : ListenerAdapt
                     )
                     ?.queue { channel ->
                         createdChannels.add(channel.id)
+                        database.insertDynamicVoiceChannel(guild.id, channel.id, member.id)
                         guild.moveVoiceMember(member, channel).queue()
                     }
             }
@@ -60,6 +83,7 @@ class DynamicVoiceChannelManager(private val database: Database) : ListenerAdapt
         if (left != null && createdChannels.contains(left.id)) {
             if (left.members.isEmpty()) {
                 createdChannels.remove(left.id)
+                database.deleteDynamicVoiceChannel(left.id)
                 left.delete().queue()
             }
         }

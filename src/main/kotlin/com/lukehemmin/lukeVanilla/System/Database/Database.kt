@@ -19,6 +19,7 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     // 데이터 클래스 추가
     data class AuthRecord(val uuid: String, val isAuth: Boolean)
     data class PlayerData(val nickname: String, val uuid: String, val discordId: String?) // discordId 추가
+    data class DynamicVoiceChannel(val guildId: String, val channelId: String, val ownerId: String)
 
     init {
         val host = config.getString("database.host") ?: throw IllegalArgumentException("Database host not specified in config.")
@@ -371,6 +372,69 @@ class Database(private val plugin: Main, config: FileConfiguration) {
                 statement.executeUpdate()
             }
         }
+    }
+
+    fun createDynamicVoiceChannelTable() {
+        val query = """
+            CREATE TABLE IF NOT EXISTS Dynamic_Voice_Channel (
+                `guild_id` VARCHAR(30) NOT NULL,
+                `channel_id` VARCHAR(30) PRIMARY KEY,
+                `owner_id` VARCHAR(30) NOT NULL
+            )
+        """
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun insertDynamicVoiceChannel(guildId: String, channelId: String, ownerId: String) {
+        val query = """
+            INSERT INTO Dynamic_Voice_Channel (guild_id, channel_id, owner_id)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE owner_id = VALUES(owner_id)
+        """
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, guildId)
+                statement.setString(2, channelId)
+                statement.setString(3, ownerId)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun deleteDynamicVoiceChannel(channelId: String) {
+        val query = "DELETE FROM Dynamic_Voice_Channel WHERE channel_id = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, channelId)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun getDynamicVoiceChannels(guildId: String): List<DynamicVoiceChannel> {
+        val channels = mutableListOf<DynamicVoiceChannel>()
+        val query = "SELECT guild_id, channel_id, owner_id FROM Dynamic_Voice_Channel WHERE guild_id = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, guildId)
+                statement.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        channels.add(
+                            DynamicVoiceChannel(
+                                guildId = rs.getString("guild_id"),
+                                channelId = rs.getString("channel_id"),
+                                ownerId = rs.getString("owner_id")
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return channels
     }
 
     // 기존 블록 잠금 시스템 코드는 새로운 NBT 기반 시스템으로 대체되었습니다.

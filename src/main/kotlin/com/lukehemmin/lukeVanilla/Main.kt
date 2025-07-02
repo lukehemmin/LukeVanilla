@@ -268,8 +268,10 @@ class Main : JavaPlugin() {
             // VoiceChannelTextListener 초기화 및 리스너 등록
             discordBot.jda.addEventListener(VoiceChannelTextListener(this))
 
-            // DynamicVoiceChannelManager 초기화 및 리스너 등록
-            discordBot.jda.addEventListener(DynamicVoiceChannelManager(database))
+            // DynamicVoiceChannelManager 초기화 및 리스너 등록 (야생서버 전용)
+            if (serviceType == "Vanilla") {
+                discordBot.jda.addEventListener(DynamicVoiceChannelManager(database))
+            }
 
             // ItemRestoreLogger 초기화
             itemRestoreLogger = ItemRestoreLogger(database, this, discordBot.jda)
