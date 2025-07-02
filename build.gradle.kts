@@ -28,16 +28,19 @@ repositories {
     }
     maven("https://jitpack.io")
     maven("https://repo.nexomc.com/releases")
+    // HMCCosmetics 저장소 추가
+    maven("https://repo.hibiscusmc.com/releases") {
+        name = "hibiscusmc-repo"
+    }
 }
 
 dependencies {
-    //compileOnly("io.papermc.paper:paper-api:1.21.3-R0.1-SNAPSHOT")
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.zaxxer:HikariCP:5.0.1")
 //    compileOnly("io.th0rgal:oraxen:1.186.0")
-    compileOnly("com.nexomc:nexo:1.1.0")
-    implementation("net.dv8tion:JDA:5.2.1")
+    compileOnly("com.nexomc:nexo:1.8.0")
+    implementation("net.dv8tion:JDA:5.6.1")
     compileOnly("net.citizensnpcs:citizens-main:2.0.37-SNAPSHOT")
     //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
     compileOnly("com.github.LoneDev6:API-ItemsAdder:3.6.3-beta-14")
@@ -47,6 +50,12 @@ dependencies {
     compileOnly("com.github.Gecolay.GSit:core:1.13.0") {
         exclude(group = "com.github.Gecolay")
     }
+    
+    // LuckPerms API 의존성 추가
+    compileOnly("net.luckperms:api:5.2")
+    
+    // HMCCosmetics API 의존성 추가
+    compileOnly("com.hibiscusmc:HMCCosmetics:2.7.9-ff1addfd")
     
     // Velocity API 의존성 - 버전 수정
     compileOnly("com.velocitypowered:velocity-api:3.1.1")

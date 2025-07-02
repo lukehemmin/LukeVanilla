@@ -15,7 +15,11 @@ class DatabaseInitializer(private val database: Database) {
         createChristmasItemReceiveTable()
         createValentineItemOwnerTable()
         createValentineItemReceiveTable()
+        createSpringItemOwnerTable()
+        createSpringItemReceiveTable()
         createTitokerMessageSettingTable()
+        createVoiceChannelMessageSettingTable()
+        createDynamicVoiceChannelTable()
         createSupportChatLinkTable()
         createNextseasonItemTable()
         createShopsTable()
@@ -286,6 +290,60 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
+    private fun createSpringItemOwnerTable() { // 봄 아이템 소유자 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Spring_Item_Owner (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `helmet` TINYINT(1) NOT NULL DEFAULT 0,
+                `chestplate` TINYINT(1) NOT NULL DEFAULT 0,
+                `leggings` TINYINT(1) NOT NULL DEFAULT 0,
+                `boots` TINYINT(1) NOT NULL DEFAULT 0,
+                `sword` TINYINT(1) NOT NULL DEFAULT 0,
+                `pickaxe` TINYINT(1) NOT NULL DEFAULT 0,
+                `axe` TINYINT(1) NOT NULL DEFAULT 0,
+                `hoe` TINYINT(1) NOT NULL DEFAULT 0,
+                `shovel` TINYINT(1) NOT NULL DEFAULT 0,
+                `bow` TINYINT(1) NOT NULL DEFAULT 0,
+                `crossbow` TINYINT(1) NOT NULL DEFAULT 0,
+                `shield` TINYINT(1) NOT NULL DEFAULT 0,
+                `hammer` TINYINT(1) NOT NULL DEFAULT 0,
+                `registered_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """.trimIndent()
+            )
+        }
+    }
+
+    private fun createSpringItemReceiveTable() { // 봄 아이템 수령 테이블
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Spring_Item_Receive (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `helmet` TINYINT(1) NOT NULL DEFAULT 0,
+                `chestplate` TINYINT(1) NOT NULL DEFAULT 0,
+                `leggings` TINYINT(1) NOT NULL DEFAULT 0,
+                `boots` TINYINT(1) NOT NULL DEFAULT 0,
+                `sword` TINYINT(1) NOT NULL DEFAULT 0,
+                `pickaxe` TINYINT(1) NOT NULL DEFAULT 0,
+                `axe` TINYINT(1) NOT NULL DEFAULT 0,
+                `hoe` TINYINT(1) NOT NULL DEFAULT 0,
+                `shovel` TINYINT(1) NOT NULL DEFAULT 0,
+                `bow` TINYINT(1) NOT NULL DEFAULT 0,
+                `crossbow` TINYINT(1) NOT NULL DEFAULT 0,
+                `shield` TINYINT(1) NOT NULL DEFAULT 0,
+                `hammer` TINYINT(1) NOT NULL DEFAULT 0,
+                `last_received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """.trimIndent()
+            )
+        }
+    }
+
     private fun createTitokerMessageSettingTable() {
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
@@ -294,6 +352,35 @@ class DatabaseInitializer(private val database: Database) {
             CREATE TABLE IF NOT EXISTS Titoker_Message_Setting (
                 `UUID` VARCHAR(36) PRIMARY KEY,
                 `IsEnabled` BOOLEAN DEFAULT false
+            )
+            """
+            )
+        }
+    }
+
+    private fun createVoiceChannelMessageSettingTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Voice_Channel_Message_Setting (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `IsEnabled` BOOLEAN DEFAULT false
+            )
+            """
+            )
+        }
+    }
+
+    private fun createDynamicVoiceChannelTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Dynamic_Voice_Channel (
+                `channel_id` VARCHAR(30) PRIMARY KEY,
+                `creator_id` VARCHAR(30) NOT NULL,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
             )

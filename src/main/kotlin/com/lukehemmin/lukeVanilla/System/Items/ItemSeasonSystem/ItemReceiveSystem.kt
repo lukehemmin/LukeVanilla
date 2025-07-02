@@ -59,19 +59,22 @@ class ItemReceiveSystem : Listener {
     private var isHalloweenReceivable = true
     private var isChristmasReceivable = true
     private var isValentineReceivable = true
+    private var isSpringReceivable = false
     
     // 이벤트 타입 목록
-    private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인")
+    private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인", "봄")
     
     // GUI 관련 상수
     private val halloweenGuiTitle = "${ChatColor.DARK_PURPLE}할로윈 아이템 받기"
     private val christmasGuiTitle = "${ChatColor.RED}크리스마스 아이템 받기"
     private val valentineGuiTitle = "${ChatColor.LIGHT_PURPLE}발렌타인 아이템 받기"
+    private val springGuiTitle = "${ChatColor.GREEN}봄 아이템 받기"
     
     // GUI 키
     private lateinit var halloweenGuiKey: NamespacedKey
     private lateinit var christmasGuiKey: NamespacedKey
     private lateinit var valentineGuiKey: NamespacedKey
+    private lateinit var springGuiKey: NamespacedKey
     private lateinit var ownerKey: NamespacedKey
     private lateinit var pageKey: NamespacedKey
     private lateinit var navKey: NamespacedKey
@@ -185,6 +188,42 @@ class ItemReceiveSystem : Listener {
         "shield" to "valentine_shield"
     )
     
+    // 봄 아이템 매핑 (페이지별)
+    private val springScrollItemsPage1 = mapOf(
+        10 to "sp_helmet_scroll",
+        12 to "sp_chestplate_scroll",
+        14 to "sp_leggings_scroll",
+        16 to "sp_boots_scroll",
+        20 to "sp_sword_scroll",
+        22 to "sp_pickaxe_scroll",
+        24 to "sp_axe_scroll",
+        28 to "sp_hoe_scroll",
+        30 to "sp_shovel_scroll",
+        32 to "sp_bow_scroll",
+        34 to "sp_crossbow_scroll"
+    )
+    
+    private val springScrollItemsPage2 = mapOf(
+        10 to "sp_shield_scroll",
+        12 to "sp_hammer_scroll"
+    )
+    
+    private val springItemMappings = mapOf(
+        "helmet" to "plnyspringset_helmet",
+        "chestplate" to "plnyspringset_chestplate",
+        "leggings" to "plnyspringset_leggings",
+        "boots" to "plnyspringset_boots",
+        "sword" to "plny_springset_sword",
+        "pickaxe" to "plny_springset_pickaxe",
+        "axe" to "plny_springset_axe",
+        "hoe" to "plny_springset_hoe",
+        "shovel" to "plny_springset_shovel",
+        "bow" to "plny_springset_bow",
+        "crossbow" to "plny_springset_crossbow",
+        "shield" to "plny_springset_shield",
+        "hammer" to "plny_springset_hammer"
+    )
+    
     init {
         val pluginManager = Bukkit.getPluginManager()
         val pluginInstance = pluginManager.getPlugin("LukeVanilla")
@@ -196,6 +235,7 @@ class ItemReceiveSystem : Listener {
             halloweenGuiKey = NamespacedKey(plugin, "halloween_gui")
             christmasGuiKey = NamespacedKey(plugin, "christmas_gui")
             valentineGuiKey = NamespacedKey(plugin, "valentine_gui")
+            springGuiKey = NamespacedKey(plugin, "spring_gui")
             ownerKey = NamespacedKey(plugin, "owner")
             pageKey = NamespacedKey(plugin, "page")
             navKey = NamespacedKey(plugin, "nav")
@@ -230,6 +270,7 @@ class ItemReceiveSystem : Listener {
                 "할로윈" -> openHalloweenGui(player)
                 "크리스마스" -> openChristmasGui(player, 1)
                 "발렌타인" -> openValentineGui(player, 1)
+                "봄" -> openSpringGui(player, 1)
                 else -> {
                     player.sendMessage("§c지원하지 않는 이벤트 타입입니다.")
                     return@Runnable
@@ -540,6 +581,108 @@ class ItemReceiveSystem : Listener {
         }
     }
     
+    // 봄 GUI 열기
+    private fun openSpringGui(player: Player, page: Int = 1) {
+        try {
+            database.getConnection().use { connection ->
+                val uuid = player.uniqueId.toString()
+                
+                // 플레이어가 등록한 아이템 정보 가져오기
+                val ownerStmt = connection.prepareStatement("SELECT * FROM Spring_Item_Owner WHERE UUID = ?")
+                ownerStmt.setString(1, uuid)
+                val ownerResult = ownerStmt.executeQuery()
+                
+                // 플레이어가 수령한 아이템 정보 가져오기
+                val receiveStmt = connection.prepareStatement("SELECT * FROM Spring_Item_Receive WHERE UUID = ?")
+                receiveStmt.setString(1, uuid)
+                val receiveResult = receiveStmt.executeQuery()
+                
+                val registeredItems = mutableSetOf<String>()
+                val receivedItems = mutableSetOf<String>()
+                
+                if (ownerResult.next()) {
+                    for (column in springItemMappings.keys) {
+                        val hasItem = ownerResult.getBoolean(column)
+                        if (hasItem) {
+                            registeredItems.add(column)
+                        }
+                    }
+                }
+                
+                if (receiveResult.next()) {
+                    for (column in springItemMappings.keys) {
+                        val hasReceived = receiveResult.getBoolean(column)
+                        if (hasReceived) {
+                            receivedItems.add(column)
+                        }
+                    }
+                }
+                
+                // GUI 생성 및 열기
+                Bukkit.getScheduler().runTask(plugin, Runnable {
+                    val gui = Bukkit.createInventory(player, 5 * 9, "$springGuiTitle - ${page}페이지")
+                    
+                    // 초록색 색유리판으로 배경 채우기
+                    val greenPane = ItemStack(Material.GREEN_STAINED_GLASS_PANE)
+                    val greenMeta = greenPane.itemMeta
+                    greenMeta!!.setDisplayName(" ")
+                    greenPane.itemMeta = greenMeta
+                    for (i in 0 until gui.size) {
+                        gui.setItem(i, greenPane)
+                    }
+                    
+                    // 페이지별 아이템 배치
+                    val currentPageItems = if (page == 1) springScrollItemsPage1 else springScrollItemsPage2
+                    
+                    for ((slot, scrollId) in currentPageItems) {
+                        val columnName = getColumnNameByScrollId(scrollId)
+                        when {
+                            // 아이템을 등록하지 않은 경우 - 검은색 유리판
+                            !registeredItems.contains(columnName) -> {
+                                val blackPane = ItemStack(Material.BLACK_STAINED_GLASS_PANE)
+                                val blackMeta = blackPane.itemMeta
+                                blackMeta!!.setDisplayName("${ChatColor.GRAY}아이템이 등록되지 않았습니다.")
+                                blackPane.itemMeta = blackMeta
+                                gui.setItem(slot, blackPane)
+                            }
+                            // 이미 수령한 경우 - 빨간색 유리판
+                            receivedItems.contains(columnName) -> {
+                                val redPane = ItemStack(Material.RED_STAINED_GLASS_PANE)
+                                val redMeta = redPane.itemMeta
+                                redMeta!!.setDisplayName("${ChatColor.RED}이미 수령한 아이템입니다.")
+                                redPane.itemMeta = redMeta
+                                gui.setItem(slot, redPane)
+                            }
+                            // 수령 가능 - 스크롤 아이템 배치
+                            else -> {
+                                val scrollItem = NexoItems.itemFromId(scrollId)?.build() ?: run {
+                                    plugin.logger.warning("스크롤 아이템 생성 실패: $scrollId")
+                                    return@Runnable
+                                }
+                                val scrollMeta = scrollItem.itemMeta
+                                scrollMeta!!.persistentDataContainer.set(springGuiKey, PersistentDataType.STRING, scrollId)
+                                scrollMeta.persistentDataContainer.set(pageKey, PersistentDataType.INTEGER, page)
+                                scrollItem.itemMeta = scrollMeta
+                                gui.setItem(slot, scrollItem)
+                            }
+                        }
+                    }
+                    
+                    // 네비게이션 버튼 추가
+                    addNavigationButtons(gui, page, 2, "spring")
+                    
+                    // GUI 열기
+                    player.openInventory(gui)
+                })
+            }
+        } catch (e: Exception) {
+            plugin.logger.warning("봄 GUI 생성 중 오류 발생: ${e.message}")
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                player.sendMessage("§c아이템 정보를 불러오는 중 오류가 발생했습니다.")
+            })
+        }
+    }
+    
     // 네비게이션 처리
     private fun handleNavigation(player: Player, navAction: String) {
         val parts = navAction.split("_")
@@ -559,6 +702,12 @@ class ItemReceiveSystem : Listener {
                 when (action) {
                     "prev" -> openValentineGui(player, 1)
                     "next" -> openValentineGui(player, 2)
+                }
+            }
+            "spring" -> {
+                when (action) {
+                    "prev" -> openSpringGui(player, 1)
+                    "next" -> openSpringGui(player, 2)
                 }
             }
         }
@@ -603,7 +752,7 @@ class ItemReceiveSystem : Listener {
         
         // 해당 GUI가 아닌 경우 무시
         val title = event.view.title
-        if (!title.startsWith(halloweenGuiTitle) && !title.startsWith(christmasGuiTitle) && !title.startsWith(valentineGuiTitle)) {
+        if (!title.startsWith(halloweenGuiTitle) && !title.startsWith(christmasGuiTitle) && !title.startsWith(valentineGuiTitle) && !title.startsWith(springGuiTitle)) {
             return
         }
         
@@ -638,6 +787,7 @@ class ItemReceiveSystem : Listener {
             title.startsWith(halloweenGuiTitle) -> container.get(halloweenGuiKey, PersistentDataType.STRING)
             title.startsWith(christmasGuiTitle) -> container.get(christmasGuiKey, PersistentDataType.STRING)
             title.startsWith(valentineGuiTitle) -> container.get(valentineGuiKey, PersistentDataType.STRING)
+            title.startsWith(springGuiTitle) -> container.get(springGuiKey, PersistentDataType.STRING)
             else -> null
         }
         
@@ -657,6 +807,7 @@ class ItemReceiveSystem : Listener {
             scrollId.startsWith("h_") -> "Halloween"
             scrollId.startsWith("c_") -> "Christmas"
             scrollId.startsWith("v_") -> "Valentine"
+            scrollId.startsWith("sp_") -> "Spring"
             else -> return
         }
         
@@ -733,6 +884,7 @@ class ItemReceiveSystem : Listener {
                                 "Halloween" -> pdc.get(halloweenGuiKey, PersistentDataType.STRING)
                                 "Christmas" -> pdc.get(christmasGuiKey, PersistentDataType.STRING)
                                 "Valentine" -> pdc.get(valentineGuiKey, PersistentDataType.STRING)
+                                "Spring" -> pdc.get(springGuiKey, PersistentDataType.STRING)
                                 else -> null
                             }
                             
@@ -750,6 +902,7 @@ class ItemReceiveSystem : Listener {
                             "Halloween" -> "할로윈"
                             "Christmas" -> "크리스마스"
                             "Valentine" -> "발렌타인"
+                            "Spring" -> "봄"
                             else -> ""
                         }
                         
@@ -854,6 +1007,26 @@ class ItemReceiveSystem : Listener {
             }
         }
         
+        // 봄 스크롤
+        if (scrollId.startsWith("sp_")) {
+            return when (scrollId) {
+                "sp_helmet_scroll" -> "helmet"
+                "sp_chestplate_scroll" -> "chestplate"
+                "sp_leggings_scroll" -> "leggings"
+                "sp_boots_scroll" -> "boots"
+                "sp_sword_scroll" -> "sword"
+                "sp_pickaxe_scroll" -> "pickaxe"
+                "sp_axe_scroll" -> "axe"
+                "sp_hoe_scroll" -> "hoe"
+                "sp_shovel_scroll" -> "shovel"
+                "sp_bow_scroll" -> "bow"
+                "sp_crossbow_scroll" -> "crossbow"
+                "sp_shield_scroll" -> "shield"
+                "sp_hammer_scroll" -> "hammer"
+                else -> ""
+            }
+        }
+        
         return ""
     }
     
@@ -863,6 +1036,7 @@ class ItemReceiveSystem : Listener {
             "할로윈" -> { isHalloweenReceivable = receivable; true }
             "크리스마스" -> { isChristmasReceivable = receivable; true }
             "발렌타인" -> { isValentineReceivable = receivable; true }
+            "봄" -> { isSpringReceivable = receivable; true }
             else -> false
         }
     }
@@ -873,6 +1047,7 @@ class ItemReceiveSystem : Listener {
             "할로윈" -> isHalloweenReceivable
             "크리스마스" -> isChristmasReceivable
             "발렌타인" -> isValentineReceivable
+            "봄" -> isSpringReceivable
             else -> false
         }
     }

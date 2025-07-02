@@ -10,3 +10,12 @@ database:
   name: "database_name"
   user: "username"
   password: "password"
+
+# HMCCosmetics 옷장 위치 시스템 설정
+wardrobe:
+  world: "world"  # 옷장이 위치한 월드 이름
+  location:
+    x: 31.494
+    y: 64.0
+    z: 78.7
+  radius: 2.0  # 옷장 활성화 반경 (블록 단위)

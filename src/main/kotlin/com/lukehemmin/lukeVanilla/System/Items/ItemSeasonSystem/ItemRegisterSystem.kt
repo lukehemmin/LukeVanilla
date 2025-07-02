@@ -22,9 +22,10 @@ class ItemRegisterSystem {
     private var isHalloweenEnabled = false
     private var isChristmasEnabled = false
     private var isValentineEnabled = false
+    private var isSpringEnabled = true
     
     // 이벤트 타입 목록
-    private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인")
+    private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인", "봄")
     
     // 할로윈 아이템 목록
     private val halloweenItems = mapOf(
@@ -79,6 +80,24 @@ class ItemRegisterSystem {
         "valentine_shield" to "발렌타인 방패"
     )
     
+    // 봄 아이템 목록
+    private val springItems = mapOf(
+        "plnyspringset_helmet" to "봄의 시작 헬멧",
+        "plny_springset_helmet" to "봄의 시작 헬멧 (장식식)",
+        "plnyspringset_chestplate" to "봄의 숨결 흉갑",
+        "plnyspringset_leggings" to "봄의 활력 레깅스",
+        "plnyspringset_boots" to "봄의 발걸음 부츠",
+        "plny_springset_sword" to "봄의 수호자 검",
+        "plny_springset_pickaxe" to "봄의 광부 곡괭이",
+        "plny_springset_axe" to "봄의 가지치기 도끼",
+        "plny_springset_hoe" to "봄의 경작 괭이",
+        "plny_springset_shovel" to "봄의 정원사 삽",
+        "plny_springset_bow" to "봄의 바람 활",
+        "plny_springset_crossbow" to "봄의 연꽃 석궁",
+        "plny_springset_shield" to "봄의 보호막 방패",
+        "plny_springset_hammer" to "봄의 대장장이 망치"
+    )
+    
     init {
         val pluginManager = Bukkit.getPluginManager()
         val pluginInstance = pluginManager.getPlugin("LukeVanilla")
@@ -105,6 +124,7 @@ class ItemRegisterSystem {
             itemId.startsWith("halloween_") -> "할로윈"
             itemId.startsWith("merry_christmas_") || itemId.startsWith("merrychristmas_") -> "크리스마스"
             itemId.startsWith("valentine_") -> "발렌타인"
+            itemId.startsWith("plnyspringset_") || itemId.startsWith("plny_springset_") -> "봄"
             else -> ""
         }
     }
@@ -115,6 +135,7 @@ class ItemRegisterSystem {
             halloweenItems.containsKey(itemId) -> halloweenItems[itemId] ?: "알 수 없는 할로윈 아이템"
             christmasItems.containsKey(itemId) -> christmasItems[itemId] ?: "알 수 없는 크리스마스 아이템"
             valentineItems.containsKey(itemId) -> valentineItems[itemId] ?: "알 수 없는 발렌타인 아이템"
+            springItems.containsKey(itemId) -> springItems[itemId] ?: "알 수 없는 봄 아이템"
             else -> "알 수 없는 아이템"
         }
     }
@@ -125,6 +146,7 @@ class ItemRegisterSystem {
             "할로윈" -> "Halloween_Item_Owner"
             "크리스마스" -> "Christmas_Item_Owner"
             "발렌타인" -> "Valentine_Item_Owner"
+            "봄" -> "Spring_Item_Owner"
             else -> ""
         }
     }
@@ -375,6 +397,7 @@ class ItemRegisterSystem {
             "할로윈" -> { isHalloweenEnabled = enabled; true }
             "크리스마스" -> { isChristmasEnabled = enabled; true }
             "발렌타인" -> { isValentineEnabled = enabled; true }
+            "봄" -> { isSpringEnabled = enabled; true }
             else -> false
         }
     }
@@ -385,6 +408,7 @@ class ItemRegisterSystem {
             "할로윈" -> isHalloweenEnabled
             "크리스마스" -> isChristmasEnabled
             "발렌타인" -> isValentineEnabled
+            "봄" -> isSpringEnabled
             else -> false
         }
     }

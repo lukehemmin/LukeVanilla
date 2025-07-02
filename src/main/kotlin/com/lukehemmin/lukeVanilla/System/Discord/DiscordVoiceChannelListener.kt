@@ -10,7 +10,6 @@ import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.ColorUtill.ColorUtil.translateColorCodes
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
-import java.util.regex.Pattern
 
 class DiscordVoiceChannelListener(private val plugin: Main) : ListenerAdapter() {
 
@@ -53,7 +52,7 @@ class DiscordVoiceChannelListener(private val plugin: Main) : ListenerAdapter() 
 
     private fun handleChannelJoined(member: Member, channelJoined: AudioChannelUnion, displayName: String) {
         val voiceChannelName = channelJoined.name
-        val parsedChannelName = replaceEmojis(voiceChannelName)
+        val parsedChannelName = EmojiUtil.replaceEmojis(voiceChannelName)
 
         // 통화방에 들어온 유저에게 보내는 메시지
         val joinMessageForUser = "&f&l$parsedChannelName &a&l통화방에 들어왔습니다.".translateColorCodes()
@@ -122,7 +121,7 @@ class DiscordVoiceChannelListener(private val plugin: Main) : ListenerAdapter() 
 
     private fun handleChannelLeft(member: Member, channelLeft: AudioChannelUnion, displayName: String) {
         val voiceChannelName = channelLeft.name
-        val parsedChannelName = replaceEmojis(voiceChannelName)
+        val parsedChannelName = EmojiUtil.replaceEmojis(voiceChannelName)
 
         // 통화방에서 나간 유저에게 보내는 메시지
         val leaveMessageForUser = "&f&l$parsedChannelName &c&l통화방에서 나갔습니다.".translateColorCodes()
@@ -152,43 +151,6 @@ class DiscordVoiceChannelListener(private val plugin: Main) : ListenerAdapter() 
         }
     }
 
-    /**
-     * 이모티콘을 사용자 정의 포맷으로 변환하는 함수
-     */
-    private fun replaceEmojis(text: String): String {
-        val emojiPattern = Pattern.compile("[\\p{So}\\p{Cn}]")
-        val matcher = emojiPattern.matcher(text)
-        val result = StringBuffer()
-        while (matcher.find()) {
-            val emoji = matcher.group()
-            val emojiAlias = convertEmojiToAlias(emoji)
-            matcher.appendReplacement(result, emojiAlias)
-        }
-        matcher.appendTail(result)
-        return result.toString()
-    }
-
-    /**
-     * 이모티콘을 사용자 정의 이름으로 매핑하는 함수
-     */
-    private fun convertEmojiToAlias(emoji: String): String {
-        return when (emoji) {
-            "⛔" -> "ꑈ" // no_entry
-            "😡" -> "ꑂ" // enraged_face
-            "🤬" -> "ꑃ" // face_with_symbols_on_mouth
-            "🍌" -> "ꑌ" // banana
-            "🍓" -> "ꑊ" // strawberry
-            "🥕" -> "ꑁ" // carrot
-            "🥦" -> "ꑀ" // broccoli
-            "🎥" -> "ꑇ" // movie_camera
-            "🧊" -> "ꑄ" // ice
-            "📒" -> "ꑅ" // ledger
-            "📢" -> "ꑆ" // loudspeaker
-            "💬" -> "ꑉ" // speech_balloon
-            "📞" -> "ꑋ" // telephone_receiver
-            else -> emoji
-        }
-    }
 
     /**
      * 플레이어의 표시 이름을 가져오는 함수
