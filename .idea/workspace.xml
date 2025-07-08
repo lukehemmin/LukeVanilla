@@ -20,11 +20,8 @@
   <component name="ChangeListManager">
     <list default="true" id="9beb3cfd-aac5-4672-9dfc-099f85d52070" name="Changes" comment="feat: 서버 연결 관리 명령어 추가 및 상태 확인 기능 구현&#10;&#10;로비 서버에서만 사용할 수 있는 서버 연결 관리 명령어를 추가했습니다. 연결 상태 확인, 테스트, 초기화, 요청 강제 정리 등 다양한 기능을 제공하며, 이를 통해 서버 상태 관리와 디버깅 효율성을 크게 향상시켰습니다. 예외 처리 및 안정성 강화 작업도 포함되었습니다.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/DatabaseInitializer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/DatabaseInitializer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemCommand.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemCommand.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemReceiveSystem.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemReceiveSystem.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemRegisterSystem.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemRegisterSystem.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemViewSystem.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/ItemViewSystem.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/MyLand/LandProtectionListener.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/MyLand/LandProtectionListener.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/plugin.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/plugin.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,7 +41,12 @@
         </task>
         <projects_view>
           <tree_state>
-            <expand />
+            <expand>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="LukeVanilla" type="f1a62948:ProjectNode" />
+              </path>
+            </expand>
             <select />
           </tree_state>
         </projects_view>
@@ -67,7 +69,7 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
-  <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$PROJECT_DIR$/../.gradle/wrapper/dists/gradle-8.8-bin/dl7vupf4psengwqhwktix4v1/gradle-8.8" javaHome="$PROJECT_DIR$/../.jdks/temurin-21.0.7" />
+  <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$PROJECT_DIR$/../.gradle/wrapper/dists/gradle-8.8-bin/dl7vupf4psengwqhwktix4v1/gradle-8.8" javaHome="/usr/lib/jvm/java-1.21.0-openjdk-amd64" gradleVersion="8.8" />
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/Database.kt" root0="FORCE_HIGHLIGHTING" />
   </component>
@@ -90,32 +92,33 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Gradle.Build LukeVanilla.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.C:/Users/Administrator/Documents/GitHub/LukeVanilla [wrapper].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.Gradle 종속성 로드.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [build].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [jar].executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.LukeVanilla [shadowJar].executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;develop&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;프로젝트&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.44252872&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.LLMThirdPartyAiProvidersConfigurable&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.Build LukeVanilla.executor": "Run",
+    "Gradle.C:/Users/Administrator/Documents/GitHub/LukeVanilla [wrapper].executor": "Run",
+    "Gradle.Gradle 종속성 로드.executor": "Run",
+    "Gradle.LukeVanilla [build].executor": "Run",
+    "Gradle.LukeVanilla [jar].executor": "Run",
+    "Gradle.LukeVanilla [shadowJar].executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "develop",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "프로젝트",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.44252872",
+    "settings.editor.selected.configurable": "ml.llm.LLMConfigurable",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
     <layout>
       <window_info id="Bookmarks" side_tool="true" />
@@ -123,38 +126,40 @@
       <window_info id="Backup and Sync History" />
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Learn" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.14980468" />
-      <window_info id="Commit" order="1" weight="0.18670887" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.13183594" />
+      <window_info id="Commit" order="1" weight="0.13183594" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.3295594" />
       <window_info id="Welcome to GitHub Copilot" order="3" weight="0.18670887" />
-      <window_info id="Pull Requests" order="4" weight="0.18670887" />
+      <window_info id="Pull Requests" order="4" weight="0.13183594" />
       <window_info anchor="bottom" id="Database Changes" />
       <window_info anchor="bottom" id="TypeScript" />
       <window_info anchor="bottom" id="TODO" />
       <window_info anchor="bottom" id="File Transfer" />
-      <window_info anchor="bottom" id="Version Control" order="0" />
+      <window_info anchor="bottom" id="Version Control" order="0" weight="0.3301006" />
       <window_info anchor="bottom" id="Problems" order="1" />
       <window_info anchor="bottom" id="Problems View" order="2" />
-      <window_info anchor="bottom" x="44" y="496" width="1628" height="329" id="Terminal" order="3" weight="0.33023047" />
+      <window_info anchor="bottom" x="44" y="496" width="1628" height="329" id="Terminal" order="3" weight="0.22631049" />
       <window_info anchor="bottom" id="Services" order="4" />
-      <window_info active="true" anchor="bottom" id="Run" order="5" visible="true" weight="0.30711207" />
+      <window_info active="true" anchor="bottom" id="Run" order="5" visible="true" weight="0.25395113" />
       <window_info anchor="bottom" id="Profiler" order="6" weight="0.32982984" />
       <window_info anchor="bottom" id="Find" order="7" weight="0.33023047" />
       <window_info anchor="bottom" id="Debug" order="8" weight="0.3298611" />
-      <window_info anchor="bottom" id="Build" order="9" weight="0.3298611" />
-      <window_info anchor="bottom" id="Windsurf Console" order="10" />
-      <window_info anchor="bottom" id="GitHub Copilot MCP Log" order="11" />
+      <window_info anchor="bottom" id="Build" order="9" weight="0.31686628" />
+      <window_info anchor="bottom" id="Windsurf Console" order="10" weight="0.22593391" />
+      <window_info anchor="bottom" id="GitHub Copilot MCP Log" order="11" weight="0.22593391" />
       <window_info anchor="right" id="PR AI Assistant" />
-      <window_info anchor="right" id="Notifications" order="0" weight="0.3298442" />
-      <window_info active="true" anchor="right" x="1843" y="315" width="677" height="923" id="AIAssistant" order="1" type="FLOATING" weight="0.3298442" />
-      <window_info anchor="right" id="Database" order="2" weight="0.3298442" />
-      <window_info anchor="right" id="Gradle" order="3" weight="0.32984102" />
+      <window_info anchor="right" id="documentation.v2" show_stripe_button="false" side_tool="true" />
+      <window_info anchor="right" id="Notifications" order="0" weight="0.27059248" />
+      <window_info anchor="right" id="Database" order="1" weight="0.31816405" />
+      <window_info anchor="right" x="1843" y="315" width="677" height="923" id="AIAssistant" order="2" weight="0.31816405" />
+      <window_info anchor="right" id="Gradle" order="3" weight="0.31177747" />
       <window_info anchor="right" id="Maven" order="4" weight="0.25" />
       <window_info anchor="right" id="Coverage" order="5" side_tool="true" weight="0.3298442" />
-      <window_info anchor="right" id="github.copilotToolWindow" order="6" />
-      <window_info anchor="right" id="GitHub Copilot Chat" order="7" weight="0.3298442" />
-      <window_info anchor="right" id="Cascade" order="8" visible="true" weight="0.26464844" />
-      <window_info anchor="right" id="Endpoints" order="9" weight="0.3298442" />
+      <window_info anchor="right" id="Meet New UI" order="6" weight="0.32984102" />
+      <window_info anchor="right" id="github.copilotToolWindow" order="7" weight="0.31177747" />
+      <window_info anchor="right" id="GitHub Copilot Chat" order="8" weight="0.31169915" />
+      <window_info anchor="right" id="Cascade" order="9" weight="0.31816405" />
+      <window_info anchor="right" id="Endpoints" order="10" weight="0.3298442" />
     </layout>
   </component>
   <component name="RecentsManager">
@@ -168,6 +173,7 @@
       <recent name="com.lukehemmin.lukeVanilla.System.Halloween" />
     </key>
     <key name="K2MoveDeclarationsDialog.RECENT_PACKAGE_KEY">
+      <recent name="com.lukehemmin.lukeVanilla.System" />
       <recent name="com.lukehemmin.lukeVanilla.System.NexoPermissionSystem" />
     </key>
   </component>
@@ -243,16 +249,14 @@
         <item itemvalue="Gradle.LukeVanilla [shadowJar]" />
         <item itemvalue="Gradle.LukeVanilla [jar]" />
         <item itemvalue="Gradle.LukeVanilla [build]" />
-        <item itemvalue="Gradle.LukeVanilla [shadowJar]" />
-        <item itemvalue="Gradle.LukeVanilla [jar]" />
       </list>
     </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-64226f0f93ec-intellij.indexing.shared.core-IU-252.19874.12" />
-        <option value="bundled-js-predefined-d6986cc7102b-e0793c8bcbd6-JavaScript-IU-252.19874.12" />
+        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.23591.19" />
+        <option value="bundled-js-predefined-d6986cc7102b-6be00b7b0f42-JavaScript-IU-252.23591.19" />
       </set>
     </attachedChunks>
   </component>
@@ -342,6 +346,13 @@
       <workItem from="1749799378820" duration="414000" />
       <workItem from="1749799823971" duration="8847000" />
       <workItem from="1751391743111" duration="6959000" />
+      <workItem from="1751528100954" duration="1972000" />
+      <workItem from="1751942735460" duration="5525000" />
+      <workItem from="1751962237452" duration="4000" />
+      <workItem from="1751962494400" duration="1866000" />
+      <workItem from="1751965881390" duration="4000" />
+      <workItem from="1751965910206" duration="285000" />
+      <workItem from="1751966219368" duration="20876000" />
     </task>
     <task id="LOCAL-00001" summary="Add GSit and NPCSitPreventer integration&#10;&#10;Integrated GSit library in the project dependencies and registered NPCSitPreventer to manage NPC-related interactions. Simplified ShopListener logic by removing GSit-related handling and streamlined NPC interaction handling for better clarity and performance.">
       <option name="closed" value="true" />
@@ -478,11 +489,38 @@
     <option name="version" value="3" />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
+    <option name="RECENT_FILTERS">
+      <map>
+        <entry key="Branch">
+          <value>
+            <list>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="develop" />
+                </option>
+              </RecentGroup>
+            </list>
+          </value>
+        </entry>
+      </map>
+    </option>
     <option name="TAB_STATES">
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="develop" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>

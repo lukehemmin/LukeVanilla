@@ -113,7 +113,10 @@ class ItemRegisterSystem {
         return when {
             itemId.startsWith("halloween_") -> itemId.removePrefix("halloween_")
             itemId.startsWith("merry_christmas_") -> itemId.removePrefix("merry_christmas_")
+            itemId.startsWith("merrychristmas_") -> itemId.removePrefix("merrychristmas_")
             itemId.startsWith("valentine_") -> itemId.removePrefix("valentine_")
+            itemId.startsWith("plnyspringset_") -> itemId.removePrefix("plnyspringset_")
+            itemId.startsWith("plny_springset_") -> itemId.removePrefix("plny_springset_")
             else -> ""
         }
     }
@@ -164,7 +167,7 @@ class ItemRegisterSystem {
             var columnName = itemId // 기본적으로 전체 itemId를 사용
             
             // 시즌 이벤트 아이템의 경우, 접두사를 제거하고 실제 아이템 타입만 컬럼명으로 사용
-            val seasonPrefixes = listOf("halloween_", "merry_christmas_", "merrychristmas_", "valentine_")
+            val seasonPrefixes = listOf("halloween_", "merry_christmas_", "merrychristmas_", "valentine_", "plnyspringset_", "plny_springset_")
             for (prefix in seasonPrefixes) {
                 if (itemId.startsWith(prefix)) {
                     columnName = itemId.substring(prefix.length)
@@ -232,15 +235,35 @@ class ItemRegisterSystem {
             return Pair(null, null)
         }
 
-        val sql = "SELECT UUID, OwnerName FROM $tableName WHERE ItemID = ? LIMIT 1"
+        val columnName = getColumnName(itemId)
+        if (columnName.isEmpty()) {
+            plugin.logger.warning("아이템 ID에서 컬럼명을 추출할 수 없습니다: $itemId")
+            return Pair(null, null)
+        }
+
+        val sql = "SELECT UUID FROM $tableName WHERE `$columnName` = 1 LIMIT 1"
         try {
             database.getConnection().use { connection ->
                 connection.prepareStatement(sql).use { stmt ->
-                    stmt.setString(1, itemId)
                     stmt.executeQuery().use { rs ->
                         if (rs.next()) {
                             val ownerUUID = rs.getString("UUID")
-                            val ownerName = rs.getString("OwnerName")
+                            // UUID로 플레이어 이름 조회
+                            val ownerName = try {
+                                val playerDataSql = "SELECT NickName FROM Player_Data WHERE UUID = ?"
+                                connection.prepareStatement(playerDataSql).use { playerStmt ->
+                                    playerStmt.setString(1, ownerUUID)
+                                    playerStmt.executeQuery().use { playerRs ->
+                                        if (playerRs.next()) {
+                                            playerRs.getString("NickName")
+                                        } else {
+                                            Bukkit.getOfflinePlayer(java.util.UUID.fromString(ownerUUID)).name ?: "알 수 없는 플레이어"
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                "알 수 없는 플레이어"
+                            }
                             return Pair(ownerUUID, ownerName)
                         }
                     }
