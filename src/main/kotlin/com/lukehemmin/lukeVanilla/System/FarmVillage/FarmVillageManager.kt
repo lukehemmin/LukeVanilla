@@ -227,7 +227,7 @@ class FarmVillageManager(
         baseItem.amount = (itemData["amount"] as? Double)?.toInt() ?: 1
 
         baseItem.itemMeta = baseItem.itemMeta?.apply {
-            (itemData["name"] as? String)?.let { setDisplayName(gson.fromJson(it, Component::class.java)) }
+            (itemData["name"] as? String)?.let { displayName(gson.fromJson(it, Component::class.java)) }
             (itemData["lore"] as? List<*>)?.let { loreComponents ->
                 val loreList = loreComponents.mapNotNull { line ->
                     try {

@@ -6,16 +6,17 @@ import com.nexomc.nexo.api.NexoItems
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Location
+import org.bukkit.Material
+import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.inventory.InventoryAction
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryDragEvent
 import org.bukkit.event.inventory.InventoryMoveItemEvent
 import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.inventory.ItemStack
-import org.bukkit.Material
-import org.bukkit.entity.Player
 
 class FarmItemRestrictionListener(
     private val plugin: Main,
@@ -44,8 +45,8 @@ class FarmItemRestrictionListener(
         "eggplant_seeds", "eggplant", "eggplant_silver_star", "eggplant_golden_star"
     )
 
-    private fun isFarmRestrictedItem(itemStack: ItemStack): Boolean {
-        if (!itemStack.hasItemMeta()) return false
+    private fun isFarmRestrictedItem(itemStack: ItemStack?): Boolean {
+        if (itemStack == null || !itemStack.hasItemMeta()) return false
         val nexoId = NexoItems.idFromItem(itemStack)
         debugManager.log("FarmItemRestriction", "Checking item: ${itemStack.type}, Nexo ID: $nexoId")
         return nexoId != null && RESTRICTED_FARM_ITEM_IDS.contains(nexoId)
@@ -55,63 +56,42 @@ class FarmItemRestrictionListener(
         player.sendMessage(Component.text(message, NamedTextColor.RED))
     }
 
-    // --- 이벤트 핸들러 --- //
-
-    // 1. 아이템 설치 제한
     @EventHandler(ignoreCancelled = true)
     fun onBlockPlace(event: BlockPlaceEvent) {
-        val player = event.player
-        val item = event.itemInHand
-
-        if (isFarmRestrictedItem(item)) {
+        if (isFarmRestrictedItem(event.itemInHand)) {
             if (!farmVillageManager.isLocationWithinAnyClaimedFarmPlot(event.blockPlaced.location)) {
-                debugManager.log("FarmItemRestriction", "BlockPlaceEvent cancelled: ${player.name} tried to place ${item.type} outside farm plot.")
-                sendMessage(player, "이 아이템은 농사마을 외부에서는 설치할 수 없습니다!")
+                debugManager.log("FarmItemRestriction", "BlockPlaceEvent cancelled: ${event.player.name} tried to place ${event.itemInHand.type} outside farm plot.")
+                sendMessage(event.player, "이 아이템은 농사마을 외부에서는 설치할 수 없습니다!")
                 event.isCancelled = true
             }
         }
     }
 
-    // 2. 인벤토리 클릭 (상자, 엔더상자 등) 제한
     @EventHandler(ignoreCancelled = true)
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
-        val clickedInventory = event.clickedInventory
-        val currentItem = event.currentItem // Item that was clicked
-        val cursorItem = event.cursor // Item being held by cursor
-
-        // No item involved
-        if (currentItem == null && cursorItem == null) return
-
-        val itemToCheck = if (event.isShiftClick) currentItem else cursorItem // Prioritize currentItem for shift-click
-        if (itemToCheck == null || itemToCheck.type == Material.AIR) return
-        
+        val itemToCheck = if (event.isShiftClick) event.currentItem else event.cursor
         if (!isFarmRestrictedItem(itemToCheck)) return
 
-        // 엔더 상자 제한 (마을 내부/외부 불문)
-        if (clickedInventory != null && clickedInventory.type == org.bukkit.event.inventory.InventoryType.ENDER_CHEST) {
-            debugManager.log("FarmItemRestriction", "InventoryClickEvent cancelled: ${player.name} tried to put ${itemToCheck.type} into Ender Chest.")
+        val clickedInventory = event.clickedInventory
+        
+        if (clickedInventory?.type == org.bukkit.event.inventory.InventoryType.ENDER_CHEST) {
+            debugManager.log("FarmItemRestriction", "InventoryClickEvent cancelled: ${player.name} tried to put ${itemToCheck?.type} into Ender Chest.")
             sendMessage(player, "이 아이템은 엔더 상자에 넣을 수 없습니다!")
             event.isCancelled = true
             return
         }
 
-        // 일반 상자, 화로 등에 넣기 제한 (마을 외부에서)
         if (clickedInventory != null && clickedInventory.type != org.bukkit.event.inventory.InventoryType.PLAYER && clickedInventory.type != org.bukkit.event.inventory.InventoryType.CRAFTING) {
-            val clickedLocation = clickedInventory.location
-            if (clickedLocation != null && !farmVillageManager.isLocationWithinAnyClaimedFarmPlot(clickedLocation)) {
-                // Check if the action is to put item into the inventory (e.g., PUT, SWAP_WITH_CURSOR, MOVE_TO_OTHER_INVENTORY)
+            val clickedLocation = clickedInventory.location ?: return
+            if (!farmVillageManager.isLocationWithinAnyClaimedFarmPlot(clickedLocation)) {
                 val isPuttingItem = when (event.action) {
-                    InventoryClickEvent.Action.PLACE_ALL, 
-                    InventoryClickEvent.Action.PLACE_ONE, 
-                    InventoryClickEvent.Action.PLACE_SOME, 
-                    InventoryClickEvent.Action.SWAP_WITH_CURSOR, 
-                    InventoryClickEvent.Action.MOVE_TO_OTHER_INVENTORY -> true
+                    InventoryAction.PLACE_ALL, InventoryAction.PLACE_ONE, InventoryAction.PLACE_SOME,
+                    InventoryAction.SWAP_WITH_CURSOR, InventoryAction.MOVE_TO_OTHER_INVENTORY -> true
                     else -> false
                 }
-                
                 if (isPuttingItem) {
-                    debugManager.log("FarmItemRestriction", "InventoryClickEvent cancelled: ${player.name} tried to put ${itemToCheck.type} into external inventory outside farm plot.")
+                    debugManager.log("FarmItemRestriction", "InventoryClickEvent cancelled: ${player.name} tried to put ${itemToCheck?.type} into external inventory.")
                     sendMessage(player, "이 아이템은 농사마을 외부의 상자에 넣을 수 없습니다!")
                     event.isCancelled = true
                 }
@@ -119,69 +99,46 @@ class FarmItemRestrictionListener(
         }
     }
 
-    // 3. 인벤토리 드래그 제한 (상자, 엔더상자 등)
     @EventHandler(ignoreCancelled = true)
     fun onInventoryDrag(event: InventoryDragEvent) {
-        val player = event.whoClicked as? Player ?: return
-        val draggedItem = event.oldCursor // Item being dragged
-        if (draggedItem == null || draggedItem.type == Material.AIR) return
-        if (!isFarmRestrictedItem(draggedItem)) return
+        if (!isFarmRestrictedItem(event.oldCursor)) return
 
-        // Check affected slots (where the item is being dragged to)
+        val player = event.whoClicked as? Player ?: return
         for (rawSlot in event.rawSlots) {
-            val clickedInventory = event.view.getInventory(rawSlot)
-            if (clickedInventory != null) {
-                // 엔더 상자 제한
-                if (clickedInventory.type == org.bukkit.event.inventory.InventoryType.ENDER_CHEST) {
-                    debugManager.log("FarmItemRestriction", "InventoryDragEvent cancelled: ${player.name} tried to drag ${draggedItem.type} into Ender Chest.")
-                    sendMessage(player, "이 아이템은 엔더 상자에 넣을 수 없습니다!")
-                    event.isCancelled = true
-                    return
-                }
-                
-                // 일반 상자 등에 넣기 제한 (마을 외부에서)
-                if (clickedInventory.type != org.bukkit.event.inventory.InventoryType.PLAYER && clickedInventory.type != org.bukkit.event.inventory.InventoryType.CRAFTING) {
-                    val clickedLocation = clickedInventory.location
-                    if (clickedLocation != null && !farmVillageManager.isLocationWithinAnyClaimedFarmPlot(clickedLocation)) {
-                        debugManager.log("FarmItemRestriction", "InventoryDragEvent cancelled: ${player.name} tried to drag ${draggedItem.type} into external inventory outside farm plot.")
-                        sendMessage(player, "이 아이템은 농사마을 외부의 상자에 넣을 수 없습니다!")
-                        event.isCancelled = true
-                        return
-                    }
-                }
+            val clickedInventory = event.view.getInventory(rawSlot) ?: continue
+            
+            if (clickedInventory.type == org.bukkit.event.inventory.InventoryType.ENDER_CHEST) {
+                event.isCancelled = true
+                sendMessage(player, "이 아이템은 엔더 상자에 넣을 수 없습니다!")
+                return
+            }
+            
+            val clickedLocation = clickedInventory.location ?: continue
+            if (clickedInventory.type != org.bukkit.event.inventory.InventoryType.PLAYER && !farmVillageManager.isLocationWithinAnyClaimedFarmPlot(clickedLocation)) {
+                event.isCancelled = true
+                sendMessage(player, "이 아이템은 농사마을 외부의 상자에 넣을 수 없습니다!")
+                return
             }
         }
     }
 
-    // 4. 아이템 드롭 제한
     @EventHandler(ignoreCancelled = true)
     fun onPlayerDropItem(event: PlayerDropItemEvent) {
-        val player = event.player
-        val item = event.itemDrop.itemStack
-
-        if (isFarmRestrictedItem(item)) {
-            if (!farmVillageManager.isLocationWithinAnyClaimedFarmPlot(player.location)) {
-                debugManager.log("FarmItemRestriction", "PlayerDropItemEvent cancelled: ${player.name} tried to drop ${item.type} outside farm plot.")
-                sendMessage(player, "이 아이템은 농사마을 외부에서는 버릴 수 없습니다!")
+        if (isFarmRestrictedItem(event.itemDrop.itemStack)) {
+            if (!farmVillageManager.isLocationWithinAnyClaimedFarmPlot(event.player.location)) {
+                sendMessage(event.player, "이 아이템은 농사마을 외부에서는 버릴 수 없습니다!")
                 event.isCancelled = true
             }
         }
     }
 
-    // 5. 자동 인벤토리 이동 제한 (호퍼, 디스펜서 등)
     @EventHandler(ignoreCancelled = true)
     fun onInventoryMoveItem(event: InventoryMoveItemEvent) {
-        val item = event.item
-        if (!isFarmRestrictedItem(item)) return
-        
-        val sourceLocation = event.source.location
-        val destinationLocation = event.destination.location
-
-        // Prevent movement FROM outside TO inside, or FROM inside TO outside, or FROM outside TO outside
-        // The rule is: if destination is NOT a farm plot, cancel.
-        if (destinationLocation != null && !farmVillageManager.isLocationWithinAnyClaimedFarmPlot(destinationLocation)) {
-            debugManager.log("FarmItemRestriction", "InventoryMoveItemEvent cancelled: Automatic movement of ${item.type} to non-farm plot location.")
-            event.isCancelled = true
+        if (isFarmRestrictedItem(event.item)) {
+            val destinationLocation = event.destination.location ?: return
+            if (!farmVillageManager.isLocationWithinAnyClaimedFarmPlot(destinationLocation)) {
+                event.isCancelled = true
+            }
         }
     }
-} 
+}
