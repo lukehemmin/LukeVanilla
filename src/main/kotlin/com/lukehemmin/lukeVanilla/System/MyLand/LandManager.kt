@@ -7,6 +7,7 @@ import org.bukkit.Chunk
 import org.bukkit.entity.Player
 import java.util.UUID
 import kotlin.math.floor
+import org.bukkit.OfflinePlayer
 
 data class LandArea(val worldName: String, val minX: Int, val maxX: Int, val minZ: Int, val maxZ: Int) {
     val minChunkX = floor(minX.toDouble() / 16).toInt()
@@ -87,8 +88,30 @@ class LandManager(private val plugin: Main, private val database: Database, priv
         return landData.getClaimHistory(chunk.world.name, chunk.x, chunk.z)
     }
 
-    fun claimChunk(chunk: Chunk, player: Player): ClaimResult {
-        debugManager.log("MyLand", "Attempting to claim chunk (${chunk.x}, ${chunk.z}) for ${player.name}.")
+    fun getClaimType(chunk: Chunk): String? {
+        return getClaimInfo(chunk)?.claimType
+    }
+
+    fun getMembers(chunk: Chunk): List<UUID> {
+        return landData.getMembers(chunk.world.name, chunk.x, chunk.z)
+    }
+
+    fun addMember(chunk: Chunk, owner: Player, member: OfflinePlayer): Boolean {
+        if (getOwnerOfChunk(chunk) != owner.uniqueId) return false
+        return landData.addMember(chunk.world.name, chunk.x, chunk.z, member.uniqueId)
+    }
+
+    fun removeMember(chunk: Chunk, owner: Player, member: OfflinePlayer): Boolean {
+        if (getOwnerOfChunk(chunk) != owner.uniqueId) return false
+        return landData.removeMember(chunk.world.name, chunk.x, chunk.z, member.uniqueId)
+    }
+
+    fun isMember(chunk: Chunk, player: Player): Boolean {
+        return getMembers(chunk).contains(player.uniqueId)
+    }
+
+    fun claimChunk(chunk: Chunk, player: Player, claimType: String = "GENERAL"): ClaimResult {
+        debugManager.log("MyLand", "Attempting to claim chunk (${chunk.x}, ${chunk.z}) for ${player.name} with type $claimType.")
         if (!isChunkInClaimableArea(chunk)) {
             debugManager.log("MyLand", "Claim failed: Chunk is NOT in the claimable area.")
             return ClaimResult.NOT_IN_AREA
@@ -110,7 +133,7 @@ class LandManager(private val plugin: Main, private val database: Database, priv
             .add(chunkCoords)
             
         // Save to database
-        landData.saveClaim(worldName, chunk.x, chunk.z, player.uniqueId)
+        landData.saveClaim(worldName, chunk.x, chunk.z, player.uniqueId, claimType)
         
         debugManager.log("MyLand", "Claim successful for chunk (${chunk.x}, ${chunk.z}).")
             
@@ -137,6 +160,9 @@ class LandManager(private val plugin: Main, private val database: Database, priv
         // Delete from database
         landData.deleteClaim(worldName, chunk.x, chunk.z)
         
+        // Delete all members associated with this chunk
+        landData.deleteAllMembers(worldName, chunk.x, chunk.z)
+
         // Log the history
         landData.logClaimHistory(worldName, chunk.x, chunk.z, ownerUuid, actor?.uniqueId, reason)
         

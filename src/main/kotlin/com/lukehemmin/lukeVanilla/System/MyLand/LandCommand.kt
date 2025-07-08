@@ -13,6 +13,7 @@ import org.bukkit.entity.Player
 import java.text.SimpleDateFormat
 import java.util.UUID
 import kotlin.math.ceil
+import org.bukkit.Bukkit
 
 class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCompleter {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
@@ -25,6 +26,9 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             when (args[0].lowercase()) {
                 "정보" -> showClaimInfo(sender)
                 "기록" -> showClaimHistory(sender, args.getOrNull(1)?.toIntOrNull() ?: 1)
+                "친구추가" -> handleAddMember(sender, args)
+                "친구삭제" -> handleRemoveMember(sender, args)
+                "친구목록" -> handleListMembers(sender)
                 else -> sendUsage(sender)
             }
         } else {
@@ -48,11 +52,92 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 .append(Component.text(" - 현재 청크의 소유 정보를 봅니다.", NamedTextColor.GRAY))
         )
         sender.sendMessage(
+            Component.text("/땅 친구추가 <플레이어>", NamedTextColor.AQUA)
+                .clickEvent(ClickEvent.suggestCommand("/땅 친구추가 "))
+                .hoverEvent(HoverEvent.showText(Component.text("현재 청크에 친구를 추가합니다.")))
+                .append(Component.text(" - 현재 청크에 친구를 추가합니다.", NamedTextColor.GRAY))
+        )
+        sender.sendMessage(
+            Component.text("/땅 친구삭제 <플레이어>", NamedTextColor.AQUA)
+                .clickEvent(ClickEvent.suggestCommand("/땅 친구삭제 "))
+                .hoverEvent(HoverEvent.showText(Component.text("현재 청크에서 친구를 삭제합니다.")))
+                .append(Component.text(" - 현재 청크에서 친구를 삭제합니다.", NamedTextColor.GRAY))
+        )
+        sender.sendMessage(
+            Component.text("/땅 친구목록", NamedTextColor.AQUA)
+                .clickEvent(ClickEvent.suggestCommand("/땅 친구목록"))
+                .hoverEvent(HoverEvent.showText(Component.text("현재 청크의 친구 목록을 봅니다.")))
+                .append(Component.text(" - 현재 청크의 친구 목록을 봅니다.", NamedTextColor.GRAY))
+        )
+        sender.sendMessage(
             Component.text("/땅 기록", NamedTextColor.AQUA)
                 .clickEvent(ClickEvent.suggestCommand("/땅 기록"))
                 .hoverEvent(HoverEvent.showText(Component.text("현재 청크의 이전 기록을 봅니다.")))
                 .append(Component.text(" - 현재 청크의 이전 소유 기록을 봅니다.", NamedTextColor.GRAY))
         )
+    }
+
+    private fun handleAddMember(player: Player, args: Array<out String>) {
+        val chunk = player.location.chunk
+        if (landManager.getClaimType(chunk) != "GENERAL") {
+            player.sendMessage(Component.text("농사마을 땅에는 친구를 추가할 수 없습니다.", NamedTextColor.RED))
+            return
+        }
+        if (landManager.getOwnerOfChunk(chunk) != player.uniqueId) {
+            player.sendMessage(Component.text("당신의 땅이 아닙니다.", NamedTextColor.RED))
+            return
+        }
+        if (args.size < 2) {
+            player.sendMessage(Component.text("사용법: /땅 친구추가 <플레이어>", NamedTextColor.RED))
+            return
+        }
+        val member = Bukkit.getOfflinePlayer(args[1])
+        if (landManager.addMember(chunk, player, member)) {
+            player.sendMessage(Component.text("${member.name}님을 친구로 추가했습니다.", NamedTextColor.GREEN))
+        } else {
+            player.sendMessage(Component.text("친구 추가에 실패했거나, 이미 추가된 친구입니다.", NamedTextColor.RED))
+        }
+    }
+
+    private fun handleRemoveMember(player: Player, args: Array<out String>) {
+        val chunk = player.location.chunk
+         if (landManager.getClaimType(chunk) != "GENERAL") {
+            player.sendMessage(Component.text("농사마을 땅에는 친구를 관리할 수 없습니다.", NamedTextColor.RED))
+            return
+        }
+        if (landManager.getOwnerOfChunk(chunk) != player.uniqueId) {
+            player.sendMessage(Component.text("당신의 땅이 아닙니다.", NamedTextColor.RED))
+            return
+        }
+        if (args.size < 2) {
+            player.sendMessage(Component.text("사용법: /땅 친구삭제 <플레이어>", NamedTextColor.RED))
+            return
+        }
+        val member = Bukkit.getOfflinePlayer(args[1])
+        if (landManager.removeMember(chunk, player, member)) {
+            player.sendMessage(Component.text("${member.name}님을 친구에서 삭제했습니다.", NamedTextColor.GREEN))
+        } else {
+            player.sendMessage(Component.text("친구 삭제에 실패했습니다.", NamedTextColor.RED))
+        }
+    }
+
+    private fun handleListMembers(player: Player) {
+        val chunk = player.location.chunk
+        if (landManager.getClaimType(chunk) != "GENERAL") {
+            player.sendMessage(Component.text("농사마을 땅에는 친구 목록이 없습니다.", NamedTextColor.RED))
+            return
+        }
+        if (landManager.getOwnerOfChunk(chunk) != player.uniqueId && !landManager.isMember(chunk, player)) {
+             player.sendMessage(Component.text("당신이 소유하거나 멤버로 등록된 땅이 아닙니다.", NamedTextColor.RED))
+             return
+        }
+        val members = landManager.getMembers(chunk)
+        if (members.isEmpty()) {
+            player.sendMessage(Component.text("이 땅에 추가된 친구가 없습니다.", NamedTextColor.YELLOW))
+        } else {
+            val memberNames = members.joinToString(", ") { Bukkit.getOfflinePlayer(it).name ?: "알 수 없음" }
+            player.sendMessage(Component.text("친구 목록: $memberNames", NamedTextColor.GREEN))
+        }
     }
 
     private fun showClaimInfo(player: Player) {
@@ -170,7 +255,10 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         args: Array<out String>
     ): MutableList<String> {
         if (args.size == 1) {
-            return mutableListOf("정보", "기록").filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
+            return mutableListOf("정보", "기록", "친구추가", "친구삭제", "친구목록").filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
+        }
+        if (args.size == 2 && (args[0].lowercase() == "친구추가" || args[0].lowercase() == "친구삭제")) {
+             return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
         }
         return mutableListOf()
     }

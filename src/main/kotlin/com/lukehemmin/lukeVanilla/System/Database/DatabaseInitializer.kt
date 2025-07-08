@@ -35,6 +35,7 @@ class DatabaseInitializer(private val database: Database) {
 
         // MyLand에서 관리 (청크단위 토지 시스템)
         createMyLandClaimsTable()
+        createMyLandMembersTable()
         createMyLandClaimHistoryTable()
 
         // FarmVillage에서 관리 (농사마을 토지 시스템)
@@ -588,8 +589,26 @@ class DatabaseInitializer(private val database: Database) {
                     `chunk_x` INT NOT NULL,
                     `chunk_z` INT NOT NULL,
                     `owner_uuid` VARCHAR(36) NOT NULL,
+                    `claim_type` VARCHAR(50) NOT NULL DEFAULT 'GENERAL',
                     `claimed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (`world`, `chunk_x`, `chunk_z`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun createMyLandMembersTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS myland_members (
+                    `world` VARCHAR(255) NOT NULL,
+                    `chunk_x` INT NOT NULL,
+                    `chunk_z` INT NOT NULL,
+                    `member_uuid` VARCHAR(36) NOT NULL,
+                    PRIMARY KEY (`world`, `chunk_x`, `chunk_z`, `member_uuid`)
                 );
                 """.trimIndent()
             )

@@ -158,10 +158,10 @@ class FarmVillageManager(
                 if (!landManager.isChunkClaimed(chunk1) && !landManager.isChunkClaimed(chunk2)) {
                     debugManager.log("FarmVillage", "Plot #$plotNumber is available. Attempting to claim...")
                     // Both chunks are available. Let's claim them.
-                    val result1 = landManager.claimChunk(chunk1, player)
+                    val result1 = landManager.claimChunk(chunk1, player, "FARM_VILLAGE")
                     if (result1 == ClaimResult.SUCCESS) {
                         debugManager.log("FarmVillage", "Successfully claimed first chunk for plot #$plotNumber.")
-                        val result2 = landManager.claimChunk(chunk2, player)
+                        val result2 = landManager.claimChunk(chunk2, player, "FARM_VILLAGE")
                         if (result2 == ClaimResult.SUCCESS) {
                             debugManager.log("FarmVillage", "Successfully claimed second chunk for plot #$plotNumber. Assignment complete.")
                             // Give package to player
