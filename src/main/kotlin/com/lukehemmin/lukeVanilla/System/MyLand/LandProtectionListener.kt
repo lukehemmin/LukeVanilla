@@ -20,9 +20,11 @@ class LandProtectionListener(private val landManager: LandManager) : Listener {
         val claimType = landManager.getClaimType(chunk)
 
         if (claimType == "FARM_VILLAGE") {
-            event.isCancelled = true
-            player.sendMessage(Component.text("농사마을 땅에서는 블록을 파괴할 수 없습니다.", NamedTextColor.RED))
-            return
+            if (ownerId != player.uniqueId && !landManager.isMember(chunk, player) && !player.hasPermission("myland.admin.bypass")) {
+                event.isCancelled = true
+                player.sendMessage(Component.text("농사마을 땅에서는 블록을 파괴할 수 없습니다.", NamedTextColor.RED))
+                return
+            }
         }
 
         if (ownerId != player.uniqueId && !landManager.isMember(chunk, player) && !player.hasPermission("myland.admin.bypass")) {
@@ -39,9 +41,11 @@ class LandProtectionListener(private val landManager: LandManager) : Listener {
         val claimType = landManager.getClaimType(chunk)
 
         if (claimType == "FARM_VILLAGE") {
-            event.isCancelled = true
-            player.sendMessage(Component.text("농사마을 땅에서는 블록을 설치할 수 없습니다.", NamedTextColor.RED))
-            return
+            if (ownerId != player.uniqueId && !landManager.isMember(chunk, player) && !player.hasPermission("myland.admin.bypass")) {
+                event.isCancelled = true
+                player.sendMessage(Component.text("농사마을 땅에서는 블록을 설치할 수 없습니다.", NamedTextColor.RED))
+                return
+            }
         }
         
         if (ownerId != player.uniqueId && !landManager.isMember(chunk, player) && !player.hasPermission("myland.admin.bypass")) {
@@ -59,12 +63,11 @@ class LandProtectionListener(private val landManager: LandManager) : Listener {
         val claimType = landManager.getClaimType(chunk)
 
         if (claimType == "FARM_VILLAGE") {
-             // Allow interaction with specific farm-related blocks, otherwise cancel.
-             // This part can be expanded later. For now, we cancel general interactions.
-             if (!player.isSneaking) { // Example condition
+            if (ownerId != player.uniqueId && !landManager.isMember(chunk, player) && !player.hasPermission("myland.admin.bypass")) {
                 event.isCancelled = true
                 player.sendMessage(Component.text("농사마을 땅에서는 상호작용이 제한됩니다.", NamedTextColor.RED))
-             }
+                return
+            }
         }
     }
     

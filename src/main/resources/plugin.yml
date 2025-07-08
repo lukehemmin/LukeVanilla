@@ -211,3 +211,9 @@ permissions:
   blockprot.reload:
     description: "설정 리로드 권한"
     default: op
+  myland.admin.bypass:
+    description: "MyLand 시스템 보호 우회 권한"
+    default: op
+  myland.admin.unclaim:
+    description: "MyLand 시스템 관리자 회수 권한"
+    default: op
