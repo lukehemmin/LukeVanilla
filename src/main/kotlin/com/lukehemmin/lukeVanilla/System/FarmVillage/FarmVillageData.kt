@@ -7,6 +7,7 @@ import org.bukkit.inventory.ItemStack
 
 data class PlotPartInfo(val plotNumber: Int, val plotPart: Int, val world: String, val chunkX: Int, val chunkZ: Int)
 data class PackageItem(val slot: Int, val itemType: String, val identifier: String, val itemData: String?)
+data class ShopLocation(val shopId: String, val world: String, val topBlockX: Int, val topBlockY: Int, val topBlockZ: Int, val bottomBlockX: Int, val bottomBlockY: Int, val bottomBlockZ: Int)
 
 class FarmVillageData(private val database: Database) {
 
@@ -88,6 +89,47 @@ class FarmVillageData(private val database: Database) {
             }
         }
         return items
+    }
+
+    fun saveShopLocation(shopId: String, world: String, topX: Int, topY: Int, topZ: Int) {
+        val query = "INSERT INTO farmvillage_shops (shop_id, world, top_block_x, top_block_y, top_block_z, bottom_block_x, bottom_block_y, bottom_block_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE world=VALUES(world), top_block_x=VALUES(top_block_x), top_block_y=VALUES(top_block_y), top_block_z=VALUES(top_block_z), bottom_block_x=VALUES(bottom_block_x), bottom_block_y=VALUES(bottom_block_y), bottom_block_z=VALUES(bottom_block_z)"
+        database.getConnection().use { conn ->
+            conn.prepareStatement(query).use { stmt ->
+                stmt.setString(1, shopId)
+                stmt.setString(2, world)
+                stmt.setInt(3, topX)
+                stmt.setInt(4, topY)
+                stmt.setInt(5, topZ)
+                stmt.setInt(6, topX) // Assuming bottom block has same X,Z
+                stmt.setInt(7, topY - 1)
+                stmt.setInt(8, topZ)
+                stmt.executeUpdate()
+            }
+        }
+    }
+    
+    fun getAllShopLocations(): List<ShopLocation> {
+        val locations = mutableListOf<ShopLocation>()
+        val query = "SELECT * FROM farmvillage_shops"
+        database.getConnection().use { conn ->
+            conn.prepareStatement(query).use { stmt ->
+                stmt.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        locations.add(ShopLocation(
+                            shopId = rs.getString("shop_id"),
+                            world = rs.getString("world"),
+                            topBlockX = rs.getInt("top_block_x"),
+                            topBlockY = rs.getInt("top_block_y"),
+                            topBlockZ = rs.getInt("top_block_z"),
+                            bottomBlockX = rs.getInt("bottom_block_x"),
+                            bottomBlockY = rs.getInt("bottom_block_y"),
+                            bottomBlockZ = rs.getInt("bottom_block_z")
+                        ))
+                    }
+                }
+            }
+        }
+        return locations
     }
 
     /**

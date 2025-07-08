@@ -28,7 +28,7 @@ import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import com.lukehemmin.lukeVanilla.System.Command.ServerConnectionCommand
 import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
-import com.lukehemmin.lukeVanilla.System.NexoPermissionSystem.NexoLuckPermsGranter
+import com.lukehemmin.lukeVanilla.System.NexoLuckPermsSystem.NexoLuckPermsGranter
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
@@ -420,6 +420,11 @@ class Main : JavaPlugin() {
         getCommand("pl")?.setExecutor(plcommandcancel())
         getCommand("plugins")?.setExecutor(plcommandcancel())
         getCommand("lukeplugininfo")?.setExecutor(plcommandcancel())
+
+        // 블록 위치 확인 명령어 등록
+        val blockLocationCommand = BlockLocationCommand()
+        getCommand("블록위치")?.setExecutor(blockLocationCommand)
+        server.pluginManager.registerEvents(blockLocationCommand, this)
 
         // ItemRestoreCommand 초기화 부분 수정
         val itemRestoreCommand = ItemRestoreCommand(itemRestoreLogger)

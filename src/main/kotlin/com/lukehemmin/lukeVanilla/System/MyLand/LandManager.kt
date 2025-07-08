@@ -67,7 +67,7 @@ class LandManager(private val plugin: Main, private val database: Database, priv
         if (chunk.world.name != area.worldName) {
             return false
         }
-        
+
         return chunk.x in area.minChunkX..area.maxChunkX &&
                chunk.z in area.minChunkZ..area.maxChunkZ
     }

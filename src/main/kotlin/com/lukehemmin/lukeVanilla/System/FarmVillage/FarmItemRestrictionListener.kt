@@ -26,23 +26,32 @@ class FarmItemRestrictionListener(
 
     // 농사마을 아이템 목록
     private val RESTRICTED_FARM_ITEM_IDS = setOf(
-        "dry_pot", "wet_pot", "soil_surveyor", "scarecrow", "crow_fly", "crow_stand",
-        "greenhouse_glass",
-        "watering_can_1", "watering_can_2", "watering_can_3", "watering_can_4",
-        "hop_seeds", "hop", "hop_silver_star", "hop_golden_star",
-        "tomato_seeds", "tomato", "golden_tomato", "tomato_silver_star", "tomato_golden_star", "gigantic_tomato",
-        "redpacket_seeds", "redpacket",
-        "pitaya_seeds", "pitaya", "pitaya_silver_star", "pitaya_golden_star",
-        "pepper_seeds", "pepper", "pepper_silver_star", "pepper_golden_star",
-        "grape_seeds", "grape", "grape_silver_star", "grape_golden_star",
-        "pineapple_seeds", "pineapple", "pineapple_silver_star", "pineapple_golden_star", "gigantic_pineapple",
+        // 작물 관련
+        "cabbage_seeds", "cabbage", "cabbage_silver_star", "cabbage_golden_star", "gigantic_cabbage",
+        "chinese_cabbage_seeds", "chinese_cabbage", "chinese_cabbage_silver_star", "chinese_cabbage_golden_star",
+        "corn_seeds", "corn", "corn_silver_star", "corn_golden_star",
+        "eggplant_seeds", "eggplant", "eggplant_silver_star", "eggplant_golden_star",
         "garlic_seeds", "garlic", "garlic_silver_star", "garlic_golden_star",
+        "grape_seeds", "grape", "grape_silver_star", "grape_golden_star",
+        "hop_seeds", "hop", "hop_silver_star", "hop_golden_star",
+        "pepper_seeds", "pepper", "pepper_silver_star", "pepper_golden_star",
+        "pineapple_seeds", "pineapple", "pineapple_silver_star", "pineapple_golden_star", "gigantic_pineapple",
+        "pitaya_seeds", "pitaya", "pitaya_silver_star", "pitaya_golden_star",
+        "redpacket_seeds", "redpacket", "redpacket_silver_star", "redpacket_golden_star",
+        "tomato_seeds", "tomato", "golden_tomato", "tomato_silver_star", "tomato_golden_star", "gigantic_tomato",
+
+        // 비료
         "speed_grow_1", "speed_grow_2", "speed_grow_3",
         "soil_retain_1", "soil_retain_2", "soil_retain_3",
         "quality_1", "quality_2", "quality_3",
         "yield_increase_1", "yield_increase_2", "yield_increase_3",
         "variation_1", "variation_2", "variation_3",
-        "eggplant_seeds", "eggplant", "eggplant_silver_star", "eggplant_golden_star"
+
+        // 농사 도구 및 시설
+        "dry_pot", "wet_pot",
+        "soil_surveyor", "scarecrow", "crow_fly", "crow_stand", "greenhouse_glass",
+        "sprinkler_1", "sprinkler_1_item", "sprinkler_2", "sprinkler_2_item", "sprinkler_3", "sprinkler_3_item", "water_effect",
+        "watering_can_1", "watering_can_2", "watering_can_3", "watering_can_4"
     )
 
     private fun isFarmRestrictedItem(itemStack: ItemStack?): Boolean {

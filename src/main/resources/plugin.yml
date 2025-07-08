@@ -123,6 +123,11 @@ commands:
     description: 개인 땅 정보를 확인합니다.
     usage: /<command> 정보
     aliases: [land, myland]
+  블록위치:
+    description: 블록 위치 확인 모드를 활성화/비활성화합니다.
+    usage: /블록위치
+    permission: lukevanilla.admin.getblocklocation
+    permission-message: 이 명령어를 사용할 권한이 없습니다.
   농사마을:
     description: 농사마을 관련 기능을 관리합니다.
     usage: /<command> [땅설정|땅주기]

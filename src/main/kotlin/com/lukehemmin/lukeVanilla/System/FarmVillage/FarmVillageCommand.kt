@@ -74,6 +74,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
                     sender.sendMessage("플레이어만 사용할 수 있는 명령어입니다.")
                 }
             }
+            "농사아이템교환상점위치지정" -> handleSetShopLocation(sender, args)
             else -> sendSystemUsage(sender)
         }
     }
@@ -121,6 +122,28 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
             manager.setPlot(plotNumber, plotPart, sender.location)
             sender.sendMessage(Component.text("✅ $plotNumber-$plotPart 번 농사 땅을 현재 위치로 설정했습니다.", NamedTextColor.GREEN))
         }
+    }
+
+    private fun handleSetShopLocation(sender: CommandSender, args: Array<out String>) {
+        // /farmvillage system setshop <world> <x> <y> <z>
+        if (args.size < 6) {
+            sender.sendMessage(Component.text("사용법: /농사마을 시스템 농사아이템교환상점위치지정 <world> <x> <y> <z>", NamedTextColor.RED))
+            return
+        }
+        val world = args[2]
+        val x = args[3].toIntOrNull()
+        val y = args[4].toIntOrNull()
+        val z = args[5].toIntOrNull()
+
+        if (x == null || y == null || z == null) {
+            sender.sendMessage(Component.text("좌표는 숫자여야 합니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // For now, we use a fixed shopId. This could be an argument later.
+        val shopId = "farm_item_exchange"
+        manager.setShopLocation(shopId, world, x, y, z)
+        sender.sendMessage(Component.text("농사 아이템 교환 상점 위치를 ($world, $x, $y, $z)로 설정했습니다.", NamedTextColor.GREEN))
     }
 
     private fun handleConfiscatePlot(sender: CommandSender, args: Array<out String>) {
@@ -186,6 +209,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         sender.sendMessage(Component.text("--- 농사마을 시스템 설정 ---", NamedTextColor.RED))
         sender.sendMessage(Component.text("/농사마을 시스템 땅설정 <땅번호> <청크번호>", NamedTextColor.AQUA))
         sender.sendMessage(Component.text("/농사마을 시스템 입주패키지수정", NamedTextColor.AQUA))
+        sender.sendMessage(Component.text("/농사마을 시스템 농사아이템교환상점위치지정 <world> <x> <y> <z>", NamedTextColor.AQUA))
     }
 
     override fun onTabComplete(
@@ -203,7 +227,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         if (args.size == 2) {
             when (args[0].lowercase()) {
                 "땅주기", "상점이용권한지급" -> return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
-                "시스템" -> return mutableListOf("땅설정", "입주패키지수정").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
+                "시스템" -> return mutableListOf("땅설정", "입주패키지수정", "농사아이템교환상점위치지정").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
             }
         }
         

@@ -17,6 +17,7 @@ class FarmVillageSystem(
     private lateinit var farmVillageManager: FarmVillageManager
     private lateinit var farmVillageCommand: FarmVillageCommand
     private lateinit var farmItemRestrictionListener: FarmItemRestrictionListener
+    private lateinit var shopInteractListener: ShopInteractListener
 
     fun enable() {
         // Accessing the landManager from the privateLandSystem instance
@@ -26,10 +27,12 @@ class FarmVillageSystem(
         farmVillageManager = FarmVillageManager(plugin, farmVillageData, landManager, debugManager, luckPerms)
         farmVillageCommand = FarmVillageCommand(plugin, farmVillageManager)
         farmItemRestrictionListener = FarmItemRestrictionListener(plugin, farmVillageManager, debugManager)
+        shopInteractListener = ShopInteractListener(farmVillageManager)
 
         plugin.getCommand("농사마을")?.setExecutor(farmVillageCommand)
         plugin.getCommand("농사마을")?.tabCompleter = farmVillageCommand
         plugin.server.pluginManager.registerEvents(farmItemRestrictionListener, plugin)
+        plugin.server.pluginManager.registerEvents(shopInteractListener, plugin)
         
         plugin.logger.info("[FarmVillage] 농사마을 시스템이 활성화되었습니다.")
     }

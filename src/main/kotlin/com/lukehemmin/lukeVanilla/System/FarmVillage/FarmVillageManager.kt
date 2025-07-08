@@ -32,9 +32,28 @@ class FarmVillageManager(
 
     private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
     private val gson = Gson()
+    private var shopLocations = listOf<ShopLocation>()
 
     init {
         plugin.server.pluginManager.registerEvents(packageEditGUI, plugin)
+        loadShopLocations()
+    }
+
+    private fun loadShopLocations() {
+        shopLocations = farmVillageData.getAllShopLocations()
+        debugManager.log("FarmVillage", "${shopLocations.size}개의 상점 위치를 불러왔습니다.")
+    }
+    
+    fun setShopLocation(shopId: String, world: String, x: Int, y: Int, z: Int) {
+        farmVillageData.saveShopLocation(shopId, world, x, y, z)
+        loadShopLocations() // Reload cache after update
+    }
+
+    fun isShopLocation(location: Location): Boolean {
+        return shopLocations.any { 
+            (location.blockX == it.topBlockX && location.blockY == it.topBlockY && location.blockZ == it.topBlockZ && location.world.name == it.world) ||
+            (location.blockX == it.bottomBlockX && location.blockY == it.bottomBlockY && location.blockZ == it.bottomBlockZ && location.world.name == it.world)
+        }
     }
 
     fun openPackageEditor(player: Player) {

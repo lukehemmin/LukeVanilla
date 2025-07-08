@@ -41,6 +41,7 @@ class DatabaseInitializer(private val database: Database) {
         // FarmVillage에서 관리 (농사마을 토지 시스템)
         createFarmVillagePlotsTable()
         createFarmVillagePackageItemsTable()
+        createFarmVillageShopsTable()
 
         // 다른 테이블 생성 코드 추가 가능
     }
@@ -609,6 +610,26 @@ class DatabaseInitializer(private val database: Database) {
                     `chunk_z` INT NOT NULL,
                     `member_uuid` VARCHAR(36) NOT NULL,
                     PRIMARY KEY (`world`, `chunk_x`, `chunk_z`, `member_uuid`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun createFarmVillageShopsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS farmvillage_shops (
+                    `shop_id` VARCHAR(100) PRIMARY KEY,
+                    `world` VARCHAR(255) NOT NULL,
+                    `top_block_x` INT NOT NULL,
+                    `top_block_y` INT NOT NULL,
+                    `top_block_z` INT NOT NULL,
+                    `bottom_block_x` INT NOT NULL,
+                    `bottom_block_y` INT NOT NULL,
+                    `bottom_block_z` INT NOT NULL
                 );
                 """.trimIndent()
             )
