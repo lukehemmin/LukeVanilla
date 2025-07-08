@@ -33,7 +33,7 @@ class LandData(private val database: Database) {
      * 특정 청크의 소유권을 데이터베이스에 저장합니다.
      */
     fun saveClaim(worldName: String, chunkX: Int, chunkZ: Int, owner: UUID) {
-        val query = "INSERT INTO myland_claims (world, chunk_x, chunk_z, owner_uuid) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE owner_uuid = ?"
+        val query = "INSERT INTO myland_claims (world, chunk_x, chunk_z, owner_uuid) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE owner_uuid = ?, claimed_at = CURRENT_TIMESTAMP"
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, worldName)

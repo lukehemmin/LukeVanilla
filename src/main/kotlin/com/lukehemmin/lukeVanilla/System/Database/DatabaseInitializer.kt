@@ -587,6 +587,7 @@ class DatabaseInitializer(private val database: Database) {
                     `chunk_x` INT NOT NULL,
                     `chunk_z` INT NOT NULL,
                     `owner_uuid` VARCHAR(36) NOT NULL,
+                    `claimed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (`world`, `chunk_x`, `chunk_z`)
                 );
                 """.trimIndent()
