@@ -32,6 +32,14 @@ class DatabaseInitializer(private val database: Database) {
         createWarningsPlayersTable()
         createWarningsRecordsTable()
         createWarningsPardonsTable()
+
+        // MyLand에서 관리 (청크단위 토지 시스템)
+        createMyLandClaimsTable()
+        createMyLandClaimHistoryTable()
+
+        // FarmVillage에서 관리 (농사마을 토지 시스템)
+        createFarmVillagePlotsTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -563,6 +571,61 @@ class DatabaseInitializer(private val database: Database) {
                     FOREIGN KEY (`player_id`) REFERENCES `warnings_players` (`player_id`) ON DELETE CASCADE,
                     FOREIGN KEY (`warning_id`) REFERENCES `warnings_records` (`warning_id`) ON DELETE SET NULL,
                     INDEX `idx_player_id` (`player_id`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun createMyLandClaimsTable(){
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS myland_claims (
+                    `world` CARCHAR(255) NOT NULL,
+                    `chunk_x` INT NOT NULL,
+                    `chunk_z` INT NOT NULL,
+                    `owner_uuid` VARCHAR(36) NOT NULL,
+                    PRIMARY KEY (`world`, `chunk_x`, `chunk_z`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun createMyLandClaimHistoryTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS myland_claim_history (
+                    `history_id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `world` VARCHAR(255) NOT NULL,
+                    `chunk_x` INT NOT NULL,
+                    `chunk_z` INT NOT NULL,
+                    `previous_owner_uuid` VARCHAR(36) NOT NULL,
+                    `actor_uuid` VARCHAR(36),
+                    `reason` VARCHAR(255) NOT NULL,
+                    `unclaimed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun createFarmVillagePlotsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS farmvillage_plots (
+                    `plot_number` INT NOT NULL,
+                    `plot_part` INT NOT NULL,
+                    `world` VARCHAR(255) NOT NULL,
+                    `chunk_x` INT NOT NULL,
+                    `chunk_z` INT NOT NULL,
+                    PRIMARY KEY (`plot_number`, `plot_part`)
                 );
                 """.trimIndent()
             )

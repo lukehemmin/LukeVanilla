@@ -28,7 +28,9 @@ import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import com.lukehemmin.lukeVanilla.System.Command.ServerConnectionCommand
 import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
-import com.lukehemmin.lukeVanilla.System.NexoLuckPermsSystem.NexoLuckPermsGranter
+import com.lukehemmin.lukeVanilla.System.NexoPermissionSystem.NexoLuckPermsGranter
+import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
+import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -48,6 +50,8 @@ class Main : JavaPlugin() {
     lateinit var snowMinigame: SnowMinigame
     private var wardrobeLocationSystem: WardrobeLocationSystem? = null
     private var nexoLuckPermsGranter: NexoLuckPermsGranter? = null
+    private var privateLandSystem: PrivateLandSystem? = null
+    private var farmVillageSystem: FarmVillageSystem? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -269,7 +273,7 @@ class Main : JavaPlugin() {
             discordBot.jda.addEventListener(VoiceChannelTextListener(this))
 
             // DynamicVoiceChannelManager는 야생 서버에서만 실행
-            if (serviceType == "Vanilla") {
+            if (serviceType == "Lobby") {
                 val guildId = database.getSettingValue("DiscordServerID")
                 guildId?.let {
                     discordBot.jda.addEventListener(
@@ -535,9 +539,35 @@ class Main : JavaPlugin() {
             logger.severe("[NexoLuckPermsGranter] 권한 지급 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
         }
+
+        // 개인 땅 시스템 초기화 (야생서버에서만 실행)
+        if (serviceType == "Vanilla") {
+            try {
+                privateLandSystem = PrivateLandSystem(this, database)
+                privateLandSystem?.enable()
+
+                // FarmVillage 시스템 초기화 (PrivateLandSystem에 의존)
+                privateLandSystem?.let {
+                    farmVillageSystem = FarmVillageSystem(this, database, it)
+                    farmVillageSystem?.enable()
+                }
+
+            } catch (e: Exception) {
+                logger.severe("[MyLand/FarmVillage] 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        } else {
+            logger.info("[MyLand/FarmVillage] ${serviceType} 서버에서는 개인 땅 및 농장마을 시스템이 비활성화됩니다.")
+        }
     }
 
     override fun onDisable() {
+        // 농장마을 시스템 비활성화
+        farmVillageSystem?.disable()
+        
+        // 개인 땅 시스템 비활성화
+        privateLandSystem?.disable()
+        
         // 옷장 위치 시스템 정리
         wardrobeLocationSystem?.cleanup()
         
