@@ -28,7 +28,7 @@ import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import com.lukehemmin.lukeVanilla.System.Command.ServerConnectionCommand
 import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
-import com.lukehemmin.lukeVanilla.System.NexoLuckPermsSystem.NexoLuckPermsGranter
+// import com.lukehemmin.lukeVanilla.System.NexoLuckPermsSystem.NexoLuckPermsGranter
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
@@ -51,7 +51,7 @@ class Main : JavaPlugin() {
     lateinit var statsSystem: StatsSystem
     lateinit var snowMinigame: SnowMinigame
     private var wardrobeLocationSystem: WardrobeLocationSystem? = null
-    private var nexoLuckPermsGranter: NexoLuckPermsGranter? = null
+    // private var nexoLuckPermsGranter: NexoLuckPermsGranter? = null
     private var privateLandSystem: PrivateLandSystem? = null
     private var farmVillageSystem: FarmVillageSystem? = null
     private lateinit var debugManager: DebugManager
@@ -550,9 +550,9 @@ class Main : JavaPlugin() {
             // LuckPerms 플러그인이 활성화되어 있는지 확인
             val luckPermsPlugin = server.pluginManager.getPlugin("LuckPerms")
             if (luckPermsPlugin != null && luckPermsPlugin.isEnabled) {
-                nexoLuckPermsGranter = NexoLuckPermsGranter(this)
-                nexoLuckPermsGranter?.register()
-                logger.info("[NexoLuckPermsGranter] 권한 지급 시스템이 초기화되었습니다.")
+                // nexoLuckPermsGranter = NexoLuckPermsGranter(this)
+                // nexoLuckPermsGranter?.register()
+                logger.info("[NexoLuckPermsGranter] 권한 지급 시스템이 초기화되었습니다. (현재 주석 처리됨)")
             } else {
                 logger.warning("[NexoLuckPermsGranter] LuckPerms 플러그인을 찾을 수 없습니다. 권한 지급 시스템이 비활성화됩니다.")
             }

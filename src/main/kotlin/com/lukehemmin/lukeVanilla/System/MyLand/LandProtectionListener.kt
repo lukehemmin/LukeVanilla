@@ -74,7 +74,7 @@ class LandProtectionListener(private val landManager: LandManager) : Listener {
         val claimTypeStart = landManager.getClaimType(startChunk)
 
         for (block in event.blocks) {
-            val endChunk = block.location.add(event.direction.modX, event.direction.modY, event.direction.modZ).chunk
+            val endChunk = block.location.add(event.direction.modX.toDouble(), event.direction.modY.toDouble(), event.direction.modZ.toDouble()).chunk
             if (startChunk == endChunk) continue
 
             val claimTypeEnd = landManager.getClaimType(endChunk)
