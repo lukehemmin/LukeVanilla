@@ -2,12 +2,14 @@ package com.lukehemmin.lukeVanilla.System.FarmVillage
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 
 class FarmVillageSystem(
     private val plugin: Main,
     private val database: Database,
-    private val privateLandSystem: PrivateLandSystem
+    private val privateLandSystem: PrivateLandSystem,
+    private val debugManager: DebugManager
 ) {
     private lateinit var farmVillageData: FarmVillageData
     private lateinit var farmVillageManager: FarmVillageManager
@@ -18,7 +20,7 @@ class FarmVillageSystem(
         val landManager = privateLandSystem.getLandManager()
         
         farmVillageData = FarmVillageData(database)
-        farmVillageManager = FarmVillageManager(plugin, farmVillageData, landManager)
+        farmVillageManager = FarmVillageManager(plugin, farmVillageData, landManager, debugManager)
         farmVillageCommand = FarmVillageCommand(farmVillageManager)
 
         plugin.getCommand("농사마을")?.setExecutor(farmVillageCommand)

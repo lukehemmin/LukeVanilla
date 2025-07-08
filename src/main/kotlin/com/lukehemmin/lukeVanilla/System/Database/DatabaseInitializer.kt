@@ -583,7 +583,7 @@ class DatabaseInitializer(private val database: Database) {
             statement.executeUpdate(
                 """
                 CREATE TABLE IF NOT EXISTS myland_claims (
-                    `world` CARCHAR(255) NOT NULL,
+                    `world` VARCHAR(255) NOT NULL,
                     `chunk_x` INT NOT NULL,
                     `chunk_z` INT NOT NULL,
                     `owner_uuid` VARCHAR(36) NOT NULL,

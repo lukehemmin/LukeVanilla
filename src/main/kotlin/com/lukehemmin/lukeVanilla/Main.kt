@@ -31,6 +31,7 @@ import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
 import com.lukehemmin.lukeVanilla.System.NexoPermissionSystem.NexoLuckPermsGranter
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
+import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -52,6 +53,7 @@ class Main : JavaPlugin() {
     private var nexoLuckPermsGranter: NexoLuckPermsGranter? = null
     private var privateLandSystem: PrivateLandSystem? = null
     private var farmVillageSystem: FarmVillageSystem? = null
+    private lateinit var debugManager: DebugManager
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -242,6 +244,9 @@ class Main : JavaPlugin() {
         database = Database(this, config)
         val dbInitializer = DatabaseInitializer(database)
         dbInitializer.createTables()
+
+        // DebugManager 초기화
+        debugManager = DebugManager(this)
 
         // Read service type from config
         serviceType = config.getString("service.type") ?: "Vanilla"
@@ -543,12 +548,12 @@ class Main : JavaPlugin() {
         // 개인 땅 시스템 초기화 (야생서버에서만 실행)
         if (serviceType == "Vanilla") {
             try {
-                privateLandSystem = PrivateLandSystem(this, database)
+                privateLandSystem = PrivateLandSystem(this, database, debugManager)
                 privateLandSystem?.enable()
 
                 // FarmVillage 시스템 초기화 (PrivateLandSystem에 의존)
                 privateLandSystem?.let {
-                    farmVillageSystem = FarmVillageSystem(this, database, it)
+                    farmVillageSystem = FarmVillageSystem(this, database, it, debugManager)
                     farmVillageSystem?.enable()
                 }
 

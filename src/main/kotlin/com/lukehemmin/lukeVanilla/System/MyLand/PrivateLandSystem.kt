@@ -2,10 +2,15 @@ package com.lukehemmin.lukeVanilla.System.MyLand
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
 
-class PrivateLandSystem(private val plugin: Main, private val database: Database) {
+class PrivateLandSystem(
+    private val plugin: Main,
+    private val database: Database,
+    private val debugManager: DebugManager
+) {
 
-    private val landManager = LandManager(plugin, database)
+    private val landManager = LandManager(plugin, database, debugManager)
     private val landProtectionListener = LandProtectionListener(landManager)
     private val landCommand = LandCommand(landManager)
 

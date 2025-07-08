@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.MyLand
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
 import org.bukkit.Chunk
 import org.bukkit.entity.Player
 import java.util.UUID
@@ -14,7 +15,7 @@ data class LandArea(val worldName: String, val minX: Int, val maxX: Int, val min
     val maxChunkZ = floor(maxZ.toDouble() / 16).toInt()
 }
 
-class LandManager(private val plugin: Main, private val database: Database) {
+class LandManager(private val plugin: Main, private val database: Database, private val debugManager: DebugManager) {
     // Player UUID -> List of their claimed chunks (as Pair<Int, Int> for X and Z) per world
     private val ownedChunks = mutableMapOf<UUID, MutableMap<String, MutableList<Pair<Int, Int>>>>()
     private var claimedChunks = mutableMapOf<String, MutableMap<Pair<Int, Int>, UUID>>()
@@ -79,10 +80,13 @@ class LandManager(private val plugin: Main, private val database: Database) {
     }
 
     fun claimChunk(chunk: Chunk, player: Player): ClaimResult {
+        debugManager.log("MyLand", "Attempting to claim chunk (${chunk.x}, ${chunk.z}) for ${player.name}.")
         if (!isChunkInClaimableArea(chunk)) {
+            debugManager.log("MyLand", "Claim failed: Chunk is NOT in the claimable area.")
             return ClaimResult.NOT_IN_AREA
         }
         if (isChunkClaimed(chunk)) {
+            debugManager.log("MyLand", "Claim failed: Chunk is ALREADY claimed by ${getOwnerOfChunk(chunk)}.")
             return ClaimResult.ALREADY_CLAIMED
         }
         
@@ -99,6 +103,8 @@ class LandManager(private val plugin: Main, private val database: Database) {
             
         // Save to database
         landData.saveClaim(worldName, chunk.x, chunk.z, player.uniqueId)
+        
+        debugManager.log("MyLand", "Claim successful for chunk (${chunk.x}, ${chunk.z}).")
             
         return ClaimResult.SUCCESS
     }
@@ -125,6 +131,8 @@ class LandManager(private val plugin: Main, private val database: Database) {
         
         // Log the history
         landData.logClaimHistory(worldName, chunk.x, chunk.z, ownerUuid, actor?.uniqueId, reason)
+        
+        debugManager.log("MyLand", "Unclaim successful for chunk (${chunk.x}, ${chunk.z}). Actor: ${actor?.name ?: "System"}, Reason: $reason")
         
         return UnclaimResult.SUCCESS
     }
