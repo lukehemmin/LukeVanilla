@@ -5,16 +5,65 @@ import com.lukehemmin.lukeVanilla.System.MyLand.LandManager
 import com.lukehemmin.lukeVanilla.System.MyLand.ClaimResult
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.Material
+import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
 import java.util.UUID
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.nexomc.nexo.api.NexoItems
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
+import net.luckperms.api.LuckPerms
+import net.luckperms.api.model.user.User
+import net.luckperms.api.node.Node
+import org.bukkit.OfflinePlayer
+import java.util.concurrent.CompletableFuture
 
 class FarmVillageManager(
     private val plugin: Main,
     private val farmVillageData: FarmVillageData,
     private val landManager: LandManager,
-    private val debugManager: DebugManager
+    private val debugManager: DebugManager,
+    private val luckPerms: LuckPerms?
 ) {
+
+    private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
+    private val gson = Gson()
+
+    init {
+        plugin.server.pluginManager.registerEvents(packageEditGUI, plugin)
+    }
+
+    fun openPackageEditor(player: Player) {
+        packageEditGUI.open(player)
+    }
+
+    fun grantShopPermission(player: OfflinePlayer): CompletableFuture<Boolean> {
+        if (luckPerms == null) {
+            debugManager.log("FarmVillage", "LuckPerms is not available. Cannot grant permission.")
+            return CompletableFuture.completedFuture(false)
+        }
+        
+        val permission = "farmvillage.shop.use" // TODO: Make this configurable
+        val node = Node.builder(permission).build()
+
+        debugManager.log("FarmVillage", "Attempting to grant permission '$permission' to ${player.name}.")
+
+        return luckPerms.userManager.modifyUser(player.uniqueId) { user: User ->
+            val result = user.data().add(node)
+            if (result.wasSuccessful()) {
+                debugManager.log("FarmVillage", "Successfully granted permission to ${player.name}.")
+            } else {
+                debugManager.log("FarmVillage", "Permission was already present for ${player.name}.")
+            }
+        }.thenApply { true }.exceptionally { e ->
+            plugin.logger.severe("Error while granting permission to ${player.name}: ${e.message}")
+            false
+        }
+    }
 
     fun setPlot(plotNumber: Int, plotPart: Int, location: Location) {
         farmVillageData.setPlotLocation(plotNumber, plotPart, location)
@@ -22,6 +71,24 @@ class FarmVillageManager(
 
     fun getPlotPart(plotNumber: Int, plotPart: Int): PlotPartInfo? {
         return farmVillageData.getPlotPart(plotNumber, plotPart)
+    }
+
+    // 주어진 위치(청크)가 농사마을 땅 중 하나인지 확인합니다.
+    fun isLocationWithinAnyClaimedFarmPlot(location: Location): Boolean {
+        val currentChunk = location.chunk
+        val allPlotParts = farmVillageData.getAllPlotParts()
+
+        for (plotPartInfo in allPlotParts) {
+            val plotWorld = Bukkit.getWorld(plotPartInfo.world) ?: continue
+            val plotChunk = plotWorld.getChunkAt(plotPartInfo.chunkX, plotPartInfo.chunkZ)
+            
+            if (plotChunk == currentChunk && landManager.isChunkClaimed(plotChunk)) {
+                debugManager.log("FarmVillage", "Location (${location.blockX}, ${location.blockY}, ${location.blockZ}) is within claimed farm plot # ${plotPartInfo.plotNumber} part ${plotPartInfo.plotPart}.")
+                return true
+            }
+        }
+        debugManager.log("FarmVillage", "Location (${location.blockX}, ${location.blockY}, ${location.blockZ}) is NOT within any claimed farm plot.")
+        return false
     }
 
     fun confiscatePlot(plotNumber: Int, admin: Player): ConfiscateResult {
@@ -97,6 +164,8 @@ class FarmVillageManager(
                         val result2 = landManager.claimChunk(chunk2, player)
                         if (result2 == ClaimResult.SUCCESS) {
                             debugManager.log("FarmVillage", "Successfully claimed second chunk for plot #$plotNumber. Assignment complete.")
+                            // Give package to player
+                            giveJoinPackage(player)
                             return AssignResult.SUCCESS to plotNumber
                         } else {
                             // Rollback the first claim if the second one fails
@@ -119,6 +188,64 @@ class FarmVillageManager(
 
         debugManager.log("FarmVillage", "No available plots found after checking all defined plots.")
         return AssignResult.ALL_PLOTS_TAKEN to null
+    }
+
+    private fun giveJoinPackage(player: Player) {
+        val packageItemsInfo = farmVillageData.getPackageItems()
+        if (packageItemsInfo.isEmpty()) {
+            debugManager.log("FarmVillage", "No package items found in DB for ${player.name}.")
+            return
+        }
+        
+        val itemsToGive = packageItemsInfo.mapNotNull { deserializeItem(it) }
+
+        val droppedItems = player.inventory.addItem(*itemsToGive.toTypedArray())
+        if (droppedItems.isNotEmpty()) {
+            player.sendMessage(Component.text("인벤토리가 가득 차서 일부 입주 선물을 땅에 드롭했습니다.", NamedTextColor.YELLOW))
+            droppedItems.values.forEach { item ->
+                player.world.dropItemNaturally(player.location, item)
+            }
+        }
+        player.sendMessage(Component.text("농사마을 입주 선물이 지급되었습니다!", NamedTextColor.GREEN))
+        debugManager.log("FarmVillage", "Gave ${itemsToGive.size} package items to ${player.name}.")
+    }
+
+    // Deserialization logic moved here to be accessible by giveJoinPackage
+    private fun deserializeItem(itemInfo: PackageItem): ItemStack? {
+        val itemData: Map<String, Any> = try {
+            gson.fromJson(itemInfo.itemData, object : TypeToken<Map<String, Any>>() {}.type) ?: emptyMap()
+        } catch (e: Exception) {
+            emptyMap()
+        }
+
+        val baseItem = when (itemInfo.itemType) {
+            "NEXO" -> NexoItems.itemFromId(itemInfo.identifier)?.build()
+            "VANILLA" -> ItemStack(Material.getMaterial(itemInfo.identifier) ?: Material.AIR)
+            else -> null
+        } ?: return null
+        
+        baseItem.amount = (itemData["amount"] as? Double)?.toInt() ?: 1
+
+        baseItem.itemMeta = baseItem.itemMeta?.apply {
+            (itemData["name"] as? String)?.let { setDisplayName(gson.fromJson(it, Component::class.java)) }
+            (itemData["lore"] as? List<*>)?.let { loreComponents ->
+                val loreList = loreComponents.mapNotNull { line ->
+                    try {
+                        gson.fromJson(line as String, Component::class.java)
+                    } catch (e: Exception) {
+                        Component.text(line.toString())
+                    }
+                }
+                lore(loreList)
+            }
+            (itemData["enchants"] as? Map<String, Double>)?.forEach { (key, level) ->
+                val enchantment = Enchantment.getByKey(org.bukkit.NamespacedKey.minecraft(key.substringAfter(":")))
+                if (enchantment != null) {
+                    addEnchant(enchantment, level.toInt(), true)
+                }
+            }
+        }
+        return baseItem
     }
 }
 

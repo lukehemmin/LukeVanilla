@@ -5,6 +5,7 @@ import java.sql.Timestamp
 import java.util.UUID
 
 data class ClaimInfo(val ownerUuid: UUID, val claimedAt: Timestamp)
+data class ClaimHistory(val previousOwnerUuid: UUID, val actorUuid: UUID?, val reason: String, val unclaimedAt: Timestamp)
 
 class LandData(private val database: Database) {
 
@@ -108,5 +109,33 @@ class LandData(private val database: Database) {
                 statement.executeUpdate()
             }
         }
+    }
+
+    /**
+     * 특정 청크의 소유권 해제 이력 전체를 불러옵니다.
+     */
+    fun getClaimHistory(worldName: String, chunkX: Int, chunkZ: Int): List<ClaimHistory> {
+        val historyList = mutableListOf<ClaimHistory>()
+        val query = "SELECT previous_owner_uuid, actor_uuid, reason, unclaimed_at FROM myland_claim_history WHERE world = ? AND chunk_x = ? AND chunk_z = ? ORDER BY unclaimed_at DESC"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, worldName)
+                statement.setInt(2, chunkX)
+                statement.setInt(3, chunkZ)
+                statement.executeQuery().use { resultSet ->
+                    while (resultSet.next()) {
+                        historyList.add(
+                            ClaimHistory(
+                                previousOwnerUuid = UUID.fromString(resultSet.getString("previous_owner_uuid")),
+                                actorUuid = resultSet.getString("actor_uuid")?.let { UUID.fromString(it) },
+                                reason = resultSet.getString("reason"),
+                                unclaimedAt = resultSet.getTimestamp("unclaimed_at")
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return historyList
     }
 } 

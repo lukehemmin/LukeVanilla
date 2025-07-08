@@ -1,12 +1,17 @@
 package com.lukehemmin.lukeVanilla.System.FarmVillage
 
+import com.google.gson.Gson
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import org.bukkit.Location
+import org.bukkit.inventory.ItemStack
 
 data class PlotPartInfo(val plotNumber: Int, val plotPart: Int, val world: String, val chunkX: Int, val chunkZ: Int)
+data class PackageItem(val slot: Int, val itemType: String, val identifier: String, val itemData: String?)
 
 class FarmVillageData(private val database: Database) {
 
+    private val gson = Gson()
+    
     /**
      * 특정 번호의 농사 땅 위치 정보를 데이터베이스에 저장하거나 업데이트합니다.
      */
@@ -26,6 +31,63 @@ class FarmVillageData(private val database: Database) {
                 statement.executeUpdate()
             }
         }
+    }
+
+    /**
+     * 입주 패키지 아이템 목록 전체를 DB에 저장합니다 (기존 목록은 삭제 후 덮어쓰기).
+     */
+    fun savePackageItems(items: List<PackageItem>) {
+        val deleteQuery = "DELETE FROM farmvillage_package_items"
+        val insertQuery = "INSERT INTO farmvillage_package_items (slot, item_type, item_identifier, item_data) VALUES (?, ?, ?, ?)"
+        
+        database.getConnection().use { connection ->
+            connection.autoCommit = false
+            try {
+                // Clear existing items
+                connection.prepareStatement(deleteQuery).use { it.executeUpdate() }
+
+                // Insert new items
+                connection.prepareStatement(insertQuery).use { statement ->
+                    for (item in items) {
+                        statement.setInt(1, item.slot)
+                        statement.setString(2, item.itemType)
+                        statement.setString(3, item.identifier)
+                        statement.setString(4, item.itemData)
+                        statement.addBatch()
+                    }
+                    statement.executeBatch()
+                }
+                connection.commit()
+            } catch (e: Exception) {
+                connection.rollback()
+                throw e
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
+    /**
+     * DB에 저장된 모든 입주 패키지 아이템을 불러옵니다.
+     */
+    fun getPackageItems(): List<PackageItem> {
+        val items = mutableListOf<PackageItem>()
+        val query = "SELECT slot, item_type, item_identifier, item_data FROM farmvillage_package_items"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.executeQuery().use { resultSet ->
+                    while (resultSet.next()) {
+                        items.add(PackageItem(
+                            slot = resultSet.getInt("slot"),
+                            itemType = resultSet.getString("item_type"),
+                            identifier = resultSet.getString("item_identifier"),
+                            itemData = resultSet.getString("item_data")
+                        ))
+                    }
+                }
+            }
+        }
+        return items
     }
 
     /**

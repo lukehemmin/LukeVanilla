@@ -83,6 +83,10 @@ class LandManager(private val plugin: Main, private val database: Database, priv
         return landData.getClaimInfo(chunk.world.name, chunk.x, chunk.z)
     }
 
+    fun getClaimHistory(chunk: Chunk): List<ClaimHistory> {
+        return landData.getClaimHistory(chunk.world.name, chunk.x, chunk.z)
+    }
+
     fun claimChunk(chunk: Chunk, player: Player): ClaimResult {
         debugManager.log("MyLand", "Attempting to claim chunk (${chunk.x}, ${chunk.z}) for ${player.name}.")
         if (!isChunkInClaimableArea(chunk)) {

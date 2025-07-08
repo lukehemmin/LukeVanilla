@@ -32,6 +32,7 @@ import com.lukehemmin.lukeVanilla.System.NexoPermissionSystem.NexoLuckPermsGrant
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
+import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
@@ -54,6 +55,7 @@ class Main : JavaPlugin() {
     private var privateLandSystem: PrivateLandSystem? = null
     private var farmVillageSystem: FarmVillageSystem? = null
     private lateinit var debugManager: DebugManager
+    private var luckPerms: LuckPerms? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -247,6 +249,15 @@ class Main : JavaPlugin() {
 
         // DebugManager 초기화
         debugManager = DebugManager(this)
+
+        // LuckPerms API 초기화
+        val provider = server.servicesManager.getRegistration(LuckPerms::class.java)
+        if (provider != null) {
+            luckPerms = provider.provider
+            logger.info("LuckPerms API 연동에 성공했습니다.")
+        } else {
+            logger.warning("LuckPerms 플러그인을 찾을 수 없어 관련 기능이 비활성화됩니다.")
+        }
 
         // Read service type from config
         serviceType = config.getString("service.type") ?: "Vanilla"
@@ -553,7 +564,7 @@ class Main : JavaPlugin() {
 
                 // FarmVillage 시스템 초기화 (PrivateLandSystem에 의존)
                 privateLandSystem?.let {
-                    farmVillageSystem = FarmVillageSystem(this, database, it, debugManager)
+                    farmVillageSystem = FarmVillageSystem(this, database, it, debugManager, luckPerms)
                     farmVillageSystem?.enable()
                 }
 
