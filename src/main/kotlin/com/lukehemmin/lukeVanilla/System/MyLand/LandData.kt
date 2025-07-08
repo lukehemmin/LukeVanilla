@@ -1,7 +1,10 @@
 package com.lukehemmin.lukeVanilla.System.MyLand
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import java.sql.Timestamp
 import java.util.UUID
+
+data class ClaimInfo(val ownerUuid: UUID, val claimedAt: Timestamp)
 
 class LandData(private val database: Database) {
 
@@ -57,6 +60,30 @@ class LandData(private val database: Database) {
                 statement.setInt(2, chunkX)
                 statement.setInt(3, chunkZ)
                 statement.executeUpdate()
+            }
+        }
+    }
+
+    /**
+     * 특정 청크의 소유 정보를 불러옵니다.
+     */
+    fun getClaimInfo(worldName: String, chunkX: Int, chunkZ: Int): ClaimInfo? {
+        val query = "SELECT owner_uuid, claimed_at FROM myland_claims WHERE world = ? AND chunk_x = ? AND chunk_z = ?"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, worldName)
+                statement.setInt(2, chunkX)
+                statement.setInt(3, chunkZ)
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        ClaimInfo(
+                            ownerUuid = UUID.fromString(resultSet.getString("owner_uuid")),
+                            claimedAt = resultSet.getTimestamp("claimed_at")
+                        )
+                    } else {
+                        null
+                    }
+                }
             }
         }
     }
