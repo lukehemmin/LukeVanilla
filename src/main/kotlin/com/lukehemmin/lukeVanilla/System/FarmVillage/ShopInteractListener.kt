@@ -6,6 +6,8 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerInteractEvent
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 
 class ShopInteractListener(private val farmVillageManager: FarmVillageManager) : Listener {
 
@@ -14,14 +16,19 @@ class ShopInteractListener(private val farmVillageManager: FarmVillageManager) :
         val player = event.player
         val clickedBlock = event.clickedBlock ?: return
 
-        if (event.action.isRightClick && farmVillageManager.isShopLocation(clickedBlock.location)) {
-            event.isCancelled = true
-            
-            // Open the shop GUI for the player
-            val shopInventory = Bukkit.createInventory(player, 54, "농사 상점") // 6 rows
-            // TODO: Populate the GUI with items
-            
-            player.openInventory(shopInventory)
+        if (event.action.isRightClick) {
+            val shopId = farmVillageManager.getShopIdAtLocation(clickedBlock.location)
+            if (shopId != null) {
+                event.isCancelled = true
+
+                when (shopId) {
+                    "seed_merchant" -> farmVillageManager.openSeedMerchantGUI(player)
+                    else -> {
+                        // For other merchants, you can open a placeholder or send a message
+                        player.sendMessage(Component.text("이 상점은 아직 준비중입니다.", NamedTextColor.GRAY))
+                    }
+                }
+            }
         }
     }
 } 

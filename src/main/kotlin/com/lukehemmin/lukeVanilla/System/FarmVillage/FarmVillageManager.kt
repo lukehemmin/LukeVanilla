@@ -31,11 +31,13 @@ class FarmVillageManager(
 ) {
 
     private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
+    private val seedMerchantGUI = SeedMerchantGUI(plugin)
     private val gson = Gson()
     private var shopLocations = listOf<ShopLocation>()
 
     init {
         plugin.server.pluginManager.registerEvents(packageEditGUI, plugin)
+        plugin.server.pluginManager.registerEvents(seedMerchantGUI, plugin)
         loadShopLocations()
     }
 
@@ -49,15 +51,19 @@ class FarmVillageManager(
         loadShopLocations() // Reload cache after update
     }
 
-    fun isShopLocation(location: Location): Boolean {
-        return shopLocations.any { 
+    fun getShopIdAtLocation(location: Location): String? {
+        return shopLocations.firstOrNull {
             (location.blockX == it.topBlockX && location.blockY == it.topBlockY && location.blockZ == it.topBlockZ && location.world.name == it.world) ||
             (location.blockX == it.bottomBlockX && location.blockY == it.bottomBlockY && location.blockZ == it.bottomBlockZ && location.world.name == it.world)
-        }
+        }?.shopId
     }
 
     fun openPackageEditor(player: Player) {
         packageEditGUI.open(player)
+    }
+
+    fun openSeedMerchantGUI(player: Player) {
+        seedMerchantGUI.open(player)
     }
 
     fun grantShopPermission(player: OfflinePlayer): CompletableFuture<Boolean> {

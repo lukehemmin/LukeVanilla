@@ -7,28 +7,90 @@ import org.bukkit.inventory.ItemStack
 
 data class PlotPartInfo(val plotNumber: Int, val plotPart: Int, val world: String, val chunkX: Int, val chunkZ: Int)
 data class PackageItem(val slot: Int, val itemType: String, val identifier: String, val itemData: String?)
-data class ShopLocation(val shopId: String, val world: String, val topBlockX: Int, val topBlockY: Int, val topBlockZ: Int, val bottomBlockX: Int, val bottomBlockY: Int, val bottomBlockZ: Int)
+data class ShopLocation(
+    val shopId: String,
+    val world: String,
+    val topBlockX: Int,
+    val topBlockY: Int,
+    val topBlockZ: Int,
+    val bottomBlockX: Int,
+    val bottomBlockY: Int,
+    val bottomBlockZ: Int
+)
 
 class FarmVillageData(private val database: Database) {
 
     private val gson = Gson()
+    private val TABLE_PLOTS = "farmvillage_plots"
+    private val TABLE_SHOP_LOCATIONS = "farmvillage_shop_locations"
+    private val TABLE_PACKAGE_ITEMS = "farmvillage_package_items"
+
+    init {
+        createTables()
+    }
+
+    private fun createTables() {
+        val sqlPlots = """
+            CREATE TABLE IF NOT EXISTS $TABLE_PLOTS (
+                plot_number INT NOT NULL,
+                plot_part INT NOT NULL,
+                world VARCHAR(255) NOT NULL,
+                x INT NOT NULL,
+                y INT NOT NULL,
+                z INT NOT NULL,
+                chunk_x INT NOT NULL,
+                chunk_z INT NOT NULL,
+                PRIMARY KEY (plot_number, plot_part)
+            );
+        """.trimIndent()
+
+        val sqlShopLocations = """
+            CREATE TABLE IF NOT EXISTS $TABLE_SHOP_LOCATIONS (
+                shop_id VARCHAR(255) NOT NULL PRIMARY KEY,
+                world VARCHAR(255) NOT NULL,
+                top_block_x INT NOT NULL,
+                top_block_y INT NOT NULL,
+                top_block_z INT NOT NULL,
+                bottom_block_x INT NOT NULL,
+                bottom_block_y INT NOT NULL,
+                bottom_block_z INT NOT NULL
+            );
+        """.trimIndent()
+        
+        val sqlPackageItems = """
+            CREATE TABLE IF NOT EXISTS $TABLE_PACKAGE_ITEMS (
+                slot INT NOT NULL,
+                item_type VARCHAR(255) NOT NULL,
+                item_identifier VARCHAR(255) NOT NULL,
+                item_data TEXT,
+                PRIMARY KEY (slot)
+            );
+        """.trimIndent()
+
+        database.execute(sqlPlots)
+        database.execute(sqlShopLocations)
+        database.execute(sqlPackageItems)
+    }
     
     /**
      * 특정 번호의 농사 땅 위치 정보를 데이터베이스에 저장하거나 업데이트합니다.
      */
     fun setPlotLocation(plotNumber: Int, plotPart: Int, location: Location) {
         val query = """
-            INSERT INTO farmvillage_plots (plot_number, plot_part, world, chunk_x, chunk_z) 
-            VALUES (?, ?, ?, ?, ?) 
-            ON DUPLICATE KEY UPDATE world = VALUES(world), chunk_x = VALUES(chunk_x), chunk_z = VALUES(chunk_z)
+            INSERT INTO $TABLE_PLOTS (plot_number, plot_part, world, x, y, z, chunk_x, chunk_z) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
+            ON DUPLICATE KEY UPDATE world = VALUES(world), x = VALUES(x), y = VALUES(y), z = VALUES(z), chunk_x = VALUES(chunk_x), chunk_z = VALUES(chunk_z)
         """.trimIndent()
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setInt(1, plotNumber)
                 statement.setInt(2, plotPart)
                 statement.setString(3, location.world.name)
-                statement.setInt(4, location.chunk.x)
-                statement.setInt(5, location.chunk.z)
+                statement.setInt(4, location.x)
+                statement.setInt(5, location.y)
+                statement.setInt(6, location.z)
+                statement.setInt(7, location.chunk.x)
+                statement.setInt(8, location.chunk.z)
                 statement.executeUpdate()
             }
         }
@@ -38,8 +100,8 @@ class FarmVillageData(private val database: Database) {
      * 입주 패키지 아이템 목록 전체를 DB에 저장합니다 (기존 목록은 삭제 후 덮어쓰기).
      */
     fun savePackageItems(items: List<PackageItem>) {
-        val deleteQuery = "DELETE FROM farmvillage_package_items"
-        val insertQuery = "INSERT INTO farmvillage_package_items (slot, item_type, item_identifier, item_data) VALUES (?, ?, ?, ?)"
+        val deleteQuery = "DELETE FROM $TABLE_PACKAGE_ITEMS"
+        val insertQuery = "INSERT INTO $TABLE_PACKAGE_ITEMS (slot, item_type, item_identifier, item_data) VALUES (?, ?, ?, ?)"
         
         database.getConnection().use { connection ->
             connection.autoCommit = false
@@ -73,7 +135,7 @@ class FarmVillageData(private val database: Database) {
      */
     fun getPackageItems(): List<PackageItem> {
         val items = mutableListOf<PackageItem>()
-        val query = "SELECT slot, item_type, item_identifier, item_data FROM farmvillage_package_items"
+        val query = "SELECT slot, item_type, item_identifier, item_data FROM $TABLE_PACKAGE_ITEMS"
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.executeQuery().use { resultSet ->
@@ -91,42 +153,26 @@ class FarmVillageData(private val database: Database) {
         return items
     }
 
-    fun saveShopLocation(shopId: String, world: String, topX: Int, topY: Int, topZ: Int) {
-        val query = "INSERT INTO farmvillage_shops (shop_id, world, top_block_x, top_block_y, top_block_z, bottom_block_x, bottom_block_y, bottom_block_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE world=VALUES(world), top_block_x=VALUES(top_block_x), top_block_y=VALUES(top_block_y), top_block_z=VALUES(top_block_z), bottom_block_x=VALUES(bottom_block_x), bottom_block_y=VALUES(bottom_block_y), bottom_block_z=VALUES(bottom_block_z)"
-        database.getConnection().use { conn ->
-            conn.prepareStatement(query).use { stmt ->
-                stmt.setString(1, shopId)
-                stmt.setString(2, world)
-                stmt.setInt(3, topX)
-                stmt.setInt(4, topY)
-                stmt.setInt(5, topZ)
-                stmt.setInt(6, topX) // Assuming bottom block has same X,Z
-                stmt.setInt(7, topY - 1)
-                stmt.setInt(8, topZ)
-                stmt.executeUpdate()
-            }
-        }
+    fun saveShopLocation(shopId: String, world: String, x: Int, y: Int, z: Int) {
+        val sql = "REPLACE INTO $TABLE_SHOP_LOCATIONS (shop_id, world, top_block_x, top_block_y, top_block_z, bottom_block_x, bottom_block_y, bottom_block_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        database.update(sql, shopId, world, x, y, z, x, y - 1, z)
     }
     
     fun getAllShopLocations(): List<ShopLocation> {
         val locations = mutableListOf<ShopLocation>()
-        val query = "SELECT * FROM farmvillage_shops"
-        database.getConnection().use { conn ->
-            conn.prepareStatement(query).use { stmt ->
-                stmt.executeQuery().use { rs ->
-                    while (rs.next()) {
-                        locations.add(ShopLocation(
-                            shopId = rs.getString("shop_id"),
-                            world = rs.getString("world"),
-                            topBlockX = rs.getInt("top_block_x"),
-                            topBlockY = rs.getInt("top_block_y"),
-                            topBlockZ = rs.getInt("top_block_z"),
-                            bottomBlockX = rs.getInt("bottom_block_x"),
-                            bottomBlockY = rs.getInt("bottom_block_y"),
-                            bottomBlockZ = rs.getInt("bottom_block_z")
-                        ))
-                    }
-                }
+        val sql = "SELECT * FROM $TABLE_SHOP_LOCATIONS"
+        database.query(sql) { rs ->
+            while (rs.next()) {
+                locations.add(ShopLocation(
+                    shopId = rs.getString("shop_id"),
+                    world = rs.getString("world"),
+                    topBlockX = rs.getInt("top_block_x"),
+                    topBlockY = rs.getInt("top_block_y"),
+                    topBlockZ = rs.getInt("top_block_z"),
+                    bottomBlockX = rs.getInt("bottom_block_x"),
+                    bottomBlockY = rs.getInt("bottom_block_y"),
+                    bottomBlockZ = rs.getInt("bottom_block_z")
+                ))
             }
         }
         return locations
@@ -136,7 +182,7 @@ class FarmVillageData(private val database: Database) {
      * 특정 땅 조각의 정보를 불러옵니다.
      */
     fun getPlotPart(plotNumber: Int, plotPart: Int): PlotPartInfo? {
-        val query = "SELECT world, chunk_x, chunk_z FROM farmvillage_plots WHERE plot_number = ? AND plot_part = ?"
+        val query = "SELECT world, chunk_x, chunk_z FROM $TABLE_PLOTS WHERE plot_number = ? AND plot_part = ?"
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setInt(1, plotNumber)
@@ -164,7 +210,7 @@ class FarmVillageData(private val database: Database) {
      */
     fun getAllPlotParts(): List<PlotPartInfo> {
         val plots = mutableListOf<PlotPartInfo>()
-        val query = "SELECT plot_number, plot_part, world, chunk_x, chunk_z FROM farmvillage_plots ORDER BY plot_number ASC, plot_part ASC"
+        val query = "SELECT plot_number, plot_part, world, chunk_x, chunk_z FROM $TABLE_PLOTS ORDER BY plot_number ASC, plot_part ASC"
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.executeQuery().use { resultSet ->
