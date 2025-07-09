@@ -247,7 +247,8 @@ API의 메인 진입점입니다. 작물과 관련된 대부분의 주요 작업
 ### 3. `CustomCropsBlockState`
 특정 위치에 있는 커스텀 작물의 **모든 상태 정보**를 담고 있는 핵심 객체입니다.
 - `type()`: 작물의 종류(`CustomCropsBlock`, 예를 들어 `CropBlock`)를 반환합니다.
-- `getData()`: 작물의 구체적인 데이터(ID, 성장 포인트 등)가 저장된 NBT `CompoundMap`을 반환합니다. 개발자는 `CropBlock`과 같은 구체적인 타입으로 캐스팅한 후, 이 맵을 조작하여 작물의 상태를 변경할 수 있습니다.
+- `compoundMap()`: 작물의 구체적인 데이터(ID, 성장 포인트 등)가 저장된 NBT `SynchronizedCompoundMap`을 반환합니다. `DataBlock` 인터페이스로부터 상속된 이 메서드를 통해 스레드에 안전한 방식으로 데이터에 접근할 수 있습니다. 개발자는 `CropBlock`과 같은 구체적인 타입으로 캐스팅한 후, 이 맵을 조작하여 작물의 상태를 변경할 수 있습니다.
+- `getData()`: `compoundMap()`의 이전 이름으로, 현재는 존재하지 않습니다.
 
 ### 4. `Context<T>`
 액션(`Action`)과 요구사항(`Requirement`)이 실행될 때의 **문맥 정보**를 담는 객체입니다.
@@ -313,7 +314,7 @@ public void checkCropInfo(Location location) {
     Pos3 pos = api.adapt(location);
     world.getBlockState(pos).ifPresent(state -> {
         if (state.type() instanceof CropBlock cropBlock) {
-            String cropId = cropBlock.id(state);
+            String cropId = cropBlock.id(state); // AbstractCustomCropsBlock으로부터 상속된 메서드
             int points = cropBlock.point(state);
             
             // 정보를 알려줄 플레이어를 찾아서 메시지 전송
@@ -335,6 +336,17 @@ public void checkCropInfo(Location location) {
 - **결과 2**: 서버 전체에 수확 메시지 방송.
 
 ```java
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
+import net.momirealms.customcrops.api.BukkitCustomCropsPlugin;
+import net.momirealms.customcrops.api.core.block.CropBlock;
+import net.momirealms.customcrops.api.core.mechanic.crop.CropConfig;
+import net.momirealms.customcrops.api.core.world.CustomCropsBlockState;
+import net.momirealms.customcrops.api.event.CropBreakEvent;
+
 public class LegendaryCornHarvestListener implements Listener {
 
     private final JavaPlugin plugin;
@@ -347,10 +359,10 @@ public class LegendaryCornHarvestListener implements Listener {
     public void onLegendaryCornHarvest(CropBreakEvent event) {
         // 1. 이벤트의 기본 조건 확인
         if (event.isCancelled()) return;
-        if (!"legendary_corn".equals(event.getCropConfig().id())) return;
+        if (!"legendary_corn".equals(event.cropConfig().id())) return;
 
-        Player player = event.getPlayer();
-        if (player == null) return;
+        // Player 확인. entityBreaker()는 Player가 아닐 수도 있음 (예: TNT)
+        if (!(event.entityBreaker() instanceof Player player)) return;
 
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
 
@@ -362,8 +374,8 @@ public class LegendaryCornHarvestListener implements Listener {
         if (itemInHand.getType() != Material.DIAMOND_HOE) return;
 
         // 조건 3: 최종 성장 단계 확인
-        CropConfig config = event.getCropConfig();
-        CustomCropsBlockState state = event.getState();
+        CropConfig config = event.cropConfig();
+        CustomCropsBlockState state = event.blockState();
         if (state.type() instanceof CropBlock cropBlock) {
             int currentPoints = cropBlock.point(state);
             if (currentPoints < config.maxPoints()) {
@@ -379,15 +391,16 @@ public class LegendaryCornHarvestListener implements Listener {
             // ItemManager를 통해 커스텀 아이템 생성 (가정)
             ItemStack essence = BukkitCustomCropsPlugin.getInstance().getItemManager().build(player, "corn_essence");
             if (essence != null) {
-                event.getLocation().getWorld().dropItemNaturally(event.getLocation(), essence);
+                event.location().getWorld().dropItemNaturally(event.location(), essence);
             }
         }
 
         // 결과 2: 서버 전체에 메시지 방송
         Bukkit.broadcastMessage("§e[소식] §b" + player.getName() + "§e님이 전설의 옥수수를 수확했습니다!");
         
-        // 기본 드랍 아이템은 드랍되지 않도록 설정할 수 있습니다.
-        // event.setDropItems(false); 
+        // 기본 드랍 아이템은 드랍되지 않도록 설정하려면,
+        // 이벤트 자체를 취소하고 직접 아이템을 드랍하는 로직을 구현해야 할 수 있습니다.
+        // 예를 들어 event.setCancelled(true); 후 원하는 아이템만 직접 드랍합니다.
     }
 }
 ```
@@ -433,8 +446,13 @@ public class CropListener implements Listener {
 
     @EventHandler
     public void onCropBreak(CropBreakEvent event) {
-        Player player = event.getPlayer();
-        String cropId = event.getCropID();
+        // 이벤트 발생 시점에 작물을 부순 주체가 플레이어가 아닐 수 있습니다.
+        Player player = null;
+        if (event.entityBreaker() instanceof Player) {
+            player = (Player) event.entityBreaker();
+        }
+        
+        String cropId = event.cropConfig().id();
         
         if (event.isCancelled()) {
             return;
@@ -447,9 +465,9 @@ public class CropListener implements Listener {
         }
         
         // 특정 이유(예: 폭발)로 파괴되는 것을 막기
-        if (event.getReason() == BreakReason.EXPLODE) {
+        if (event.reason() == BreakReason.EXPLODE) {
             event.setCancelled(true);
-            plugin.getLogger().info(event.getLocation() + " 위치의 작물이 폭발로부터 보호되었습니다.");
+            plugin.getLogger().info(event.location() + " 위치의 작물이 폭발로부터 보호되었습니다.");
         }
     }
 }
@@ -485,8 +503,8 @@ public class LightningAction implements Action<CustomCropsBlockState> {
 public class LightningActionFactory implements ActionFactory<CustomCropsBlockState> {
 
     @Override
-    public Action<CustomCropsBlockState> create(Object value, BiPredicate<String, String> predicate) {
-        // 이 액션은 추가 파라미터가 없으므로 간단히 새 인스턴스 반환
+    public Action<CustomCropsBlockState> process(Object args, MathValue<CustomCropsBlockState> chance) {
+        // 이 액션은 추가 파라미터(args)나 확률(chance)을 사용하지 않으므로 간단히 새 인스턴스 반환
         return new LightningAction();
     }
 }
@@ -537,12 +555,24 @@ public class WorldRequirement implements Requirement<Player> {
 public class WorldRequirementFactory implements RequirementFactory<Player> {
 
     @Override
-    public Requirement<Player> create(Object value, BiPredicate<String, String> predicate) {
-        if (value instanceof String) {
-            return new WorldRequirement((String) value);
+    public Requirement<Player> process(Object value, List<Action<Player>> notSatisfiedActions, boolean runActions) {
+        // 이 요구사항은 액션을 사용하지 않으므로, 더 간단한 process(Object)를 오버라이드 할 수도 있습니다.
+        if (value instanceof String worldName) {
+            return new WorldRequirement(worldName);
         }
         return null; // 값이 유효하지 않으면 null 반환
     }
+
+    // 혹은 더 간단하게
+    /*
+    @Override
+    public Requirement<Player> process(Object value) {
+        if (value instanceof String worldName) {
+            return new WorldRequirement(worldName);
+        }
+        return null;
+    }
+    */
 }
 
 // 3. 플러그인 onEnable에서 등록
@@ -580,9 +610,11 @@ public void setCropPoints(Location location, int points) {
             // cropBlock의 메서드를 사용하여 NBT 데이터("point")를 직접 조작
             cropBlock.point(state, points);
             
-            // 주의: 이 방법은 내부 데이터만 변경합니다.
-            // 블록의 시각적 모습(예: 작물 모델)을 즉시 업데이트하려면
-            // cropBlock.restore(location, state); 와 같은 추가 처리가 필요할 수 있습니다.
+            // 데이터 변경 후 작물의 시각적 모습을 업데이트하려면 restore 메서드를 호출해야 합니다.
+            // 이 작업을 수행하려면 Bukkit 스케줄러를 통해 메인 스레드에서 실행하는 것이 안전합니다.
+            Bukkit.getScheduler().runTask(YourPlugin.getInstance(), () -> {
+                cropBlock.restore(location, state);
+            });
         }
     });
 }
@@ -590,6 +622,8 @@ public void setCropPoints(Location location, int points) {
 
 ### 작물 설정 접근
 작물의 설정(config.yml에 정의된 내용)은 `Registries` 클래스를 통해 프로그래밍 방식으로 접근할 수 있습니다. 예를 들어, 작물의 최대 성장 포인트를 알고 싶을 때 사용할 수 있습니다.
+
+**경고:** `Registries` 클래스는 `@ApiStatus.Internal`로 지정된 **내부 API**입니다. 이는 플러그인 내부용으로 설계되었으며, 향후 버전에서 사전 공지 없이 변경될 수 있습니다. 가급적 `CustomCropsAPI`를 통해 제공되는 안정적인 메서드를 사용하고, 필요한 기능이 없을 경우에만 신중하게 사용해야 합니다.
 
 **예제: 특정 작물의 최대 성장 포인트 가져오기**
 ```java
