@@ -92,6 +92,19 @@ class FarmVillageManager(
         return farmVillageData.getPlotPart(plotNumber, plotPart)
     }
 
+    fun getFarmPlotOwner(location: Location): UUID? {
+        val chunk = location.chunk
+        val isFarmPlotChunk = farmVillageData.getAllPlotParts().any {
+            it.world == chunk.world.name && it.chunkX == chunk.x && it.chunkZ == chunk.z
+        }
+
+        return if (isFarmPlotChunk) {
+            landManager.getOwnerOfChunk(chunk)
+        } else {
+            null
+        }
+    }
+
     // 주어진 위치(청크)가 농사마을 땅 중 하나인지 확인합니다.
     fun isLocationWithinAnyClaimedFarmPlot(location: Location): Boolean {
         val currentChunk = location.chunk
