@@ -3,7 +3,7 @@ package com.lukehemmin.lukeVanilla.System.FarmVillage
 import com.google.gson.Gson
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import org.bukkit.Location
-import org.bukkit.inventory.ItemStack
+import org.bukkit.entity.Player
 
 data class PlotPartInfo(val plotNumber: Int, val plotPart: Int, val world: String, val chunkX: Int, val chunkZ: Int)
 data class PackageItem(val slot: Int, val itemType: String, val identifier: String, val itemData: String?)
@@ -67,38 +67,76 @@ class FarmVillageData(private val database: Database) {
             );
         """.trimIndent()
 
-        database.execute(sqlPlots)
-        database.execute(sqlShopLocations)
-        database.execute(sqlPackageItems)
+        database.getConnection().use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate(sqlPlots)
+                statement.executeUpdate(sqlShopLocations)
+                statement.executeUpdate(sqlPackageItems)
+            }
+        }
     }
     
-    /**
-     * 특정 번호의 농사 땅 위치 정보를 데이터베이스에 저장하거나 업데이트합니다.
-     */
     fun setPlotLocation(plotNumber: Int, plotPart: Int, location: Location) {
         val query = """
-            INSERT INTO $TABLE_PLOTS (plot_number, plot_part, world, x, y, z, chunk_x, chunk_z) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
-            ON DUPLICATE KEY UPDATE world = VALUES(world), x = VALUES(x), y = VALUES(y), z = VALUES(z), chunk_x = VALUES(chunk_x), chunk_z = VALUES(chunk_z)
+            REPLACE INTO $TABLE_PLOTS (plot_number, plot_part, world, x, y, z, chunk_x, chunk_z) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setInt(1, plotNumber)
                 statement.setInt(2, plotPart)
                 statement.setString(3, location.world.name)
-                statement.setInt(4, location.x)
-                statement.setInt(5, location.y)
-                statement.setInt(6, location.z)
+                statement.setInt(4, location.blockX)
+                statement.setInt(5, location.blockY)
+                statement.setInt(6, location.blockZ)
                 statement.setInt(7, location.chunk.x)
                 statement.setInt(8, location.chunk.z)
                 statement.executeUpdate()
             }
         }
     }
+    
+    fun saveShopLocation(shopId: String, world: String, x: Int, y: Int, z: Int) {
+        val sql = "REPLACE INTO $TABLE_SHOP_LOCATIONS (shop_id, world, top_block_x, top_block_y, top_block_z, bottom_block_x, bottom_block_y, bottom_block_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, shopId)
+                statement.setString(2, world)
+                statement.setInt(3, x)
+                statement.setInt(4, y)
+                statement.setInt(5, z)
+                statement.setInt(6, x)
+                statement.setInt(7, y - 1)
+                statement.setInt(8, z)
+                statement.executeUpdate()
+            }
+        }
+    }
 
-    /**
-     * 입주 패키지 아이템 목록 전체를 DB에 저장합니다 (기존 목록은 삭제 후 덮어쓰기).
-     */
+    fun getAllShopLocations(): List<ShopLocation> {
+        val locations = mutableListOf<ShopLocation>()
+        val sql = "SELECT * FROM $TABLE_SHOP_LOCATIONS"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        locations.add(ShopLocation(
+                            shopId = rs.getString("shop_id"),
+                            world = rs.getString("world"),
+                            topBlockX = rs.getInt("top_block_x"),
+                            topBlockY = rs.getInt("top_block_y"),
+                            topBlockZ = rs.getInt("top_block_z"),
+                            bottomBlockX = rs.getInt("bottom_block_x"),
+                            bottomBlockY = rs.getInt("bottom_block_y"),
+                            bottomBlockZ = rs.getInt("bottom_block_z")
+                        ))
+                    }
+                }
+            }
+        }
+        return locations
+    }
+
     fun savePackageItems(items: List<PackageItem>) {
         val deleteQuery = "DELETE FROM $TABLE_PACKAGE_ITEMS"
         val insertQuery = "INSERT INTO $TABLE_PACKAGE_ITEMS (slot, item_type, item_identifier, item_data) VALUES (?, ?, ?, ?)"
@@ -106,10 +144,7 @@ class FarmVillageData(private val database: Database) {
         database.getConnection().use { connection ->
             connection.autoCommit = false
             try {
-                // Clear existing items
                 connection.prepareStatement(deleteQuery).use { it.executeUpdate() }
-
-                // Insert new items
                 connection.prepareStatement(insertQuery).use { statement ->
                     for (item in items) {
                         statement.setInt(1, item.slot)
@@ -130,98 +165,66 @@ class FarmVillageData(private val database: Database) {
         }
     }
 
-    /**
-     * DB에 저장된 모든 입주 패키지 아이템을 불러옵니다.
-     */
     fun getPackageItems(): List<PackageItem> {
         val items = mutableListOf<PackageItem>()
         val query = "SELECT slot, item_type, item_identifier, item_data FROM $TABLE_PACKAGE_ITEMS"
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
-                statement.executeQuery().use { resultSet ->
-                    while (resultSet.next()) {
-                        items.add(PackageItem(
-                            slot = resultSet.getInt("slot"),
-                            itemType = resultSet.getString("item_type"),
-                            identifier = resultSet.getString("item_identifier"),
-                            itemData = resultSet.getString("item_data")
-                        ))
+                statement.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        items.add(
+                            PackageItem(
+                                rs.getInt("slot"),
+                                rs.getString("item_type"),
+                                rs.getString("item_identifier"),
+                                rs.getString("item_data")
+                            )
+                        )
                     }
                 }
             }
         }
         return items
     }
-
-    fun saveShopLocation(shopId: String, world: String, x: Int, y: Int, z: Int) {
-        val sql = "REPLACE INTO $TABLE_SHOP_LOCATIONS (shop_id, world, top_block_x, top_block_y, top_block_z, bottom_block_x, bottom_block_y, bottom_block_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        database.update(sql, shopId, world, x, y, z, x, y - 1, z)
-    }
     
-    fun getAllShopLocations(): List<ShopLocation> {
-        val locations = mutableListOf<ShopLocation>()
-        val sql = "SELECT * FROM $TABLE_SHOP_LOCATIONS"
-        database.query(sql) { rs ->
-            while (rs.next()) {
-                locations.add(ShopLocation(
-                    shopId = rs.getString("shop_id"),
-                    world = rs.getString("world"),
-                    topBlockX = rs.getInt("top_block_x"),
-                    topBlockY = rs.getInt("top_block_y"),
-                    topBlockZ = rs.getInt("top_block_z"),
-                    bottomBlockX = rs.getInt("bottom_block_x"),
-                    bottomBlockY = rs.getInt("bottom_block_y"),
-                    bottomBlockZ = rs.getInt("bottom_block_z")
-                ))
-            }
-        }
-        return locations
-    }
-
-    /**
-     * 특정 땅 조각의 정보를 불러옵니다.
-     */
     fun getPlotPart(plotNumber: Int, plotPart: Int): PlotPartInfo? {
         val query = "SELECT world, chunk_x, chunk_z FROM $TABLE_PLOTS WHERE plot_number = ? AND plot_part = ?"
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setInt(1, plotNumber)
                 statement.setInt(2, plotPart)
-                statement.executeQuery().use { resultSet ->
-                    return if (resultSet.next()) {
-                        PlotPartInfo(
-                            plotNumber = plotNumber,
-                            plotPart = plotPart,
-                            world = resultSet.getString("world"),
-                            chunkX = resultSet.getInt("chunk_x"),
-                            chunkZ = resultSet.getInt("chunk_z")
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return PlotPartInfo(
+                            plotNumber,
+                            plotPart,
+                            rs.getString("world"),
+                            rs.getInt("chunk_x"),
+                            rs.getInt("chunk_z")
                         )
-                    } else {
-                        null
                     }
                 }
             }
         }
+        return null
     }
 
-    /**
-     * 모든 농사 땅의 정보를 번호 순서대로 불러옵니다.
-     * @return List<PlotPartInfo>
-     */
     fun getAllPlotParts(): List<PlotPartInfo> {
         val plots = mutableListOf<PlotPartInfo>()
         val query = "SELECT plot_number, plot_part, world, chunk_x, chunk_z FROM $TABLE_PLOTS ORDER BY plot_number ASC, plot_part ASC"
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
-                statement.executeQuery().use { resultSet ->
-                    while (resultSet.next()) {
-                        plots.add(PlotPartInfo(
-                            plotNumber = resultSet.getInt("plot_number"),
-                            plotPart = resultSet.getInt("plot_part"),
-                            world = resultSet.getString("world"),
-                            chunkX = resultSet.getInt("chunk_x"),
-                            chunkZ = resultSet.getInt("chunk_z")
-                        ))
+                statement.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        plots.add(
+                            PlotPartInfo(
+                                rs.getInt("plot_number"),
+                                rs.getInt("plot_part"),
+                                rs.getString("world"),
+                                rs.getInt("chunk_x"),
+                                rs.getInt("chunk_z")
+                            )
+                        )
                     }
                 }
             }

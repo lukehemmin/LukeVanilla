@@ -18,9 +18,9 @@ import java.util.UUID
 
 class ExchangeMerchantGUI(private val plugin: Main) : Listener {
 
-    private val mainGuiTitle = "교환 상인"
-    private val silverGuiTitle = "교환상점 - 은별작물 교환"
-    private val goldenGuiTitle = "교환상점 - 금별작물 교환"
+    private val mainGuiTitle = Component.text("교환 상인")
+    private val silverGuiTitle = Component.text("교환상점 - 은별작물 교환")
+    private val goldenGuiTitle = Component.text("교환상점 - 금별작물 교환")
 
     private val activeAnimators = mutableMapOf<UUID, BukkitTask>()
     private val animationIndexes = mutableMapOf<UUID, Triple<Int, Int, Int>>()
@@ -30,14 +30,14 @@ class ExchangeMerchantGUI(private val plugin: Main) : Listener {
     private val scrollItems = listOf("h_sword_scroll", "c_sword_scroll", "v_sword_scroll")
 
     fun openMainGui(player: Player) {
-        val inventory = Bukkit.createInventory(player, 45, Component.text(mainGuiTitle))
+        val inventory = Bukkit.createInventory(player, 45, mainGuiTitle)
         fillWithBlackGlass(inventory)
         player.openInventory(inventory)
         startAnimation(player, inventory)
     }
 
     private fun openSilverGui(player: Player) {
-        val inventory = Bukkit.createInventory(player, 45, Component.text(silverGuiTitle))
+        val inventory = Bukkit.createInventory(player, 45, silverGuiTitle)
         fillWithBlackGlass(inventory)
         inventory.setItem(11, NexoItems.itemFromId("cabbage_silver_star")?.build())
         inventory.setItem(13, NexoItems.itemFromId("chinese_cabbage_silver_star")?.build())
@@ -49,7 +49,7 @@ class ExchangeMerchantGUI(private val plugin: Main) : Listener {
     }
 
     private fun openGoldenGui(player: Player) {
-        val inventory = Bukkit.createInventory(player, 45, Component.text(goldenGuiTitle))
+        val inventory = Bukkit.createInventory(player, 45, goldenGuiTitle)
         fillWithBlackGlass(inventory)
         inventory.setItem(11, NexoItems.itemFromId("cabbage_golden_star")?.build())
         inventory.setItem(13, NexoItems.itemFromId("chinese_cabbage_golden_star")?.build())
@@ -80,7 +80,9 @@ class ExchangeMerchantGUI(private val plugin: Main) : Listener {
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
-        when (event.view.title()) {
+        val clickedTitle = event.view.title()
+
+        when (clickedTitle) {
             mainGuiTitle -> {
                 event.isCancelled = true
                 when (event.rawSlot) {
