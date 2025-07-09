@@ -39,17 +39,18 @@ class PackageOpenListener(
 
         event.isCancelled = true // Prevent any default action
 
-        // Consume one package item
+        // 패키지를 열기 전에 내용물이 있는지 먼저 확인합니다.
+        if (!farmVillageManager.hasPackageContents()) {
+            player.sendMessage(Component.text("아직 관리자가 아이템을 지정하지 않았습니다.", NamedTextColor.YELLOW))
+            player.sendMessage(Component.text("다음에 다시 열어주세요.", NamedTextColor.YELLOW))
+            return // 아이템을 소모하지 않고 이벤트를 종료합니다.
+        }
+
+        // 내용물이 확인되었으므로 패키지 아이템을 하나 소모합니다.
         itemInHand.amount -= 1
 
-        // Give the configured package items
-        val givenItemsCount = farmVillageManager.giveJoinPackageContents(player)
-
-        if (givenItemsCount > 0) {
-            player.sendMessage(Component.text("입주 패키지를 열어 내용물을 수령했습니다!", NamedTextColor.GREEN))
-        } else {
-            // This case might happen if the package is empty.
-            player.sendMessage(Component.text("입주 패키지가 비어있습니다. 관리자에게 문의해주세요.", NamedTextColor.YELLOW))
-        }
+        // 설정된 패키지 아이템들을 지급합니다.
+        farmVillageManager.giveJoinPackageContents(player)
+        player.sendMessage(Component.text("입주 패키지를 열어 내용물을 수령했습니다!", NamedTextColor.GREEN))
     }
 } 

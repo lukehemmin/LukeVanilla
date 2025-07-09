@@ -260,6 +260,10 @@ class FarmVillageManager(
         return itemsToGive.size
     }
 
+    fun hasPackageContents(): Boolean {
+        return farmVillageData.getPackageItems().isNotEmpty()
+    }
+
     // Deserialization logic moved here to be accessible by giveJoinPackage
     private fun deserializeItem(itemInfo: PackageItem): ItemStack? {
         val itemData: Map<String, Any> = try {
