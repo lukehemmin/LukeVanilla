@@ -223,12 +223,30 @@ class FarmVillageManager(
     }
 
     private fun giveJoinPackage(player: Player) {
+        val packageChest = NexoItems.itemFromId("farmvillage_storage_chest")?.build()
+
+        if (packageChest == null) {
+            plugin.logger.severe("[FarmVillage] 입주 패키지 아이템(farmvillage_storage_chest)을 찾을 수 없습니다!")
+            player.sendMessage(Component.text("오류: 입주 패키지 아이템을 찾을 수 없습니다. 관리자에게 문의해주세요.", NamedTextColor.RED))
+            return
+        }
+
+        val droppedItems = player.inventory.addItem(packageChest)
+        if (droppedItems.isNotEmpty()) {
+            player.world.dropItemNaturally(player.location, packageChest)
+            player.sendMessage(Component.text("인벤토리가 가득 차서 입주 패키지 상자를 땅에 드롭했습니다.", NamedTextColor.YELLOW))
+        }
+        player.sendMessage(Component.text("농사마을 입주 패키지가 지급되었습니다! 우클릭하여 열어보세요.", NamedTextColor.GREEN))
+        debugManager.log("FarmVillage", "Gave farmvillage_storage_chest package to ${player.name}.")
+    }
+
+    fun giveJoinPackageContents(player: Player): Int {
         val packageItemsInfo = farmVillageData.getPackageItems()
         if (packageItemsInfo.isEmpty()) {
             debugManager.log("FarmVillage", "No package items found in DB for ${player.name}.")
-            return
+            return 0
         }
-        
+
         val itemsToGive = packageItemsInfo.mapNotNull { deserializeItem(it) }
 
         val droppedItems = player.inventory.addItem(*itemsToGive.toTypedArray())
@@ -238,8 +256,8 @@ class FarmVillageManager(
                 player.world.dropItemNaturally(player.location, item)
             }
         }
-        player.sendMessage(Component.text("농사마을 입주 선물이 지급되었습니다!", NamedTextColor.GREEN))
-        debugManager.log("FarmVillage", "Gave ${itemsToGive.size} package items to ${player.name}.")
+        debugManager.log("FarmVillage", "Gave ${itemsToGive.size} package items to ${player.name} from package.")
+        return itemsToGive.size
     }
 
     // Deserialization logic moved here to be accessible by giveJoinPackage
