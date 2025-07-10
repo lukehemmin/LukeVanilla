@@ -27,6 +27,7 @@ import com.lukehemmin.lukeVanilla.System.VanillaShutdownNotifier
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningCommand
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import com.lukehemmin.lukeVanilla.System.Command.ServerConnectionCommand
+import com.lukehemmin.lukeVanilla.System.Command.ServerTimeCommand
 import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
 // import com.lukehemmin.lukeVanilla.System.NexoLuckPermsSystem.NexoLuckPermsGranter
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
@@ -425,6 +426,9 @@ class Main : JavaPlugin() {
         val blockLocationCommand = BlockLocationCommand()
         getCommand("블록위치")?.setExecutor(blockLocationCommand)
         server.pluginManager.registerEvents(blockLocationCommand, this)
+
+        // 서버시간 명령어 등록
+        getCommand("서버시간")?.setExecutor(ServerTimeCommand())
 
         // ItemRestoreCommand 초기화 부분 수정
         val itemRestoreCommand = ItemRestoreCommand(itemRestoreLogger)
