@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import org.bukkit.Location
 import org.bukkit.entity.Player
+import java.time.ZoneId
 import java.util.UUID
 
 data class PlotPartInfo(val plotNumber: Int, val plotPart: Int, val world: String, val chunkX: Int, val chunkZ: Int)
@@ -73,7 +74,8 @@ class FarmVillageData(private val database: Database) {
             CREATE TABLE IF NOT EXISTS $TABLE_SEED_TRADES (
                 player_uuid VARCHAR(36) NOT NULL,
                 seed_id VARCHAR(255) NOT NULL,
-                last_trade_date DATE NOT NULL,
+                traded_amount INT NOT NULL DEFAULT 0,
+                trade_date DATE NOT NULL,
                 PRIMARY KEY (player_uuid, seed_id)
             );
         """.trimIndent()
@@ -244,33 +246,44 @@ class FarmVillageData(private val database: Database) {
         return plots
     }
 
-    fun canTradeSeed(playerUUID: UUID, seedId: String): Boolean {
-        val query = "SELECT last_trade_date FROM $TABLE_SEED_TRADES WHERE player_uuid = ? AND seed_id = ?"
+    fun getTodaysTradeAmount(playerUUID: UUID, seedId: String): Int {
+        val query = "SELECT traded_amount, trade_date FROM $TABLE_SEED_TRADES WHERE player_uuid = ? AND seed_id = ?"
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, playerUUID.toString())
                 statement.setString(2, seedId)
                 statement.executeQuery().use { rs ->
                     if (rs.next()) {
-                        val lastTradeDate = rs.getDate("last_trade_date").toLocalDate()
-                        val today = java.time.LocalDate.now()
-                        return lastTradeDate.isBefore(today)
+                        val lastTradeDate = rs.getDate("trade_date").toLocalDate()
+                        // Always use KST (Asia/Seoul) for today's date
+                        val today = java.time.LocalDate.now(ZoneId.of("Asia/Seoul"))
+                        // If the record is from today, return the amount. Otherwise, it's effectively 0 for today.
+                        if (lastTradeDate.isEqual(today)) {
+                            return rs.getInt("traded_amount")
+                        }
                     }
                 }
             }
         }
-        return true // No record found, so they can trade
+        return 0 // No record for today, so 0 traded
     }
 
-    fun recordSeedTrade(playerUUID: UUID, seedId: String) {
+    fun recordSeedTrade(playerUUID: UUID, seedId: String, amount: Int) {
         val query = """
-            REPLACE INTO $TABLE_SEED_TRADES (player_uuid, seed_id, last_trade_date) 
-            VALUES (?, ?, CURDATE())
+            INSERT INTO $TABLE_SEED_TRADES (player_uuid, seed_id, traded_amount, trade_date)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+            traded_amount = IF(trade_date = VALUES(trade_date), traded_amount + VALUES(traded_amount), VALUES(traded_amount)),
+            trade_date = VALUES(trade_date)
         """.trimIndent()
+        // Always use KST for the trade date
+        val kstDate = java.sql.Date.valueOf(java.time.LocalDate.now(ZoneId.of("Asia/Seoul")))
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, playerUUID.toString())
                 statement.setString(2, seedId)
+                statement.setInt(3, amount)
+                statement.setDate(4, kstDate)
                 statement.executeUpdate()
             }
         }

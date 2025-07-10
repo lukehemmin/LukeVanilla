@@ -72,12 +72,14 @@ class FarmVillageManager(
         exchangeMerchantGUI.openMainGui(player)
     }
 
-    fun canTradeSeed(player: Player, seedId: String): Boolean {
-        return farmVillageData.canTradeSeed(player.uniqueId, seedId)
+    fun getRemainingDailyTradeAmount(player: Player, seedId: String): Int {
+        val tradedAmount = farmVillageData.getTodaysTradeAmount(player.uniqueId, seedId)
+        val dailyLimit = 64 // You can make this configurable later
+        return dailyLimit - tradedAmount
     }
 
-    fun recordSeedTrade(player: Player, seedId: String) {
-        farmVillageData.recordSeedTrade(player.uniqueId, seedId)
+    fun recordSeedTrade(player: Player, seedId: String, amount: Int) {
+        farmVillageData.recordSeedTrade(player.uniqueId, seedId, amount)
     }
 
     fun grantShopPermission(player: OfflinePlayer): CompletableFuture<Boolean> {

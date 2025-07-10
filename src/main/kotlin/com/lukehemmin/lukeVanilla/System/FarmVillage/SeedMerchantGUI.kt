@@ -13,6 +13,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
+import kotlin.math.min
 
 class SeedMerchantGUI(
     private val plugin: Main,
@@ -36,7 +37,6 @@ class SeedMerchantGUI(
     }
     
     private fun updateGuiItems(player: Player, inventory: Inventory) {
-        // Fill with black glass panes
         val blackGlass = ItemStack(Material.BLACK_STAINED_GLASS_PANE).apply {
             itemMeta = itemMeta.apply { displayName(Component.text(" ")) }
         }
@@ -44,21 +44,21 @@ class SeedMerchantGUI(
             inventory.setItem(i, blackGlass)
         }
 
-        // Place seed items with updated lore
         seedSlotMap.forEach { (slot, seedId) ->
             val seedItem = NexoItems.itemFromId(seedId)?.build() ?: return@forEach
-            val canTrade = farmVillageManager.canTradeSeed(player, seedId)
+            val remainingAmount = farmVillageManager.getRemainingDailyTradeAmount(player, seedId)
             
             seedItem.editMeta { meta ->
-                val lore = meta.lore() ?: mutableListOf()
+                val lore = mutableListOf<Component>()
+                lore.add(Component.text("▷ 기본(클릭):", NamedTextColor.GRAY).append(Component.text(" 다이아 1개 → 씨앗 4개", NamedTextColor.WHITE)))
+                lore.add(Component.text("▷ 대량(Shift+클릭):", NamedTextColor.GRAY).append(Component.text(" 다이아 8개 → 씨앗 32개", NamedTextColor.WHITE)))
                 lore.add(Component.text(" "))
-                lore.add(Component.text("교환 재료: ", NamedTextColor.GRAY).append(Component.text("다이아몬드 1개", NamedTextColor.AQUA)))
-                lore.add(Component.text("지급 아이템: ", NamedTextColor.GRAY).append(Component.text("${seedItem.itemMeta.displayName} 4개", NamedTextColor.WHITE)))
-                lore.add(Component.text(" "))
-                if (canTrade) {
-                    lore.add(Component.text("[클릭하여 교환]", NamedTextColor.GREEN, TextDecoration.BOLD))
+                if (remainingAmount > 0) {
+                    lore.add(Component.text("[교환 가능]", NamedTextColor.GREEN, TextDecoration.BOLD))
+                    lore.add(Component.text("오늘 남은 교환 개수: ${remainingAmount}개", NamedTextColor.GRAY))
                 } else {
                     lore.add(Component.text("[오늘 교환 완료]", NamedTextColor.RED, TextDecoration.BOLD))
+                    lore.add(Component.text("오늘 남은 교환 개수: 0개", NamedTextColor.GRAY))
                 }
                 meta.lore(lore)
             }
@@ -72,30 +72,73 @@ class SeedMerchantGUI(
 
         event.isCancelled = true
         val player = event.whoClicked as? Player ?: return
-        val clickedSlot = event.rawSlot
+        
+        val seedId = seedSlotMap[event.rawSlot] ?: return
 
-        val seedId = seedSlotMap[clickedSlot] ?: return
-
-        if (!farmVillageManager.canTradeSeed(player, seedId)) {
-            player.sendMessage(Component.text("이 씨앗은 오늘 이미 교환했습니다.", NamedTextColor.RED))
+        // 1. 일일 남은 교환 개수 확인
+        val remainingAmount = farmVillageManager.getRemainingDailyTradeAmount(player, seedId)
+        if (remainingAmount <= 0) {
+            player.sendMessage(Component.text("이 씨앗은 오늘 교환 가능한 개수를 모두 소진했습니다.", NamedTextColor.RED))
             return
         }
 
-        val diamond = ItemStack(Material.DIAMOND)
-        if (player.inventory.containsAtLeast(diamond, 1)) {
-            player.inventory.removeItem(diamond)
+        val isShiftClick = event.isShiftClick
+        val cost = if (isShiftClick) 8 else 1
+        val amountToTrade = if (isShiftClick) 32 else 4
 
-            val seedItem = NexoItems.itemFromId(seedId)?.build() ?: return
-            seedItem.amount = 4
-            player.inventory.addItem(seedItem)
-
-            farmVillageManager.recordSeedTrade(player, seedId)
-
-            player.sendMessage(Component.text("씨앗을 성공적으로 교환했습니다!", NamedTextColor.GREEN))
-            // Update the GUI to reflect the change
-            updateGuiItems(player, event.inventory)
-        } else {
-            player.sendMessage(Component.text("교환에 필요한 다이아몬드가 부족합니다.", NamedTextColor.RED))
+        if (amountToTrade > remainingAmount) {
+            player.sendMessage(Component.text("오늘 교환 가능한 개수(${remainingAmount}개)를 초과할 수 없습니다.", NamedTextColor.RED))
+            return
         }
+
+        // 2. 재료(다이아몬드) 확인
+        val diamond = ItemStack(Material.DIAMOND)
+        if (!player.inventory.containsAtLeast(diamond, cost)) {
+            player.sendMessage(Component.text("교환에 필요한 다이아몬드가 ${cost}개 필요합니다.", NamedTextColor.RED))
+            return
+        }
+
+        val seedItem = NexoItems.itemFromId(seedId)?.build() ?: return
+        seedItem.amount = amountToTrade
+
+        // 3. 인벤토리 공간 확인
+        if (!hasEnoughSpace(player, seedItem)) {
+            player.sendMessage(Component.text("씨앗을 받을 인벤토리 공간이 부족합니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // 모든 확인 절차 통과, 거래 실행
+        player.inventory.removeItem(diamond.asQuantity(cost))
+        player.inventory.addItem(seedItem)
+        farmVillageManager.recordSeedTrade(player, seedId, amountToTrade)
+        
+        player.sendMessage(Component.text("씨앗 ${amountToTrade}개를 성공적으로 교환했습니다!", NamedTextColor.GREEN))
+        updateGuiItems(player, event.inventory)
+    }
+
+    private fun hasEnoughSpace(player: Player, itemToAdd: ItemStack): Boolean {
+        var remaining = itemToAdd.amount
+        val storage = player.inventory.storageContents
+        
+        // Check for existing stacks to fill up
+        for (item in storage) {
+            if (remaining <= 0) break
+            if (item != null && item.isSimilar(itemToAdd)) {
+                val canAdd = item.maxStackSize - item.amount
+                remaining -= canAdd
+            }
+        }
+        
+        // Check for empty slots
+        if (remaining > 0) {
+            for (item in storage) {
+                if (remaining <= 0) break
+                if (item == null || item.type == Material.AIR) {
+                    remaining -= itemToAdd.maxStackSize
+                }
+            }
+        }
+        
+        return remaining <= 0
     }
 } 
