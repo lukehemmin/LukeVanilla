@@ -6,6 +6,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.inventory.EquipmentSlot
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 
@@ -13,6 +14,11 @@ class ShopInteractListener(private val farmVillageManager: FarmVillageManager) :
 
     @EventHandler
     fun onPlayerInteract(event: PlayerInteractEvent) {
+        // Check if the event is for the main hand to avoid double-firing
+        if (event.hand != EquipmentSlot.HAND) {
+            return
+        }
+        
         val player = event.player
         val clickedBlock = event.clickedBlock ?: return
 
