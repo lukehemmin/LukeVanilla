@@ -33,6 +33,8 @@ class FarmVillageManager(
     private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
     private val seedMerchantGUI = SeedMerchantGUI(plugin, this)
     private val exchangeMerchantGUI = ExchangeMerchantGUI(plugin)
+    private val equipmentMerchantGUI = EquipmentMerchantGUI(plugin, this)
+    private val tradeConfirmationGUI = TradeConfirmationGUI(plugin)
     private val gson = Gson()
     private var shopLocations = listOf<ShopLocation>()
 
@@ -40,6 +42,8 @@ class FarmVillageManager(
         plugin.server.pluginManager.registerEvents(packageEditGUI, plugin)
         plugin.server.pluginManager.registerEvents(seedMerchantGUI, plugin)
         plugin.server.pluginManager.registerEvents(exchangeMerchantGUI, plugin)
+        plugin.server.pluginManager.registerEvents(equipmentMerchantGUI, plugin)
+        plugin.server.pluginManager.registerEvents(tradeConfirmationGUI, plugin)
         loadShopLocations()
     }
 
@@ -70,6 +74,14 @@ class FarmVillageManager(
 
     fun openExchangeMerchantGUI(player: Player) {
         exchangeMerchantGUI.openMainGui(player)
+    }
+
+    fun openEquipmentMerchantGUI(player: Player) {
+        equipmentMerchantGUI.open(player)
+    }
+
+    fun openTradeConfirmationGUI(player: Player, rewardItem: ItemStack, costItemsDisplay: ItemStack, onConfirm: () -> Unit) {
+        tradeConfirmationGUI.open(player, rewardItem, costItemsDisplay, onConfirm)
     }
 
     fun getRemainingDailyTradeAmount(player: Player, seedId: String): Int {
