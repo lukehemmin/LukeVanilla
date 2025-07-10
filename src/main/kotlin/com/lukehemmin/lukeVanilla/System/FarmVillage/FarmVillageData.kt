@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import org.bukkit.Location
 import org.bukkit.entity.Player
+import java.util.UUID
 
 data class PlotPartInfo(val plotNumber: Int, val plotPart: Int, val world: String, val chunkX: Int, val chunkZ: Int)
 data class PackageItem(val slot: Int, val itemType: String, val identifier: String, val itemData: String?)
@@ -24,6 +25,7 @@ class FarmVillageData(private val database: Database) {
     private val TABLE_PLOTS = "farmvillage_plots"
     private val TABLE_SHOP_LOCATIONS = "farmvillage_shop_locations"
     private val TABLE_PACKAGE_ITEMS = "farmvillage_package_items"
+    private val TABLE_SEED_TRADES = "farmvillage_seed_trades"
 
     init {
         createTables()
@@ -67,11 +69,21 @@ class FarmVillageData(private val database: Database) {
             );
         """.trimIndent()
 
+        val sqlSeedTrades = """
+            CREATE TABLE IF NOT EXISTS $TABLE_SEED_TRADES (
+                player_uuid VARCHAR(36) NOT NULL,
+                seed_id VARCHAR(255) NOT NULL,
+                last_trade_date DATE NOT NULL,
+                PRIMARY KEY (player_uuid, seed_id)
+            );
+        """.trimIndent()
+
         database.getConnection().use { connection ->
             connection.createStatement().use { statement ->
                 statement.executeUpdate(sqlPlots)
                 statement.executeUpdate(sqlShopLocations)
                 statement.executeUpdate(sqlPackageItems)
+                statement.executeUpdate(sqlSeedTrades)
             }
         }
     }
@@ -230,5 +242,37 @@ class FarmVillageData(private val database: Database) {
             }
         }
         return plots
+    }
+
+    fun canTradeSeed(playerUUID: UUID, seedId: String): Boolean {
+        val query = "SELECT last_trade_date FROM $TABLE_SEED_TRADES WHERE player_uuid = ? AND seed_id = ?"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, playerUUID.toString())
+                statement.setString(2, seedId)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        val lastTradeDate = rs.getDate("last_trade_date").toLocalDate()
+                        val today = java.time.LocalDate.now()
+                        return lastTradeDate.isBefore(today)
+                    }
+                }
+            }
+        }
+        return true // No record found, so they can trade
+    }
+
+    fun recordSeedTrade(playerUUID: UUID, seedId: String) {
+        val query = """
+            REPLACE INTO $TABLE_SEED_TRADES (player_uuid, seed_id, last_trade_date) 
+            VALUES (?, ?, CURDATE())
+        """.trimIndent()
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, playerUUID.toString())
+                statement.setString(2, seedId)
+                statement.executeUpdate()
+            }
+        }
     }
 } 

@@ -31,7 +31,7 @@ class FarmVillageManager(
 ) {
 
     private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
-    private val seedMerchantGUI = SeedMerchantGUI(plugin)
+    private val seedMerchantGUI = SeedMerchantGUI(plugin, this)
     private val exchangeMerchantGUI = ExchangeMerchantGUI(plugin)
     private val gson = Gson()
     private var shopLocations = listOf<ShopLocation>()
@@ -70,6 +70,14 @@ class FarmVillageManager(
 
     fun openExchangeMerchantGUI(player: Player) {
         exchangeMerchantGUI.openMainGui(player)
+    }
+
+    fun canTradeSeed(player: Player, seedId: String): Boolean {
+        return farmVillageData.canTradeSeed(player.uniqueId, seedId)
+    }
+
+    fun recordSeedTrade(player: Player, seedId: String) {
+        farmVillageData.recordSeedTrade(player.uniqueId, seedId)
     }
 
     fun grantShopPermission(player: OfflinePlayer): CompletableFuture<Boolean> {
