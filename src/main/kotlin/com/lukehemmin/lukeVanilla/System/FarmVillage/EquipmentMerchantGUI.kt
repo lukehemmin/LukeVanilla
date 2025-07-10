@@ -24,6 +24,7 @@ class EquipmentMerchantGUI(
 
     private val mainGuiTitle = Component.text("장비 상인")
     private val wateringCanGuiTitle = Component.text("장비상인 - 물 뿌리개 교환")
+    private val sprinklerGuiTitle = Component.text("장비상인 - 스프링클러 교환")
 
     private val activeAnimators = mutableMapOf<UUID, BukkitTask>()
     private val animationIndexes = mutableMapOf<UUID, Triple<Int, Int, Int>>()
@@ -37,6 +38,12 @@ class EquipmentMerchantGUI(
         20 to Triple("watering_can_2", 16, "은별 작물"),
         22 to Triple("watering_can_3", 32, "은별 작물"),
         24 to Triple("watering_can_4", 64, "은별 작물")
+    )
+    private val goldenStarIds = setOf("cabbage_golden_star", "chinese_cabbage_golden_star", "garlic_golden_star", "corn_golden_star", "pineapple_golden_star", "eggplant_golden_star")
+    private val sprinklerExchangeMap = mapOf(
+        20 to Triple("sprinkler_3_item", 1, "금별 작물"),
+        22 to Triple("sprinkler_2_item", 2, "금별 작물"),
+        24 to Triple("sprinkler_1_item", 3, "금별 작물")
     )
 
     fun open(player: Player) {
@@ -62,6 +69,33 @@ class EquipmentMerchantGUI(
                 val rewardText = Component.text("지급 아이템: ", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
                     .append(rewardItem.displayName().color(NamedTextColor.AQUA))
                 
+                lore.add(requiredText)
+                lore.add(rewardText)
+                lore.add(Component.text(" "))
+                lore.add(Component.text("[클릭하여 교환]", NamedTextColor.GREEN, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false))
+                meta.lore(lore)
+            }
+            inventory.setItem(slot, rewardItem)
+        }
+        player.openInventory(inventory)
+    }
+
+    private fun openSprinklerGui(player: Player) {
+        val inventory = Bukkit.createInventory(player, 45, sprinklerGuiTitle)
+        fillWithBlackGlass(inventory)
+
+        sprinklerExchangeMap.forEach { (slot, info) ->
+            val (itemId, requiredAmount, requiredItemName) = info
+            val rewardItem = NexoItems.itemFromId(itemId)?.build() ?: return@forEach
+
+            rewardItem.editMeta { meta ->
+                val lore = mutableListOf<Component>()
+                lore.add(Component.text(" "))
+                val requiredText = Component.text("교환 재료: ", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+                    .append(Component.text("아무 종류의 $requiredItemName ${requiredAmount}개", NamedTextColor.WHITE))
+                val rewardText = Component.text("지급 아이템: ", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+                    .append(rewardItem.displayName().color(NamedTextColor.AQUA))
+
                 lore.add(requiredText)
                 lore.add(rewardText)
                 lore.add(Component.text(" "))
@@ -111,7 +145,8 @@ class EquipmentMerchantGUI(
                 event.isCancelled = true
                 when (event.rawSlot) {
                     20 -> openWateringCanGui(player)
-                    // TODO: Add handlers for sprinkler and supply clicks
+                    22 -> openSprinklerGui(player)
+                    // TODO: Add handler for supply click
                 }
             }
             wateringCanGuiTitle -> {
@@ -147,6 +182,38 @@ class EquipmentMerchantGUI(
                     player.sendMessage(Component.text("성공적으로 물뿌리개를 교환했습니다!", NamedTextColor.GREEN))
                 }
                 
+                farmVillageManager.openTradeConfirmationGUI(player, rewardItem.clone(), costDisplayItem, onConfirm)
+            }
+            sprinklerGuiTitle -> {
+                event.isCancelled = true
+                val exchangeInfo = sprinklerExchangeMap[event.rawSlot] ?: return
+                val (rewardId, requiredAmount, _) = exchangeInfo
+
+                val costItems = findItemsInInventory(player, goldenStarIds, requiredAmount)
+                if (costItems == null) {
+                    player.sendMessage(Component.text("교환에 필요한 금별 작물이 부족합니다. (필요: ${requiredAmount}개)", NamedTextColor.RED))
+                    return
+                }
+
+                val rewardItem = NexoItems.itemFromId(rewardId)?.build() ?: return
+                if (!hasEnoughSpace(player, rewardItem)) {
+                    player.sendMessage(Component.text("스프링클러를 받을 인벤토리 공간이 부족합니다.", NamedTextColor.RED))
+                    return
+                }
+
+                val costDisplayItem = ItemStack(Material.CHEST).apply {
+                    editMeta {
+                        it.displayName(Component.text("금별 작물 ${requiredAmount}개", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))
+                        it.lore(costItems.map { item -> Component.text("- ${item.displayName()} x${item.amount}", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false) })
+                    }
+                }
+
+                val onConfirm = {
+                    costItems.forEach { item -> player.inventory.removeItem(item) }
+                    player.inventory.addItem(rewardItem)
+                    player.sendMessage(Component.text("성공적으로 스프링클러를 교환했습니다!", NamedTextColor.GREEN))
+                }
+
                 farmVillageManager.openTradeConfirmationGUI(player, rewardItem.clone(), costDisplayItem, onConfirm)
             }
         }
