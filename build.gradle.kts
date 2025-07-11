@@ -32,6 +32,8 @@ repositories {
     maven("https://repo.hibiscusmc.com/releases") {
         name = "hibiscusmc-repo"
     }
+    // Custom-Crops API 저장소 추가
+    maven("https://repo.momirealms.net/releases/")
 }
 
 dependencies {
@@ -56,6 +58,9 @@ dependencies {
     
     // HMCCosmetics API 의존성 추가
     compileOnly("com.hibiscusmc:HMCCosmetics:2.7.9-ff1addfd")
+
+    // Custom-Crops API 의존성 추가
+    compileOnly("net.momirealms:custom-crops:3.6.41")
     
     // Velocity API 의존성 - 버전 수정
     compileOnly("com.velocitypowered:velocity-api:3.1.1")

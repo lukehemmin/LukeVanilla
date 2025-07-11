@@ -6,6 +6,7 @@ author: LukeHemmin
 website: https://github.com/lukehemmin/LukeVanilla
 depend:
   - HMCCosmetics
+  - CustomCrops
 softdepend:
   - Oraxen
   - Citizens

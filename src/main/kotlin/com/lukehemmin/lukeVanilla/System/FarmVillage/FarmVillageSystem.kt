@@ -20,6 +20,7 @@ class FarmVillageSystem(
     private lateinit var shopInteractListener: ShopInteractListener
     private lateinit var chestProtectionListener: ChestProtectionListener
     private lateinit var packageOpenListener: PackageOpenListener
+    private lateinit var customCropProtectionListener: CustomCropProtectionListener
 
     fun enable() {
         // Accessing the landManager from the privateLandSystem instance
@@ -32,6 +33,7 @@ class FarmVillageSystem(
         shopInteractListener = ShopInteractListener(farmVillageManager)
         chestProtectionListener = ChestProtectionListener(farmVillageManager, debugManager)
         packageOpenListener = PackageOpenListener(plugin, farmVillageManager)
+        customCropProtectionListener = CustomCropProtectionListener(farmVillageManager, debugManager)
 
         plugin.getCommand("농사마을")?.setExecutor(farmVillageCommand)
         plugin.getCommand("농사마을")?.tabCompleter = farmVillageCommand
@@ -39,6 +41,7 @@ class FarmVillageSystem(
         plugin.server.pluginManager.registerEvents(shopInteractListener, plugin)
         plugin.server.pluginManager.registerEvents(chestProtectionListener, plugin)
         plugin.server.pluginManager.registerEvents(packageOpenListener, plugin)
+        plugin.server.pluginManager.registerEvents(customCropProtectionListener, plugin)
         
         plugin.logger.info("[FarmVillage] 농사마을 시스템이 활성화되었습니다.")
     }
