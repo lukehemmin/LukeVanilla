@@ -25,8 +25,8 @@ class ShopInteractListener(private val farmVillageManager: FarmVillageManager) :
         if (event.action.isRightClick) {
             val shopId = farmVillageManager.getShopIdAtLocation(clickedBlock.location)
             if (shopId != null) {
-                event.isCancelled = true
-
+            event.isCancelled = true
+            
                 when (shopId) {
                     "seed_merchant" -> farmVillageManager.openSeedMerchantGUI(player)
                     "exchange_merchant" -> farmVillageManager.openExchangeMerchantGUI(player)

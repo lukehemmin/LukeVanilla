@@ -34,7 +34,7 @@ class FarmVillageManager(
     private val seedMerchantGUI = SeedMerchantGUI(plugin, this)
     private val exchangeMerchantGUI = ExchangeMerchantGUI(plugin)
     private val equipmentMerchantGUI = EquipmentMerchantGUI(plugin, this)
-    private val tradeWorkbenchGUI = TradeWorkbenchGUI(plugin)
+    private val tradeConfirmationGUI = TradeConfirmationGUI(plugin)
     private val gson = Gson()
     private var shopLocations = listOf<ShopLocation>()
 
@@ -43,7 +43,7 @@ class FarmVillageManager(
         plugin.server.pluginManager.registerEvents(seedMerchantGUI, plugin)
         plugin.server.pluginManager.registerEvents(exchangeMerchantGUI, plugin)
         plugin.server.pluginManager.registerEvents(equipmentMerchantGUI, plugin)
-        plugin.server.pluginManager.registerEvents(tradeWorkbenchGUI, plugin)
+        plugin.server.pluginManager.registerEvents(tradeConfirmationGUI, plugin)
         loadShopLocations()
     }
 
@@ -80,8 +80,17 @@ class FarmVillageManager(
         equipmentMerchantGUI.open(player)
     }
 
-    fun openTradeWorkbenchGUI(player: Player, rewardItem: ItemStack, requiredAmount: Int, requiredItemName: String, validMaterialIds: Set<String>) {
-        tradeWorkbenchGUI.open(player, rewardItem, requiredAmount, requiredItemName, validMaterialIds)
+    fun openTradeConfirmationGUI(player: Player, rewardItem: ItemStack, costItemsDisplay: ItemStack, onConfirm: () -> Unit) {
+        tradeConfirmationGUI.open(player, rewardItem, costItemsDisplay, onConfirm)
+    }
+
+    fun getRemainingLifetimePurchases(player: Player, itemId: String, limit: Int): Int {
+        val purchasedAmount = farmVillageData.getLifetimePurchaseAmount(player.uniqueId, itemId)
+        return limit - purchasedAmount
+    }
+
+    fun recordPurchase(player: Player, itemId: String, amount: Int) {
+        farmVillageData.recordPurchase(player.uniqueId, itemId, amount)
     }
 
     fun getRemainingDailyTradeAmount(player: Player, seedId: String): Int {

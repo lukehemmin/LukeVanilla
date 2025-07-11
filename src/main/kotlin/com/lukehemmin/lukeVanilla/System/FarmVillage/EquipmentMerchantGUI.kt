@@ -25,6 +25,7 @@ class EquipmentMerchantGUI(
     private val mainGuiTitle = Component.text("장비 상인")
     private val wateringCanGuiTitle = Component.text("장비상인 - 물 뿌리개 교환")
     private val sprinklerGuiTitle = Component.text("장비상인 - 스프링클러 교환")
+    private val suppliesGuiTitle = Component.text("장비상인 - 농사 물품 교환")
 
     private val activeAnimators = mutableMapOf<UUID, BukkitTask>()
     private val animationIndexes = mutableMapOf<UUID, Triple<Int, Int, Int>>()
@@ -45,40 +46,16 @@ class EquipmentMerchantGUI(
         22 to Triple("sprinkler_2_item", 2, "금별 작물"),
         24 to Triple("sprinkler_1_item", 3, "금별 작물")
     )
-    private val farmingSupplyExchangeMap = mapOf(
-        20 to Triple("dry_pot", 1, "다이아몬드 블록"),
-        24 to Triple("scarecrow", 1, "다이아몬드 블록")
+    private val farmingSuppliesExchangeMap = mapOf(
+        21 to Triple("dry_pot", 1, 30), // item id, cost, amount given
+        23 to Triple("scarecrow", 3, 1)
     )
-
-    private val farmingSupplySelectionGuiTitle = Component.text("농사 물품 선택")
-    private val farmingSupplyMaterialIds = setOf("DIAMOND_BLOCK")
-
 
     fun open(player: Player) {
         val inventory = Bukkit.createInventory(player, 45, mainGuiTitle)
         fillWithBlackGlass(inventory)
         player.openInventory(inventory)
         startAnimation(player, inventory)
-    }
-
-    private fun openFarmingSupplySelection(player: Player) {
-        val inventory = Bukkit.createInventory(player, 45, farmingSupplySelectionGuiTitle)
-        fillWithBlackGlass(inventory)
-        farmingSupplyExchangeMap.forEach { (slot, info) ->
-            val (itemId, cost, requiredItemName) = info
-            val item = NexoItems.itemFromId(itemId)?.build() ?: return@forEach
-            item.editMeta {
-                it.lore(listOf(
-                    Component.text(" "),
-                    Component.text("교환 재료: ", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
-                        .append(Component.text("$requiredItemName ${cost}개", NamedTextColor.WHITE)),
-                    Component.text(" "),
-                    Component.text("[클릭하여 교환 시작]", NamedTextColor.GREEN, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false)
-                ))
-            }
-            inventory.setItem(slot, item)
-        }
-        player.openInventory(inventory)
     }
 
     private fun openWateringCanGui(player: Player) {
@@ -135,6 +112,52 @@ class EquipmentMerchantGUI(
         player.openInventory(inventory)
     }
 
+    private fun updateFarmingSuppliesGui(player: Player, inventory: Inventory) {
+        fillWithBlackGlass(inventory)
+        
+        // Dry Pot
+        farmingSuppliesExchangeMap[21]?.let { info ->
+            val (itemId, cost, amount) = info
+            val item = NexoItems.itemFromId(itemId)?.build() ?: return@let
+            item.amount = amount
+            val remaining = farmVillageManager.getRemainingLifetimePurchases(player, itemId, 30)
+            
+            item.editMeta {
+                it.lore(listOf(
+                    Component.text(" "),
+                    Component.text("교환 재료: ", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false).append(Component.text("다이아몬드 블럭 ${cost}개")),
+                    Component.text("지급 아이템: ", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false).append(item.displayName().color(NamedTextColor.AQUA)),
+                    Component.text(" "),
+                    if (remaining > 0) Component.text("평생 구매 가능: ${remaining}개", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+                    else Component.text("평생 구매 한도 도달", NamedTextColor.RED).decoration(TextDecoration.ITALIC, false)
+                ))
+            }
+            inventory.setItem(21, item)
+        }
+
+        // Scarecrow
+        farmingSuppliesExchangeMap[23]?.let { info ->
+            val (itemId, cost, amount) = info
+            val item = NexoItems.itemFromId(itemId)?.build() ?: return@let
+            item.amount = amount
+            item.editMeta {
+                it.lore(listOf(
+                    Component.text(" "),
+                    Component.text("교환 재료: ", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false).append(Component.text("다이아몬드 블럭 ${cost}개")),
+                    Component.text("지급 아이템: ", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false).append(item.displayName().color(NamedTextColor.AQUA)),
+                    Component.text(" ")
+                ))
+            }
+            inventory.setItem(23, item)
+        }
+    }
+
+    private fun openFarmingSuppliesGui(player: Player) {
+        val inventory = Bukkit.createInventory(player, 45, suppliesGuiTitle)
+        updateFarmingSuppliesGui(player, inventory)
+        player.openInventory(inventory)
+    }
+    
     private fun startAnimation(player: Player, inventory: Inventory) {
         animationIndexes[player.uniqueId] = Triple(0, 0, 0)
         activeAnimators[player.uniqueId] = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
@@ -174,31 +197,154 @@ class EquipmentMerchantGUI(
                 when (event.rawSlot) {
                     20 -> openWateringCanGui(player)
                     22 -> openSprinklerGui(player)
-                    24 -> openFarmingSupplySelection(player)
+                    24 -> openFarmingSuppliesGui(player)
                 }
             }
             wateringCanGuiTitle -> {
                 event.isCancelled = true
                 val exchangeInfo = wateringCanExchangeMap[event.rawSlot] ?: return
-                val (rewardId, requiredAmount, requiredItemName) = exchangeInfo
+                val (rewardId, requiredAmount, _) = exchangeInfo
+
+                // 1. Find the exact items to be used as materials
+                val costItems = findItemsInInventory(player, silverStarIds, requiredAmount)
+                if (costItems == null) {
+                    player.sendMessage(Component.text("교환에 필요한 은별 작물이 부족합니다. (필요: ${requiredAmount}개)", NamedTextColor.RED))
+                    return
+                }
+
+                // 2. Check for space for the reward
                 val rewardItem = NexoItems.itemFromId(rewardId)?.build() ?: return
-                farmVillageManager.openTradeWorkbenchGUI(player, rewardItem, requiredAmount, requiredItemName, silverStarIds)
+                if (!hasEnoughSpace(player, rewardItem)) {
+                    player.sendMessage(Component.text("물뿌리개를 받을 인벤토리 공간이 부족합니다.", NamedTextColor.RED))
+                    return
+                }
+
+                // 3. Open confirmation GUI
+                val costDisplayItem = ItemStack(Material.CHEST).apply {
+                    editMeta {
+                        it.displayName(Component.text("은별 작물 ${requiredAmount}개", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))
+                        val loreLines = costItems.map { item ->
+                            Component.text("- ", NamedTextColor.GRAY)
+                                .append(item.displayName())
+                                .append(Component.text(" x${item.amount}", NamedTextColor.GRAY))
+                                .decoration(TextDecoration.ITALIC, false)
+                        }
+                        it.lore(loreLines)
+                    }
+                }
+
+                val onConfirm = {
+                    costItems.forEach { item -> player.inventory.removeItem(item) }
+                    player.inventory.addItem(rewardItem)
+                    player.sendMessage(Component.text("성공적으로 물뿌리개를 교환했습니다!", NamedTextColor.GREEN))
+                }
+                
+                farmVillageManager.openTradeConfirmationGUI(player, rewardItem.clone(), costDisplayItem, onConfirm)
             }
             sprinklerGuiTitle -> {
                 event.isCancelled = true
                 val exchangeInfo = sprinklerExchangeMap[event.rawSlot] ?: return
-                val (rewardId, requiredAmount, requiredItemName) = exchangeInfo
+                val (rewardId, requiredAmount, _) = exchangeInfo
+
+                val costItems = findItemsInInventory(player, goldenStarIds, requiredAmount)
+                if (costItems == null) {
+                    player.sendMessage(Component.text("교환에 필요한 금별 작물이 부족합니다. (필요: ${requiredAmount}개)", NamedTextColor.RED))
+                    return
+                }
+
                 val rewardItem = NexoItems.itemFromId(rewardId)?.build() ?: return
-                farmVillageManager.openTradeWorkbenchGUI(player, rewardItem, requiredAmount, requiredItemName, goldenStarIds)
+                if (!hasEnoughSpace(player, rewardItem)) {
+                    player.sendMessage(Component.text("스프링클러를 받을 인벤토리 공간이 부족합니다.", NamedTextColor.RED))
+                    return
+                }
+
+                val costDisplayItem = ItemStack(Material.CHEST).apply {
+                    editMeta {
+                        it.displayName(Component.text("금별 작물 ${requiredAmount}개", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))
+                        val loreLines = costItems.map { item ->
+                            Component.text("- ", NamedTextColor.GRAY)
+                                .append(item.displayName())
+                                .append(Component.text(" x${item.amount}", NamedTextColor.GRAY))
+                                .decoration(TextDecoration.ITALIC, false)
+                        }
+                        it.lore(loreLines)
+                    }
+                }
+
+                val onConfirm = {
+                    costItems.forEach { item -> player.inventory.removeItem(item) }
+                    player.inventory.addItem(rewardItem)
+                    player.sendMessage(Component.text("성공적으로 스프링클러를 교환했습니다!", NamedTextColor.GREEN))
+                }
+
+                farmVillageManager.openTradeConfirmationGUI(player, rewardItem.clone(), costDisplayItem, onConfirm)
             }
-            farmingSupplySelectionGuiTitle -> {
+            suppliesGuiTitle -> {
                 event.isCancelled = true
-                val exchangeInfo = farmingSupplyExchangeMap[event.rawSlot] ?: return
-                val (rewardId, requiredAmount, requiredItemName) = exchangeInfo
-                val rewardItem = NexoItems.itemFromId(rewardId)?.build() ?: return
-                farmVillageManager.openTradeWorkbenchGUI(player, rewardItem, requiredAmount, requiredItemName, farmingSupplyMaterialIds)
+                
+                when (event.rawSlot) {
+                    21 -> handleDryPotTrade(player, event)
+                    23 -> handleScarecrowTrade(player)
+                }
             }
         }
+    }
+
+    private fun handleDryPotTrade(player: Player, event: InventoryClickEvent) {
+        val (rewardId, cost, amount) = farmingSuppliesExchangeMap[21]!!
+        val lifetimeLimit = 30
+        
+        // 1. Lifetime purchase limit check
+        val remaining = farmVillageManager.getRemainingLifetimePurchases(player, rewardId, lifetimeLimit)
+        if (remaining <= 0) {
+            player.sendMessage(Component.text("물 빠진 화분은 평생 ${lifetimeLimit}개까지만 구매할 수 있습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 2. Material check
+        val costItem = ItemStack(Material.DIAMOND_BLOCK, cost)
+        if (!player.inventory.containsAtLeast(costItem, cost)) {
+            player.sendMessage(Component.text("교환에 필요한 다이아몬드 블럭이 부족합니다. (필요: ${cost}개)", NamedTextColor.RED))
+            return
+        }
+        
+        // 3. Space check
+        val rewardItem = NexoItems.itemFromId(rewardId)?.build()?.asQuantity(amount) ?: return
+        if (!hasEnoughSpace(player, rewardItem)) {
+            player.sendMessage(Component.text("물 빠진 화분을 받을 인벤토리 공간이 부족합니다.", NamedTextColor.RED))
+            return
+        }
+
+        // All checks passed, execute trade
+        player.inventory.removeItem(costItem)
+        player.inventory.addItem(rewardItem)
+        farmVillageManager.recordPurchase(player, rewardId, amount)
+        player.sendMessage(Component.text("성공적으로 물 빠진 화분 30개를 교환했습니다!", NamedTextColor.GREEN))
+        // Refresh the GUI to show updated purchase limit
+        updateFarmingSuppliesGui(player, event.inventory)
+    }
+
+    private fun handleScarecrowTrade(player: Player) {
+        val (rewardId, cost, amount) = farmingSuppliesExchangeMap[23]!!
+        
+        // 1. Material check
+        val costItem = ItemStack(Material.DIAMOND_BLOCK, cost)
+        if (!player.inventory.containsAtLeast(costItem, cost)) {
+            player.sendMessage(Component.text("교환에 필요한 다이아몬드 블럭이 부족합니다. (필요: ${cost}개)", NamedTextColor.RED))
+            return
+        }
+        
+        // 2. Space check
+        val rewardItem = NexoItems.itemFromId(rewardId)?.build()?.asQuantity(amount) ?: return
+        if (!hasEnoughSpace(player, rewardItem)) {
+            player.sendMessage(Component.text("허수아비를 받을 인벤토리 공간이 부족합니다.", NamedTextColor.RED))
+            return
+        }
+
+        // All checks passed, execute trade
+        player.inventory.removeItem(costItem)
+        player.inventory.addItem(rewardItem)
+        player.sendMessage(Component.text("성공적으로 허수아비를 교환했습니다!", NamedTextColor.GREEN))
     }
 
     @EventHandler
@@ -225,31 +371,37 @@ class EquipmentMerchantGUI(
 
         for (item in player.inventory.storageContents) {
             if (collectedAmount >= amount) break
-            
-            if (item != null) {
-                val currentItemId = if (item.type.isItem) NexoItems.idFromItem(item) ?: item.type.name else null
-                if (currentItemId != null && currentItemId in itemIds) {
-                    val needed = amount - collectedAmount
-                    val itemToTake = item.clone()
-                    if (item.amount > needed) {
-                        itemToTake.amount = needed
-                        collectedAmount += needed
-                    } else {
-                        itemToTake.amount = item.amount
-                        collectedAmount += item.amount
-                    }
-                    foundItems.add(itemToTake)
+            if (item != null && NexoItems.idFromItem(item) in itemIds) {
+                val needed = amount - collectedAmount
+                val itemToTake = item.clone()
+                if (item.amount > needed) {
+                    itemToTake.amount = needed
+                    collectedAmount += needed
+                } else {
+                    itemToTake.amount = item.amount
+                    collectedAmount += item.amount
                 }
+                foundItems.add(itemToTake)
             }
         }
 
         return if (collectedAmount >= amount) foundItems else null
     }
 
-    private fun removePlayerItems(player: Player, nexoId: String, amount: Int) {
+    private fun playerHasSilverStarCrops(player: Player, amount: Int): Boolean {
+        var count = 0
+        player.inventory.storageContents.forEach { item ->
+            if (item != null && NexoItems.idFromItem(item) in silverStarIds) {
+                count += item.amount
+            }
+        }
+        return count >= amount
+    }
+
+    private fun removePlayerSilverStarCrops(player: Player, amount: Int) {
         var remaining = amount
         player.inventory.storageContents.forEach { item ->
-            if (remaining > 0 && item != null && NexoItems.idFromItem(item) == nexoId) {
+            if (remaining > 0 && item != null && NexoItems.idFromItem(item) in silverStarIds) {
                 if (item.amount <= remaining) {
                     remaining -= item.amount
                     item.amount = 0

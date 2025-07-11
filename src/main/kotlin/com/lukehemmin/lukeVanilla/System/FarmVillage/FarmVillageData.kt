@@ -27,6 +27,7 @@ class FarmVillageData(private val database: Database) {
     private val TABLE_SHOP_LOCATIONS = "farmvillage_shop_locations"
     private val TABLE_PACKAGE_ITEMS = "farmvillage_package_items"
     private val TABLE_SEED_TRADES = "farmvillage_seed_trades"
+    private val TABLE_PURCHASE_HISTORY = "farmvillage_purchase_history"
 
     init {
         createTables()
@@ -80,12 +81,22 @@ class FarmVillageData(private val database: Database) {
             );
         """.trimIndent()
 
+        val sqlPurchaseHistory = """
+            CREATE TABLE IF NOT EXISTS $TABLE_PURCHASE_HISTORY (
+                player_uuid VARCHAR(36) NOT NULL,
+                item_id VARCHAR(255) NOT NULL,
+                total_purchased INT NOT NULL DEFAULT 0,
+                PRIMARY KEY (player_uuid, item_id)
+            );
+        """.trimIndent()
+
         database.getConnection().use { connection ->
             connection.createStatement().use { statement ->
                 statement.executeUpdate(sqlPlots)
                 statement.executeUpdate(sqlShopLocations)
                 statement.executeUpdate(sqlPackageItems)
                 statement.executeUpdate(sqlSeedTrades)
+                statement.executeUpdate(sqlPurchaseHistory)
             }
         }
     }
@@ -109,7 +120,7 @@ class FarmVillageData(private val database: Database) {
             }
         }
     }
-    
+
     fun saveShopLocation(shopId: String, world: String, x: Int, y: Int, z: Int) {
         val sql = "REPLACE INTO $TABLE_SHOP_LOCATIONS (shop_id, world, top_block_x, top_block_y, top_block_z, bottom_block_x, bottom_block_y, bottom_block_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         database.getConnection().use { connection ->
@@ -200,7 +211,7 @@ class FarmVillageData(private val database: Database) {
         }
         return items
     }
-    
+
     fun getPlotPart(plotNumber: Int, plotPart: Int): PlotPartInfo? {
         val query = "SELECT world, chunk_x, chunk_z FROM $TABLE_PLOTS WHERE plot_number = ? AND plot_part = ?"
         database.getConnection().use { connection ->
@@ -217,9 +228,9 @@ class FarmVillageData(private val database: Database) {
                             rs.getInt("chunk_z")
                         )
                     }
+                    }
                 }
             }
-        }
         return null
     }
 
@@ -284,6 +295,38 @@ class FarmVillageData(private val database: Database) {
                 statement.setString(2, seedId)
                 statement.setInt(3, amount)
                 statement.setDate(4, kstDate)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun getLifetimePurchaseAmount(playerUUID: UUID, itemId: String): Int {
+        val query = "SELECT total_purchased FROM $TABLE_PURCHASE_HISTORY WHERE player_uuid = ? AND item_id = ?"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, playerUUID.toString())
+                statement.setString(2, itemId)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return rs.getInt("total_purchased")
+                    }
+                }
+            }
+        }
+        return 0
+    }
+    
+    fun recordPurchase(playerUUID: UUID, itemId: String, amount: Int) {
+        val query = """
+            INSERT INTO $TABLE_PURCHASE_HISTORY (player_uuid, item_id, total_purchased)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE total_purchased = total_purchased + VALUES(total_purchased)
+        """.trimIndent()
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, playerUUID.toString())
+                statement.setString(2, itemId)
+                statement.setInt(3, amount)
                 statement.executeUpdate()
             }
         }
