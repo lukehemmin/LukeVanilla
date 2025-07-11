@@ -75,6 +75,27 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
                 }
             }
             "농사아이템교환상점위치지정" -> handleSetShopLocation(sender, args)
+            "씨앗상인위치지정" -> {
+                if (sender is Player) {
+                    setShopLocation(sender, "seed_merchant", "씨앗 상인")
+                } else {
+                    sender.sendMessage("플레이어만 사용할 수 있는 명령어입니다.")
+                }
+            }
+            "교환상인위치지정" -> {
+                if (sender is Player) {
+                    setShopLocation(sender, "exchange_merchant", "교환 상인")
+                } else {
+                    sender.sendMessage("플레이어만 사용할 수 있는 명령어입니다.")
+                }
+            }
+            "장비상인위치지정" -> {
+                if (sender is Player) {
+                    setShopLocation(sender, "equipment_merchant", "장비 상인")
+                } else {
+                    sender.sendMessage("플레이어만 사용할 수 있는 명령어입니다.")
+                }
+            }
             else -> sendSystemUsage(sender)
         }
     }
@@ -210,6 +231,20 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         sender.sendMessage(Component.text("/농사마을 시스템 땅설정 <땅번호> <청크번호>", NamedTextColor.AQUA))
         sender.sendMessage(Component.text("/농사마을 시스템 입주패키지수정", NamedTextColor.AQUA))
         sender.sendMessage(Component.text("/농사마을 시스템 농사아이템교환상점위치지정 <world> <x> <y> <z>", NamedTextColor.AQUA))
+        sender.sendMessage(Component.text("/농사마을 시스템 씨앗상인위치지정", NamedTextColor.AQUA))
+        sender.sendMessage(Component.text("/농사마을 시스템 교환상인위치지정", NamedTextColor.AQUA))
+        sender.sendMessage(Component.text("/농사마을 시스템 장비상인위치지정", NamedTextColor.AQUA))
+    }
+
+    private fun setShopLocation(player: Player, shopId: String, shopName: String) {
+        val targetBlock = player.getTargetBlockExact(5)
+        if (targetBlock == null || targetBlock.type.isAir) {
+            player.sendMessage(Component.text("블록을 바라보고 명령어를 사용해주세요.", NamedTextColor.RED))
+            return
+        }
+        val location = targetBlock.location
+        manager.setShopLocation(shopId, location.world.name, location.blockX, location.blockY, location.blockZ)
+        player.sendMessage(Component.text("$shopName 위치를 현재 바라보는 블록으로 지정했습니다.", NamedTextColor.GREEN))
     }
 
     override fun onTabComplete(
@@ -227,7 +262,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         if (args.size == 2) {
             when (args[0].lowercase()) {
                 "땅주기", "상점이용권한지급" -> return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
-                "시스템" -> return mutableListOf("땅설정", "입주패키지수정", "농사아이템교환상점위치지정").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
+                "시스템" -> return mutableListOf("땅설정", "입주패키지수정", "농사아이템교환상점위치지정", "씨앗상인위치지정", "교환상인위치지정", "장비상인위치지정").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
             }
         }
         

@@ -68,21 +68,31 @@ class PackageEditGUI(private val plugin: Main, private val farmVillageData: Farm
         if (event.view.title() != Component.text(inventoryTitle)) return
         val player = event.whoClicked as? Player ?: return
 
-        if (event.rawSlot >= 45) {
-            event.isCancelled = true // Prevent taking items from the bottom bar
-        }
-        
-        when (event.rawSlot) {
-            48 -> { // Save button
-                val inventory = inventories[player.uniqueId] ?: return
-                savePackage(inventory)
-                player.sendMessage(Component.text("입주 패키지 아이템을 성공적으로 저장했습니다.", NamedTextColor.GREEN))
-                player.closeInventory()
+        val clickedInventory = event.clickedInventory
+        val topInventory = event.view.topInventory
+
+        // 클릭된 인벤토리가 GUI(상단 인벤토리)인 경우에만 로직을 처리합니다.
+        if (clickedInventory == topInventory) {
+            // 관리 버튼 영역(45-53번 슬롯)을 클릭한 경우
+            if (event.slot >= 45) {
+                event.isCancelled = true // 관리 영역의 아이템을 가져가지 못하도록 막습니다.
+
+                when (event.slot) {
+                    48 -> { // 저장 버튼
+                        val inventory = inventories[player.uniqueId] ?: return
+                        savePackage(inventory)
+                        player.sendMessage(Component.text("입주 패키지 아이템을 성공적으로 저장했습니다.", NamedTextColor.GREEN))
+                        player.closeInventory()
+                    }
+                    50 -> { // 닫기 버튼
+                        player.closeInventory()
+                    }
+                }
             }
-            50 -> { // Close button
-                player.closeInventory()
-            }
+            // 0-44번 슬롯 클릭은 취소되지 않으므로 아이템을 자유롭게 놓을 수 있습니다.
         }
+        // 플레이어 인벤토리(하단 인벤토리)를 클릭한 경우, 이 리스너는 아무 작업도 하지 않습니다.
+        // 따라서 플레이어는 자유롭게 자기 인벤토리의 아이템을 집거나 내려놓을 수 있습니다.
     }
 
     @EventHandler

@@ -19,3 +19,11 @@ wardrobe:
     y: 64.0
     z: 78.7
   radius: 2.0  # 옷장 활성화 반경 (블록 단위)
+
+debug:
+  farmitemrestriction: true
+  landprotection: true
+  farmvillage: true
+  myland: true
+  chestprotection: true
+  farmcropprotection: true

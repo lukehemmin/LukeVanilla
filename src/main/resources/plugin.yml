@@ -6,6 +6,7 @@ author: LukeHemmin
 website: https://github.com/lukehemmin/LukeVanilla
 depend:
   - HMCCosmetics
+  - CustomCrops
 softdepend:
   - Oraxen
   - Citizens
@@ -133,6 +134,11 @@ commands:
     usage: /<command> [땅설정|땅주기]
     permission: farmvillage.admin
     permission-message: 이 명령어를 사용할 권한이 없습니다.
+  서버시간:
+    description: "현재 서버의 시간을 표시합니다."
+    usage: "/서버시간"
+    permission: "lukevanilla.servertime"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -217,3 +223,6 @@ permissions:
   myland.admin.unclaim:
     description: "MyLand 시스템 관리자 회수 권한"
     default: op
+  lukevanilla.servertime:
+    description: "서버 시간 확인 명령어 사용 권한"
+    default: true

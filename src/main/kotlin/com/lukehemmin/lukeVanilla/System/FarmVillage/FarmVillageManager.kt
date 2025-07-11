@@ -31,11 +31,19 @@ class FarmVillageManager(
 ) {
 
     private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
+    private val seedMerchantGUI = SeedMerchantGUI(plugin, this)
+    private val exchangeMerchantGUI = ExchangeMerchantGUI(plugin)
+    private val equipmentMerchantGUI = EquipmentMerchantGUI(plugin, this)
+    private val tradeConfirmationGUI = TradeConfirmationGUI(plugin)
     private val gson = Gson()
     private var shopLocations = listOf<ShopLocation>()
 
     init {
         plugin.server.pluginManager.registerEvents(packageEditGUI, plugin)
+        plugin.server.pluginManager.registerEvents(seedMerchantGUI, plugin)
+        plugin.server.pluginManager.registerEvents(exchangeMerchantGUI, plugin)
+        plugin.server.pluginManager.registerEvents(equipmentMerchantGUI, plugin)
+        plugin.server.pluginManager.registerEvents(tradeConfirmationGUI, plugin)
         loadShopLocations()
     }
 
@@ -49,15 +57,50 @@ class FarmVillageManager(
         loadShopLocations() // Reload cache after update
     }
 
-    fun isShopLocation(location: Location): Boolean {
-        return shopLocations.any { 
+    fun getShopIdAtLocation(location: Location): String? {
+        return shopLocations.firstOrNull {
             (location.blockX == it.topBlockX && location.blockY == it.topBlockY && location.blockZ == it.topBlockZ && location.world.name == it.world) ||
             (location.blockX == it.bottomBlockX && location.blockY == it.bottomBlockY && location.blockZ == it.bottomBlockZ && location.world.name == it.world)
-        }
+        }?.shopId
     }
 
     fun openPackageEditor(player: Player) {
         packageEditGUI.open(player)
+    }
+
+    fun openSeedMerchantGUI(player: Player) {
+        seedMerchantGUI.open(player)
+    }
+
+    fun openExchangeMerchantGUI(player: Player) {
+        exchangeMerchantGUI.openMainGui(player)
+    }
+
+    fun openEquipmentMerchantGUI(player: Player) {
+        equipmentMerchantGUI.open(player)
+    }
+
+    fun openTradeConfirmationGUI(player: Player, rewardItem: ItemStack, costItemsDisplay: ItemStack, onConfirm: () -> Unit) {
+        tradeConfirmationGUI.open(player, rewardItem, costItemsDisplay, onConfirm)
+    }
+
+    fun getRemainingLifetimePurchases(player: Player, itemId: String, limit: Int): Int {
+        val purchasedAmount = farmVillageData.getLifetimePurchaseAmount(player.uniqueId, itemId)
+        return limit - purchasedAmount
+    }
+
+    fun recordPurchase(player: Player, itemId: String, amount: Int) {
+        farmVillageData.recordPurchase(player.uniqueId, itemId, amount)
+    }
+
+    fun getRemainingDailyTradeAmount(player: Player, seedId: String): Int {
+        val tradedAmount = farmVillageData.getTodaysTradeAmount(player.uniqueId, seedId)
+        val dailyLimit = 64 // You can make this configurable later
+        return dailyLimit - tradedAmount
+    }
+
+    fun recordSeedTrade(player: Player, seedId: String, amount: Int) {
+        farmVillageData.recordSeedTrade(player.uniqueId, seedId, amount)
     }
 
     fun grantShopPermission(player: OfflinePlayer): CompletableFuture<Boolean> {
@@ -90,6 +133,19 @@ class FarmVillageManager(
 
     fun getPlotPart(plotNumber: Int, plotPart: Int): PlotPartInfo? {
         return farmVillageData.getPlotPart(plotNumber, plotPart)
+    }
+
+    fun getFarmPlotOwner(location: Location): UUID? {
+        val chunk = location.chunk
+        val isFarmPlotChunk = farmVillageData.getAllPlotParts().any {
+            it.world == chunk.world.name && it.chunkX == chunk.x && it.chunkZ == chunk.z
+        }
+
+        return if (isFarmPlotChunk) {
+            landManager.getOwnerOfChunk(chunk)
+        } else {
+            null
+        }
     }
 
     // 주어진 위치(청크)가 농사마을 땅 중 하나인지 확인합니다.
@@ -210,12 +266,30 @@ class FarmVillageManager(
     }
 
     private fun giveJoinPackage(player: Player) {
+        val packageChest = NexoItems.itemFromId("farmvillage_storage_chest")?.build()
+
+        if (packageChest == null) {
+            plugin.logger.severe("[FarmVillage] 입주 패키지 아이템(farmvillage_storage_chest)을 찾을 수 없습니다!")
+            player.sendMessage(Component.text("오류: 입주 패키지 아이템을 찾을 수 없습니다. 관리자에게 문의해주세요.", NamedTextColor.RED))
+            return
+        }
+
+        val droppedItems = player.inventory.addItem(packageChest)
+        if (droppedItems.isNotEmpty()) {
+            player.world.dropItemNaturally(player.location, packageChest)
+            player.sendMessage(Component.text("인벤토리가 가득 차서 입주 패키지 상자를 땅에 드롭했습니다.", NamedTextColor.YELLOW))
+        }
+        player.sendMessage(Component.text("농사마을 입주 패키지가 지급되었습니다! 우클릭하여 열어보세요.", NamedTextColor.GREEN))
+        debugManager.log("FarmVillage", "Gave farmvillage_storage_chest package to ${player.name}.")
+    }
+
+    fun giveJoinPackageContents(player: Player): Int {
         val packageItemsInfo = farmVillageData.getPackageItems()
         if (packageItemsInfo.isEmpty()) {
             debugManager.log("FarmVillage", "No package items found in DB for ${player.name}.")
-            return
+            return 0
         }
-        
+
         val itemsToGive = packageItemsInfo.mapNotNull { deserializeItem(it) }
 
         val droppedItems = player.inventory.addItem(*itemsToGive.toTypedArray())
@@ -225,8 +299,12 @@ class FarmVillageManager(
                 player.world.dropItemNaturally(player.location, item)
             }
         }
-        player.sendMessage(Component.text("농사마을 입주 선물이 지급되었습니다!", NamedTextColor.GREEN))
-        debugManager.log("FarmVillage", "Gave ${itemsToGive.size} package items to ${player.name}.")
+        debugManager.log("FarmVillage", "Gave ${itemsToGive.size} package items to ${player.name} from package.")
+        return itemsToGive.size
+    }
+
+    fun hasPackageContents(): Boolean {
+        return farmVillageData.getPackageItems().isNotEmpty()
     }
 
     // Deserialization logic moved here to be accessible by giveJoinPackage
