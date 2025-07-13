@@ -331,4 +331,20 @@ class FarmVillageData(private val database: Database) {
             }
         }
     }
+    
+    fun updatePurchaseAmount(playerUUID: UUID, itemId: String, newAmount: Int) {
+        val query = """
+            INSERT INTO $TABLE_PURCHASE_HISTORY (player_uuid, item_id, total_purchased)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE total_purchased = VALUES(total_purchased)
+        """.trimIndent()
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, playerUUID.toString())
+                statement.setString(2, itemId)
+                statement.setInt(3, newAmount)
+                statement.executeUpdate()
+            }
+        }
+    }
 } 

@@ -96,6 +96,13 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
                     sender.sendMessage("플레이어만 사용할 수 있는 명령어입니다.")
                 }
             }
+            "토양받기상인위치지정" -> {
+                if (sender is Player) {
+                    setShopLocation(sender, "soil_receive_merchant", "토양받기 상인")
+                } else {
+                    sender.sendMessage("플레이어만 사용할 수 있는 명령어입니다.")
+                }
+            }
             else -> sendSystemUsage(sender)
         }
     }
@@ -234,6 +241,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         sender.sendMessage(Component.text("/농사마을 시스템 씨앗상인위치지정", NamedTextColor.AQUA))
         sender.sendMessage(Component.text("/농사마을 시스템 교환상인위치지정", NamedTextColor.AQUA))
         sender.sendMessage(Component.text("/농사마을 시스템 장비상인위치지정", NamedTextColor.AQUA))
+        sender.sendMessage(Component.text("/농사마을 시스템 토양받기상인위치지정", NamedTextColor.AQUA))
     }
 
     private fun setShopLocation(player: Player, shopId: String, shopName: String) {
@@ -262,7 +270,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         if (args.size == 2) {
             when (args[0].lowercase()) {
                 "땅주기", "상점이용권한지급" -> return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
-                "시스템" -> return mutableListOf("땅설정", "입주패키지수정", "농사아이템교환상점위치지정", "씨앗상인위치지정", "교환상인위치지정", "장비상인위치지정").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
+                "시스템" -> return mutableListOf("땅설정", "입주패키지수정", "농사아이템교환상점위치지정", "씨앗상인위치지정", "교환상인위치지정", "장비상인위치지정", "토양받기상인위치지정").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
             }
         }
         

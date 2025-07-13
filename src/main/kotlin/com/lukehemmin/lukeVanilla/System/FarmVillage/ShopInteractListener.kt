@@ -31,6 +31,7 @@ class ShopInteractListener(private val farmVillageManager: FarmVillageManager) :
                     "seed_merchant" -> farmVillageManager.openSeedMerchantGUI(player)
                     "exchange_merchant" -> farmVillageManager.openExchangeMerchantGUI(player)
                     "equipment_merchant" -> farmVillageManager.openEquipmentMerchantGUI(player)
+                    "soil_receive_merchant" -> farmVillageManager.openSoilReceiveGUI(player)
                     else -> {
                         // For other merchants, you can open a placeholder or send a message
                         player.sendMessage(Component.text("이 상점은 아직 준비중입니다.", NamedTextColor.GRAY))
