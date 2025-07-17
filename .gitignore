@@ -5,3 +5,6 @@
 /makenote
 jars/
 .idea/
+.windsurf/
+
+.roo/mcp.json
