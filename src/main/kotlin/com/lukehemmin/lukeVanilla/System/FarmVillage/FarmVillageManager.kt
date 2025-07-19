@@ -36,8 +36,9 @@ class FarmVillageManager(
     private val equipmentMerchantGUI = EquipmentMerchantGUI(plugin, this)
     private val tradeConfirmationGUI = TradeConfirmationGUI(plugin)
     private val soilReceiveGUI = SoilReceiveGUI(plugin, this)
+    private val npcMerchantListener = NPCMerchantListener(this)
     private val gson = Gson()
-    private var shopLocations = listOf<ShopLocation>()
+    private var npcMerchants = listOf<NPCMerchant>()
 
     init {
         plugin.server.pluginManager.registerEvents(packageEditGUI, plugin)
@@ -46,24 +47,13 @@ class FarmVillageManager(
         plugin.server.pluginManager.registerEvents(equipmentMerchantGUI, plugin)
         plugin.server.pluginManager.registerEvents(tradeConfirmationGUI, plugin)
         plugin.server.pluginManager.registerEvents(soilReceiveGUI, plugin)
-        loadShopLocations()
+        plugin.server.pluginManager.registerEvents(npcMerchantListener, plugin)
+        loadNPCMerchants()
     }
 
-    private fun loadShopLocations() {
-        shopLocations = farmVillageData.getAllShopLocations()
-        debugManager.log("FarmVillage", "${shopLocations.size}개의 상점 위치를 불러왔습니다.")
-    }
-    
-    fun setShopLocation(shopId: String, world: String, x: Int, y: Int, z: Int) {
-        farmVillageData.saveShopLocation(shopId, world, x, y, z)
-        loadShopLocations() // Reload cache after update
-    }
-
-    fun getShopIdAtLocation(location: Location): String? {
-        return shopLocations.firstOrNull {
-            (location.blockX == it.topBlockX && location.blockY == it.topBlockY && location.blockZ == it.topBlockZ && location.world.name == it.world) ||
-            (location.blockX == it.bottomBlockX && location.blockY == it.bottomBlockY && location.blockZ == it.bottomBlockZ && location.world.name == it.world)
-        }?.shopId
+    private fun loadNPCMerchants() {
+        npcMerchants = farmVillageData.getAllNPCMerchants()
+        debugManager.log("FarmVillage", "${npcMerchants.size}개의 NPC 상인을 불러왔습니다.")
     }
 
     fun openPackageEditor(player: Player) {
@@ -115,6 +105,25 @@ class FarmVillageManager(
 
     fun recordSeedTrade(player: Player, seedId: String, amount: Int) {
         farmVillageData.recordSeedTrade(player.uniqueId, seedId, amount)
+    }
+
+    // NPC 상인 관련 메서드들
+    fun setNPCMerchant(shopId: String, npcId: Int) {
+        farmVillageData.saveNPCMerchant(shopId, npcId)
+        loadNPCMerchants() // Reload cache after update
+    }
+
+    fun getShopIdByNPC(npcId: Int): String? {
+        return npcMerchants.firstOrNull { it.npcId == npcId }?.shopId
+    }
+
+    fun getNPCIdByShopId(shopId: String): Int? {
+        return npcMerchants.firstOrNull { it.shopId == shopId }?.npcId
+    }
+
+    fun removeNPCMerchant(shopId: String) {
+        farmVillageData.removeNPCMerchant(shopId)
+        loadNPCMerchants() // Reload cache after update
     }
 
     fun grantShopPermission(player: OfflinePlayer): CompletableFuture<Boolean> {

@@ -9,22 +9,16 @@ import java.util.UUID
 
 data class PlotPartInfo(val plotNumber: Int, val plotPart: Int, val world: String, val chunkX: Int, val chunkZ: Int)
 data class PackageItem(val slot: Int, val itemType: String, val identifier: String, val itemData: String?)
-data class ShopLocation(
+data class NPCMerchant(
     val shopId: String,
-    val world: String,
-    val topBlockX: Int,
-    val topBlockY: Int,
-    val topBlockZ: Int,
-    val bottomBlockX: Int,
-    val bottomBlockY: Int,
-    val bottomBlockZ: Int
+    val npcId: Int
 )
 
 class FarmVillageData(private val database: Database) {
 
     private val gson = Gson()
     private val TABLE_PLOTS = "farmvillage_plots"
-    private val TABLE_SHOP_LOCATIONS = "farmvillage_shop_locations"
+    private val TABLE_NPC_MERCHANTS = "farmvillage_npc_merchants"
     private val TABLE_PACKAGE_ITEMS = "farmvillage_package_items"
     private val TABLE_SEED_TRADES = "farmvillage_seed_trades"
     private val TABLE_PURCHASE_HISTORY = "farmvillage_purchase_history"
@@ -48,18 +42,6 @@ class FarmVillageData(private val database: Database) {
             );
         """.trimIndent()
 
-        val sqlShopLocations = """
-            CREATE TABLE IF NOT EXISTS $TABLE_SHOP_LOCATIONS (
-                shop_id VARCHAR(255) NOT NULL PRIMARY KEY,
-                world VARCHAR(255) NOT NULL,
-                top_block_x INT NOT NULL,
-                top_block_y INT NOT NULL,
-                top_block_z INT NOT NULL,
-                bottom_block_x INT NOT NULL,
-                bottom_block_y INT NOT NULL,
-                bottom_block_z INT NOT NULL
-            );
-        """.trimIndent()
         
         val sqlPackageItems = """
             CREATE TABLE IF NOT EXISTS $TABLE_PACKAGE_ITEMS (
@@ -90,10 +72,17 @@ class FarmVillageData(private val database: Database) {
             );
         """.trimIndent()
 
+        val sqlNPCMerchants = """
+            CREATE TABLE IF NOT EXISTS $TABLE_NPC_MERCHANTS (
+                shop_id VARCHAR(255) NOT NULL PRIMARY KEY,
+                npc_id INT NOT NULL
+            );
+        """.trimIndent()
+
         database.getConnection().use { connection ->
             connection.createStatement().use { statement ->
                 statement.executeUpdate(sqlPlots)
-                statement.executeUpdate(sqlShopLocations)
+                statement.executeUpdate(sqlNPCMerchants)
                 statement.executeUpdate(sqlPackageItems)
                 statement.executeUpdate(sqlSeedTrades)
                 statement.executeUpdate(sqlPurchaseHistory)
@@ -121,46 +110,7 @@ class FarmVillageData(private val database: Database) {
         }
     }
 
-    fun saveShopLocation(shopId: String, world: String, x: Int, y: Int, z: Int) {
-        val sql = "REPLACE INTO $TABLE_SHOP_LOCATIONS (shop_id, world, top_block_x, top_block_y, top_block_z, bottom_block_x, bottom_block_y, bottom_block_z) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        database.getConnection().use { connection ->
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, shopId)
-                statement.setString(2, world)
-                statement.setInt(3, x)
-                statement.setInt(4, y)
-                statement.setInt(5, z)
-                statement.setInt(6, x)
-                statement.setInt(7, y - 1)
-                statement.setInt(8, z)
-                statement.executeUpdate()
-            }
-        }
-    }
 
-    fun getAllShopLocations(): List<ShopLocation> {
-        val locations = mutableListOf<ShopLocation>()
-        val sql = "SELECT * FROM $TABLE_SHOP_LOCATIONS"
-        database.getConnection().use { connection ->
-            connection.prepareStatement(sql).use { statement ->
-                statement.executeQuery().use { rs ->
-                    while (rs.next()) {
-                        locations.add(ShopLocation(
-                            shopId = rs.getString("shop_id"),
-                            world = rs.getString("world"),
-                            topBlockX = rs.getInt("top_block_x"),
-                            topBlockY = rs.getInt("top_block_y"),
-                            topBlockZ = rs.getInt("top_block_z"),
-                            bottomBlockX = rs.getInt("bottom_block_x"),
-                            bottomBlockY = rs.getInt("bottom_block_y"),
-                            bottomBlockZ = rs.getInt("bottom_block_z")
-                        ))
-                    }
-                }
-            }
-        }
-        return locations
-    }
 
     fun savePackageItems(items: List<PackageItem>) {
         val deleteQuery = "DELETE FROM $TABLE_PACKAGE_ITEMS"
@@ -343,6 +293,82 @@ class FarmVillageData(private val database: Database) {
                 statement.setString(1, playerUUID.toString())
                 statement.setString(2, itemId)
                 statement.setInt(3, newAmount)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    // NPC 상인 관련 메서드들
+    fun saveNPCMerchant(shopId: String, npcId: Int) {
+        val sql = "REPLACE INTO $TABLE_NPC_MERCHANTS (shop_id, npc_id) VALUES (?, ?)"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, shopId)
+                statement.setInt(2, npcId)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun getAllNPCMerchants(): List<NPCMerchant> {
+        val merchants = mutableListOf<NPCMerchant>()
+        val sql = "SELECT * FROM $TABLE_NPC_MERCHANTS"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        merchants.add(NPCMerchant(
+                            shopId = rs.getString("shop_id"),
+                            npcId = rs.getInt("npc_id")
+                        ))
+                    }
+                }
+            }
+        }
+        return merchants
+    }
+
+    fun getNPCMerchantByShopId(shopId: String): NPCMerchant? {
+        val sql = "SELECT * FROM $TABLE_NPC_MERCHANTS WHERE shop_id = ?"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, shopId)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return NPCMerchant(
+                            shopId = rs.getString("shop_id"),
+                            npcId = rs.getInt("npc_id")
+                        )
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    fun getNPCMerchantByNPCId(npcId: Int): NPCMerchant? {
+        val sql = "SELECT * FROM $TABLE_NPC_MERCHANTS WHERE npc_id = ?"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setInt(1, npcId)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return NPCMerchant(
+                            shopId = rs.getString("shop_id"),
+                            npcId = rs.getInt("npc_id")
+                        )
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    fun removeNPCMerchant(shopId: String) {
+        val sql = "DELETE FROM $TABLE_NPC_MERCHANTS WHERE shop_id = ?"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, shopId)
                 statement.executeUpdate()
             }
         }
