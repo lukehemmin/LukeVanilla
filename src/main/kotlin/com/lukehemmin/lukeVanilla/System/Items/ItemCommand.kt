@@ -36,7 +36,7 @@ class ItemCommand : CommandExecutor {
             return true
         }
 
-        when (args[0].toLowerCase()) {
+        when (args[0].lowercase()) {
             "setname" -> {
                 if (args.size < 2) {
                     player.sendMessage("Usage: /item setname <name>")

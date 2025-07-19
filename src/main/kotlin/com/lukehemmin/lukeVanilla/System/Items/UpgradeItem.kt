@@ -143,7 +143,7 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
             return true
         }
 
-        when (command.name.toLowerCase()) {
+        when (command.name.lowercase()) {
             "자동성장켜기" -> {
                 setAutoUpgrade(item, true)
                 player.sendMessage("${ChatColor.GREEN}${ChatColor.BOLD}자동 업그레이드가 활성화되었습니다.")
