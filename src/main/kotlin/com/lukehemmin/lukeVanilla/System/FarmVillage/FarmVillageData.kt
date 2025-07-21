@@ -15,6 +15,8 @@ data class NPCMerchant(
 )
 
 class FarmVillageData(private val database: Database) {
+    
+    private lateinit var plugin: com.lukehemmin.lukeVanilla.Main
 
     private val gson = Gson()
     private val TABLE_PLOTS = "farmvillage_plots"
@@ -22,9 +24,15 @@ class FarmVillageData(private val database: Database) {
     private val TABLE_PACKAGE_ITEMS = "farmvillage_package_items"
     private val TABLE_SEED_TRADES = "farmvillage_seed_trades"
     private val TABLE_PURCHASE_HISTORY = "farmvillage_purchase_history"
+    private val TABLE_WEEKLY_SCROLL_PURCHASES = "farmvillage_weekly_scroll_purchases"
+    private val TABLE_WEEKLY_SCROLL_CONFIG = "farmvillage_weekly_scroll_config"
 
     init {
         createTables()
+    }
+    
+    fun setPlugin(plugin: com.lukehemmin.lukeVanilla.Main) {
+        this.plugin = plugin
     }
 
     private fun createTables() {
@@ -33,9 +41,6 @@ class FarmVillageData(private val database: Database) {
                 plot_number INT NOT NULL,
                 plot_part INT NOT NULL,
                 world VARCHAR(255) NOT NULL,
-                x INT NOT NULL,
-                y INT NOT NULL,
-                z INT NOT NULL,
                 chunk_x INT NOT NULL,
                 chunk_z INT NOT NULL,
                 PRIMARY KEY (plot_number, plot_part)
@@ -66,9 +71,10 @@ class FarmVillageData(private val database: Database) {
         val sqlPurchaseHistory = """
             CREATE TABLE IF NOT EXISTS $TABLE_PURCHASE_HISTORY (
                 player_uuid VARCHAR(36) NOT NULL,
-                item_id VARCHAR(255) NOT NULL,
-                total_purchased INT NOT NULL DEFAULT 0,
-                PRIMARY KEY (player_uuid, item_id)
+                item_id VARCHAR(100) NOT NULL,
+                purchase_date DATE NOT NULL,
+                purchase_count INT NOT NULL DEFAULT 1,
+                INDEX idx_player_date (player_uuid, purchase_date)
             );
         """.trimIndent()
 
@@ -79,6 +85,29 @@ class FarmVillageData(private val database: Database) {
             );
         """.trimIndent()
 
+        val sqlWeeklyScrollPurchases = """
+            CREATE TABLE IF NOT EXISTS $TABLE_WEEKLY_SCROLL_PURCHASES (
+                player_uuid VARCHAR(36) NOT NULL,
+                purchase_week VARCHAR(10) NOT NULL,
+                scroll_id VARCHAR(100) NOT NULL,
+                season_name VARCHAR(50) NOT NULL,
+                purchase_date DATE NOT NULL,
+                purchase_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (player_uuid, purchase_week),
+                INDEX idx_week (purchase_week),
+                INDEX idx_season (season_name)
+            );
+        """.trimIndent()
+        
+        val sqlWeeklyScrollConfig = """
+            CREATE TABLE IF NOT EXISTS $TABLE_WEEKLY_SCROLL_CONFIG (
+                id INT PRIMARY KEY DEFAULT 1,
+                current_week_override VARCHAR(10) NULL,
+                override_enabled BOOLEAN DEFAULT FALSE,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            );
+        """.trimIndent()
+
         database.getConnection().use { connection ->
             connection.createStatement().use { statement ->
                 statement.executeUpdate(sqlPlots)
@@ -86,25 +115,24 @@ class FarmVillageData(private val database: Database) {
                 statement.executeUpdate(sqlPackageItems)
                 statement.executeUpdate(sqlSeedTrades)
                 statement.executeUpdate(sqlPurchaseHistory)
+                statement.executeUpdate(sqlWeeklyScrollPurchases)
+                statement.executeUpdate(sqlWeeklyScrollConfig)
             }
         }
     }
     
     fun setPlotLocation(plotNumber: Int, plotPart: Int, location: Location) {
         val query = """
-            REPLACE INTO $TABLE_PLOTS (plot_number, plot_part, world, x, y, z, chunk_x, chunk_z) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            REPLACE INTO $TABLE_PLOTS (plot_number, plot_part, world, chunk_x, chunk_z) 
+            VALUES (?, ?, ?, ?, ?)
         """.trimIndent()
         database.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setInt(1, plotNumber)
                 statement.setInt(2, plotPart)
                 statement.setString(3, location.world.name)
-                statement.setInt(4, location.blockX)
-                statement.setInt(5, location.blockY)
-                statement.setInt(6, location.blockZ)
-                statement.setInt(7, location.chunk.x)
-                statement.setInt(8, location.chunk.z)
+                statement.setInt(4, location.chunk.x)
+                statement.setInt(5, location.chunk.z)
                 statement.executeUpdate()
             }
         }
@@ -373,4 +401,214 @@ class FarmVillageData(private val database: Database) {
             }
         }
     }
-} 
+    
+    // ===== 주차별 스크롤 구매 관련 메서드들 =====
+    
+    /**
+     * 플레이어가 해당 주차에 스크롤을 구매했는지 확인
+     */
+    fun hasPlayerPurchasedThisWeek(playerUUID: UUID, weekString: String): Boolean {
+        val sql = "SELECT COUNT(*) FROM $TABLE_WEEKLY_SCROLL_PURCHASES WHERE player_uuid = ? AND purchase_week = ?"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, playerUUID.toString())
+                statement.setString(2, weekString)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return rs.getInt(1) > 0
+                    }
+                }
+            }
+        }
+        return false
+    }
+    
+    /**
+     * 플레이어의 해당 주차 구매 기록 조회
+     */
+    fun getPlayerWeeklyPurchase(playerUUID: UUID, weekString: String): WeeklyScrollPurchase? {
+        val sql = "SELECT * FROM $TABLE_WEEKLY_SCROLL_PURCHASES WHERE player_uuid = ? AND purchase_week = ?"
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, playerUUID.toString())
+                statement.setString(2, weekString)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return WeeklyScrollPurchase(
+                            playerUUID = UUID.fromString(rs.getString("player_uuid")),
+                            purchaseWeek = rs.getString("purchase_week"),
+                            scrollId = rs.getString("scroll_id"),
+                            seasonName = rs.getString("season_name"),
+                            purchaseDate = rs.getDate("purchase_date").toLocalDate(),
+                            purchaseTimestamp = rs.getTimestamp("purchase_timestamp").toLocalDateTime()
+                        )
+                    }
+                }
+            }
+        }
+        return null
+    }
+    
+    /**
+     * 주차별 스크롤 구매 기록 저장
+     */
+    fun recordWeeklyScrollPurchase(
+        playerUUID: UUID, 
+        weekString: String, 
+        scrollId: String, 
+        seasonName: String
+    ): Boolean {
+        val sql = """
+            INSERT INTO $TABLE_WEEKLY_SCROLL_PURCHASES 
+            (player_uuid, purchase_week, scroll_id, season_name, purchase_date, purchase_timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(sql).use { statement ->
+                    val kstZone = java.time.ZoneId.of("Asia/Seoul")
+                    val now = java.time.LocalDateTime.now(kstZone)
+                    
+                    statement.setString(1, playerUUID.toString())
+                    statement.setString(2, weekString)
+                    statement.setString(3, scrollId)
+                    statement.setString(4, seasonName)
+                    statement.setDate(5, java.sql.Date.valueOf(now.toLocalDate()))
+                    statement.setTimestamp(6, java.sql.Timestamp.valueOf(now))
+                    
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    /**
+     * 특정 주차의 모든 구매 기록 조회 (관리용)
+     */
+    fun getAllPurchasesForWeek(weekString: String): List<WeeklyScrollPurchase> {
+        val purchases = mutableListOf<WeeklyScrollPurchase>()
+        val sql = "SELECT * FROM $TABLE_WEEKLY_SCROLL_PURCHASES WHERE purchase_week = ? ORDER BY purchase_timestamp DESC"
+        
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, weekString)
+                statement.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        purchases.add(
+                            WeeklyScrollPurchase(
+                                playerUUID = UUID.fromString(rs.getString("player_uuid")),
+                                purchaseWeek = rs.getString("purchase_week"),
+                                scrollId = rs.getString("scroll_id"),
+                                seasonName = rs.getString("season_name"),
+                                purchaseDate = rs.getDate("purchase_date").toLocalDate(),
+                                purchaseTimestamp = rs.getTimestamp("purchase_timestamp").toLocalDateTime()
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return purchases
+    }
+    
+    /**
+     * 플레이어의 모든 주차별 구매 이력 조회
+     */
+    fun getPlayerPurchaseHistory(playerUUID: UUID): List<WeeklyScrollPurchase> {
+        val purchases = mutableListOf<WeeklyScrollPurchase>()
+        val sql = "SELECT * FROM $TABLE_WEEKLY_SCROLL_PURCHASES WHERE player_uuid = ? ORDER BY purchase_timestamp DESC"
+        
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, playerUUID.toString())
+                statement.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        purchases.add(
+                            WeeklyScrollPurchase(
+                                playerUUID = UUID.fromString(rs.getString("player_uuid")),
+                                purchaseWeek = rs.getString("purchase_week"),
+                                scrollId = rs.getString("scroll_id"),
+                                seasonName = rs.getString("season_name"),
+                                purchaseDate = rs.getDate("purchase_date").toLocalDate(),
+                                purchaseTimestamp = rs.getTimestamp("purchase_timestamp").toLocalDateTime()
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return purchases
+    }
+    
+    // ===== 주차 강제 설정 관련 메서드들 =====
+    
+    /**
+     * 주차 강제 설정 활성화/비활성화
+     */
+    fun setWeekOverride(weekString: String?, enabled: Boolean): Boolean {
+        val sql = """
+            INSERT INTO $TABLE_WEEKLY_SCROLL_CONFIG (id, current_week_override, override_enabled)
+            VALUES (1, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+            current_week_override = VALUES(current_week_override),
+            override_enabled = VALUES(override_enabled),
+            last_updated = CURRENT_TIMESTAMP
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(sql).use { statement ->
+                    statement.setString(1, weekString)
+                    statement.setBoolean(2, enabled)
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            plugin.logger.warning("주차 강제 설정 저장 실패: ${e.message}")
+            false
+        }
+    }
+    
+    /**
+     * 현재 주차 강제 설정 상태 조회
+     */
+    fun getWeekOverride(): Pair<String?, Boolean> {
+        val sql = "SELECT current_week_override, override_enabled FROM $TABLE_WEEKLY_SCROLL_CONFIG WHERE id = 1"
+        
+        database.getConnection().use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return Pair(
+                            rs.getString("current_week_override"),
+                            rs.getBoolean("override_enabled")
+                        )
+                    }
+                }
+            }
+        }
+        return Pair(null, false)
+    }
+    
+    /**
+     * 주차 강제 설정 비활성화 (자동 주차 계산으로 복귀)
+     */
+    fun disableWeekOverride(): Boolean {
+        return setWeekOverride(null, false)
+    }
+}
+
+/**
+ * 주차별 스크롤 구매 기록 데이터 클래스
+ */
+data class WeeklyScrollPurchase(
+    val playerUUID: UUID,
+    val purchaseWeek: String,
+    val scrollId: String, 
+    val seasonName: String,
+    val purchaseDate: java.time.LocalDate,
+    val purchaseTimestamp: java.time.LocalDateTime
+) 

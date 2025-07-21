@@ -19,6 +19,8 @@ import java.util.UUID
 
 class ExchangeMerchantGUI(private val plugin: Main) : Listener {
 
+    private var farmVillageManager: FarmVillageManager? = null
+
     private val mainGuiTitle = Component.text("교환 상인")
     private val silverGuiTitle = Component.text("교환 상인 - 은별작물 교환")
     private val goldenGuiTitle = Component.text("교환 상인 - 금별작물 교환")
@@ -47,6 +49,10 @@ class ExchangeMerchantGUI(private val plugin: Main) : Listener {
         31 to ("pineapple_silver_star" to "pineapple_golden_star"),
         33 to ("eggplant_silver_star" to "eggplant_golden_star")
     )
+
+    fun setFarmVillageManager(manager: FarmVillageManager) {
+        this.farmVillageManager = manager
+    }
 
     fun openMainGui(player: Player) {
         val inventory = Bukkit.createInventory(player, 45, mainGuiTitle)
@@ -149,8 +155,21 @@ class ExchangeMerchantGUI(private val plugin: Main) : Listener {
                     20 -> openSilverGui(player)
                     22 -> openGoldenGui(player)
                     24 -> {
-                        player.sendMessage(Component.text("구현 준비중입니다.", NamedTextColor.YELLOW))
-                        // TODO: 교환상점 - 커스텀 아이템 교환 GUI 구현해야함
+                        plugin.logger.info("[DEBUG] 교환상인 GUI 24번 슬롯 클릭 - farmVillageManager: ${farmVillageManager != null}")
+                        if (farmVillageManager == null) {
+                            player.sendMessage(Component.text("주차별 스크롤 교환 시스템이 초기화되지 않았습니다. 서버를 재시작해주세요.", NamedTextColor.RED))
+                            plugin.logger.warning("[ERROR] farmVillageManager가 null입니다!")
+                            return
+                        }
+                        val weeklyGUI = farmVillageManager!!.getWeeklyScrollExchangeGUI()
+                        if (weeklyGUI == null) {
+                            player.sendMessage(Component.text("주차별 스크롤 GUI를 찾을 수 없습니다.", NamedTextColor.RED))
+                            plugin.logger.warning("[ERROR] weeklyScrollExchangeGUI가 null입니다!")
+                            return
+                        }
+                        plugin.logger.info("[DEBUG] 주차별 스크롤 GUI 열기 시도...")
+                        weeklyGUI.openGUI(player)
+                        plugin.logger.info("[DEBUG] 주차별 스크롤 GUI 열기 완료!")
                     }
                 }
             }
