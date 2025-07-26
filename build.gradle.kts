@@ -1,6 +1,8 @@
 plugins {
     kotlin("jvm") version "2.0.21"
     id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("xyz.jpenilla.run-paper") version "2.3.1"
+    kotlin("plugin.serialization") version "2.2.0"
 }
 
 group = "com.lukehemmin"
@@ -34,6 +36,11 @@ repositories {
     }
     // Custom-Crops API 저장소 추가
     maven("https://repo.momirealms.net/releases/")
+    // libby-bukkit을 위한 저장소 추가
+    maven("https://repo.maven.apache.org/maven2/")
+    maven("https://maven.pkg.github.com/Byteflux/libby") {
+        name = "libby-repo"
+    }
 }
 
 dependencies {
@@ -43,7 +50,9 @@ dependencies {
 //    compileOnly("io.th0rgal:oraxen:1.186.0")
     compileOnly("com.nexomc:nexo:1.8.0")
     implementation("net.dv8tion:JDA:5.6.1")
-    compileOnly("net.citizensnpcs:citizens-main:2.0.37-SNAPSHOT")
+    compileOnly("net.citizensnpcs:citizens-main:2.0.39-SNAPSHOT") {
+        exclude(group = "*", module = "*")
+    }
     //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
     compileOnly("com.github.LoneDev6:API-ItemsAdder:3.6.3-beta-14")
     compileOnly("com.github.Gecolay.GSit:GSit:1.13.0") {
@@ -75,6 +84,10 @@ kotlin {
     jvmToolchain(targetJavaVersion)
 }
 
+tasks.runServer {
+    minecraftVersion("1.20.6")
+}
+
 tasks.build {
     dependsOn("shadowJar")
 }
@@ -95,7 +108,7 @@ tasks.shadowJar {
     destinationDirectory.set(
         if (isCI) file("build/libs")
         else
-            file("/home/lukehemmin/LukeVanilla/jars")
+            file("/home/lukehemmin/LukeVanilla/run/plugins")
             //file("E:/server")
     )
     manifest {

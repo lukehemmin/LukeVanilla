@@ -139,6 +139,11 @@ commands:
     usage: "/서버시간"
     permission: "lukevanilla.servertime"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  주차스크롤:
+    description: "주차별 스크롤 교환 시스템을 관리합니다."
+    usage: "/주차스크롤 [상태|다음주|이전주|해제|GUI]"
+    permission: "lukevanilla.admin.weeklyscroll"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -226,3 +231,6 @@ permissions:
   lukevanilla.servertime:
     description: "서버 시간 확인 명령어 사용 권한"
     default: true
+  lukevanilla.admin.weeklyscroll:
+    description: "주차별 스크롤 교환 시스템 관리 권한"
+    default: op

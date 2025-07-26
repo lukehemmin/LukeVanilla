@@ -59,7 +59,7 @@ class ItemReceiveSystem : Listener {
     private var isHalloweenReceivable = true
     private var isChristmasReceivable = true
     private var isValentineReceivable = true
-    private var isSpringReceivable = false
+    private var isSpringReceivable = true
     
     // 이벤트 타입 목록
     private val eventTypes = listOf("할로윈", "크리스마스", "발렌타인", "봄")

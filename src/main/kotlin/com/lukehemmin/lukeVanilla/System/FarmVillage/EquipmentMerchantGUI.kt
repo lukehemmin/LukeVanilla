@@ -47,7 +47,7 @@ class EquipmentMerchantGUI(
         24 to Triple("sprinkler_1_item", 3, "금별 작물")
     )
     private val farmingSuppliesExchangeMap = mapOf(
-        21 to Triple("dry_pot", 1, 30), // item id, cost, amount given
+        21 to Triple("dry_pot", 1, 32), // item id, cost, amount given
         23 to Triple("scarecrow", 3, 1)
     )
 
@@ -120,7 +120,7 @@ class EquipmentMerchantGUI(
             val (itemId, cost, amount) = info
             val item = NexoItems.itemFromId(itemId)?.build() ?: return@let
             item.amount = amount
-            val remaining = farmVillageManager.getRemainingLifetimePurchases(player, itemId, 30)
+            val remaining = farmVillageManager.getRemainingLifetimePurchases(player, itemId, 32)
             
             item.editMeta {
                 it.lore(listOf(
@@ -292,12 +292,18 @@ class EquipmentMerchantGUI(
 
     private fun handleDryPotTrade(player: Player, event: InventoryClickEvent) {
         val (rewardId, cost, amount) = farmingSuppliesExchangeMap[21]!!
-        val lifetimeLimit = 30
+        val lifetimeLimit = 32
         
         // 1. Lifetime purchase limit check
         val remaining = farmVillageManager.getRemainingLifetimePurchases(player, rewardId, lifetimeLimit)
         if (remaining <= 0) {
             player.sendMessage(Component.text("물 빠진 화분은 평생 ${lifetimeLimit}개까지만 구매할 수 있습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // 1-1. Check if trying to purchase more than remaining
+        if (remaining < amount) {
+            player.sendMessage(Component.text("평생 구매 한도를 초과합니다. 남은 구매 가능 개수: ${remaining}개", NamedTextColor.RED))
             return
         }
 
@@ -319,7 +325,7 @@ class EquipmentMerchantGUI(
         player.inventory.removeItem(costItem)
         player.inventory.addItem(rewardItem)
         farmVillageManager.recordPurchase(player, rewardId, amount)
-        player.sendMessage(Component.text("성공적으로 물 빠진 화분 30개를 교환했습니다!", NamedTextColor.GREEN))
+        player.sendMessage(Component.text("성공적으로 물 빠진 화분 ${amount}개를 교환했습니다!", NamedTextColor.GREEN))
         // Refresh the GUI to show updated purchase limit
         updateFarmingSuppliesGui(player, event.inventory)
     }
