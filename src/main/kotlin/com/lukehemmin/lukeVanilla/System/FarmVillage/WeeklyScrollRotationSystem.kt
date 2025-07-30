@@ -4,6 +4,8 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoField
+import java.time.temporal.WeekFields
+import java.util.*
 
 /**
  * 주차별 스크롤 로테이션 데이터 클래스
@@ -70,6 +72,7 @@ class WeeklyScrollRotationSystem {
     /**
      * 현재 주차 문자열 반환 (KST 기준, 강제 설정 고려)
      * 예: "2025-W03"
+     * ISO 8601 표준 주차 시스템 사용 (월요일 주 시작, 첫 번째 목요일이 포함된 주가 1주차)
      */
     fun getCurrentWeekString(): String {
         // 강제 설정된 주차가 있는지 확인
@@ -80,10 +83,11 @@ class WeeklyScrollRotationSystem {
             }
         }
         
-        // 일반적인 KST 기준 주차 계산
+        // ISO 8601 표준 주차 계산 (KST 기준)
         val now = LocalDate.now(KST_ZONE)
-        val year = now.year
-        val week = now.get(ChronoField.ALIGNED_WEEK_OF_YEAR)
+        val weekFields = WeekFields.ISO
+        val year = now.get(weekFields.weekBasedYear())
+        val week = now.get(weekFields.weekOfWeekBasedYear())
         return String.format("%04d-W%02d", year, week)
     }
     
@@ -164,7 +168,15 @@ class WeeklyScrollRotationSystem {
      */
     fun getTimeUntilNextRotation(): String {
         val now = LocalDate.now(KST_ZONE)
-        val nextMonday = now.with(DayOfWeek.MONDAY).plusWeeks(1)
+        val nextMonday = if (now.dayOfWeek == DayOfWeek.MONDAY) {
+            // 오늘이 월요일이면 다음 주 월요일
+            now.plusWeeks(1)
+        } else {
+            // 이번 주 또는 다음 주 월요일 찾기
+            now.with(DayOfWeek.MONDAY).let { thisMonday ->
+                if (thisMonday.isAfter(now)) thisMonday else thisMonday.plusWeeks(1)
+            }
+        }
         val daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(now, nextMonday)
         return when (daysRemaining.toInt()) {
             0 -> "오늘 자정"
@@ -250,7 +262,10 @@ class WeeklyScrollRotationSystem {
             val year = parts[0].toInt()
             val week = parts[1].toInt()
             
-            return if (week >= 52) {
+            // ISO 8601에서 해당 연도의 마지막 주차 계산
+            val lastWeekOfYear = getLastWeekOfYear(year)
+            
+            return if (week >= lastWeekOfYear) {
                 String.format("%04d-W%02d", year + 1, 1)
             } else {
                 String.format("%04d-W%02d", year, week + 1)
@@ -267,12 +282,44 @@ class WeeklyScrollRotationSystem {
             val week = parts[1].toInt()
             
             return if (week <= 1) {
-                String.format("%04d-W%02d", year - 1, 52)
+                val previousYear = year - 1
+                val lastWeekOfPreviousYear = getLastWeekOfYear(previousYear)
+                String.format("%04d-W%02d", previousYear, lastWeekOfPreviousYear)
             } else {
                 String.format("%04d-W%02d", year, week - 1)
             }
         } catch (e: Exception) {
             return getCurrentWeekString()
         }
+    }
+    
+    /**
+     * ISO 8601 기준으로 해당 연도의 마지막 주차 계산
+     */
+    private fun getLastWeekOfYear(year: Int): Int {
+        val lastDayOfYear = LocalDate.of(year, 12, 31)
+        val weekFields = WeekFields.ISO
+        return lastDayOfYear.get(weekFields.weekOfWeekBasedYear())
+    }
+    
+    /**
+     * 디버깅용 주차 정보 반환
+     */
+    fun getDebugInfo(): Map<String, Any> {
+        val now = LocalDate.now(KST_ZONE)
+        val weekFields = WeekFields.ISO
+        
+        return mapOf(
+            "currentDate" to now.toString(),
+            "dayOfWeek" to now.dayOfWeek.toString(),
+            "currentWeekString" to getCurrentWeekString(),
+            "weekBasedYear" to now.get(weekFields.weekBasedYear()),
+            "weekOfWeekBasedYear" to now.get(weekFields.weekOfWeekBasedYear()),
+            "currentRotation" to getCurrentRotation().seasonName,
+            "currentRotationDisplay" to getCurrentRotation().displayName,
+            "nextRotation" to getNextRotation().seasonName,
+            "forceStatus" to getForceStatus(),
+            "timeUntilNext" to getTimeUntilNextRotation()
+        )
     }
 }

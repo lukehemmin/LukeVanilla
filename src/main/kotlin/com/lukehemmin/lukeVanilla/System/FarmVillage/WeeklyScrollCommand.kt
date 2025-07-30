@@ -33,6 +33,10 @@ class WeeklyScrollCommand(
                 showStatus(sender)
             }
             
+            "디버그", "debug" -> {
+                showDebugInfo(sender)
+            }
+            
             "다음주", "next" -> {
                 val nextWeek = weeklyScrollRotationSystem.forceNextWeek()
                 if (nextWeek != null) {
@@ -98,6 +102,7 @@ class WeeklyScrollCommand(
     private fun showUsage(sender: CommandSender) {
         sender.sendMessage(Component.text("===== 주차별 스크롤 관리 명령어 =====", NamedTextColor.GOLD))
         sender.sendMessage(Component.text("/주차스크롤 상태 - 현재 주차 및 강제 설정 상태 확인", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("/주차스크롤 디버그 - 상세 디버깅 정보 확인", NamedTextColor.WHITE))
         sender.sendMessage(Component.text("/주차스크롤 다음주 - 다음주로 강제 변경", NamedTextColor.WHITE))
         sender.sendMessage(Component.text("/주차스크롤 이전주 - 이전주로 강제 변경", NamedTextColor.WHITE))
         sender.sendMessage(Component.text("/주차스크롤 설정 <주차> - 특정 주차로 강제 설정", NamedTextColor.WHITE))
@@ -110,20 +115,55 @@ class WeeklyScrollCommand(
         val currentWeek = weeklyScrollRotationSystem.getCurrentWeekString()
         val currentRotation = weeklyScrollRotationSystem.getCurrentRotation()
         val (forceWeek, forceEnabled) = weeklyScrollRotationSystem.getForceStatus()
+        val debugInfo = weeklyScrollRotationSystem.getDebugInfo()
         
         sender.sendMessage(Component.text("===== 주차별 스크롤 상태 =====", NamedTextColor.GOLD))
-        sender.sendMessage(Component.text("현재 주차: $currentWeek", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("현재 날짜: ${debugInfo["currentDate"]} (${debugInfo["dayOfWeek"]})", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("현재 주차: $currentWeek (ISO 8601)", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("주기반년도: ${debugInfo["weekBasedYear"]}", NamedTextColor.GRAY))
+        sender.sendMessage(Component.text("주차번호: ${debugInfo["weekOfWeekBasedYear"]}", NamedTextColor.GRAY))
         sender.sendMessage(Component.text("현재 시즌: ${currentRotation.displayName}", NamedTextColor.AQUA))
         sender.sendMessage(Component.text("스크롤 개수: ${currentRotation.scrollIds.size}개", NamedTextColor.YELLOW))
         
         if (forceEnabled && forceWeek != null) {
             sender.sendMessage(Component.text("⚠ 강제 설정 모드: $forceWeek", NamedTextColor.RED))
         } else {
-            sender.sendMessage(Component.text("✓ 자동 계산 모드 (KST 기준)", NamedTextColor.GREEN))
+            sender.sendMessage(Component.text("✓ 자동 계산 모드 (KST 기준, ISO 8601)", NamedTextColor.GREEN))
         }
         
         val nextRotation = weeklyScrollRotationSystem.getNextRotation()
         sender.sendMessage(Component.text("다음 시즌: ${nextRotation.displayName}", NamedTextColor.GRAY))
+        sender.sendMessage(Component.text("다음 로테이션까지: ${debugInfo["timeUntilNext"]}", NamedTextColor.GRAY))
+    }
+    
+    private fun showDebugInfo(sender: CommandSender) {
+        val debugInfo = weeklyScrollRotationSystem.getDebugInfo()
+        
+        sender.sendMessage(Component.text("===== 주차별 스크롤 디버깅 정보 =====", NamedTextColor.DARK_AQUA))
+        sender.sendMessage(Component.text("📅 날짜 정보:", NamedTextColor.YELLOW))
+        sender.sendMessage(Component.text("  - 현재 날짜: ${debugInfo["currentDate"]}", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("  - 요일: ${debugInfo["dayOfWeek"]}", NamedTextColor.WHITE))
+        
+        sender.sendMessage(Component.text("📊 ISO 8601 주차 계산:", NamedTextColor.YELLOW))
+        sender.sendMessage(Component.text("  - 주차 문자열: ${debugInfo["currentWeekString"]}", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("  - 주기반년도: ${debugInfo["weekBasedYear"]}", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("  - 주차번호: ${debugInfo["weekOfWeekBasedYear"]}", NamedTextColor.WHITE))
+        
+        sender.sendMessage(Component.text("🔄 로테이션 정보:", NamedTextColor.YELLOW))
+        sender.sendMessage(Component.text("  - 현재 시즌: ${debugInfo["currentRotationDisplay"]} (${debugInfo["currentRotation"]})", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("  - 다음 시즌: ${debugInfo["nextRotation"]}", NamedTextColor.WHITE))
+        sender.sendMessage(Component.text("  - 다음 변경까지: ${debugInfo["timeUntilNext"]}", NamedTextColor.WHITE))
+        
+        sender.sendMessage(Component.text("⚙️ 강제 설정 상태:", NamedTextColor.YELLOW))
+        val (forceWeek, forceEnabled) = debugInfo["forceStatus"] as Pair<*, *>
+        if (forceEnabled as Boolean && forceWeek != null) {
+            sender.sendMessage(Component.text("  - 강제 모드: 활성 ($forceWeek)", NamedTextColor.RED))
+        } else {
+            sender.sendMessage(Component.text("  - 강제 모드: 비활성 (자동 계산)", NamedTextColor.GREEN))
+        }
+        
+        sender.sendMessage(Component.text("ℹ️ 참고: ISO 8601 표준은 월요일을 주의 시작으로 하며,", NamedTextColor.GRAY))
+        sender.sendMessage(Component.text("    첫 번째 목요일이 포함된 주를 그 해의 1주차로 계산합니다.", NamedTextColor.GRAY))
     }
 
     private fun isValidWeekFormat(weekString: String): Boolean {
@@ -137,7 +177,7 @@ class WeeklyScrollCommand(
         }
 
         return when (args.size) {
-            1 -> listOf("상태", "다음주", "이전주", "설정", "해제", "gui").filter { 
+            1 -> listOf("상태", "디버그", "다음주", "이전주", "설정", "해제", "gui").filter { 
                 it.startsWith(args[0], ignoreCase = true) 
             }
             2 -> if (args[0].equals("설정", ignoreCase = true)) {
