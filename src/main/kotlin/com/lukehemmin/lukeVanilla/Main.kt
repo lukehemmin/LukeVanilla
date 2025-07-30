@@ -33,6 +33,7 @@ import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
+import com.lukehemmin.lukeVanilla.System.Discord.AIassistant.AdminAssistant
 import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
@@ -333,13 +334,13 @@ class Main : JavaPlugin() {
                     discordBot.jda.addEventListener(adminAssistant)
                     logger.info("[AdminAssistant] 로비 서버에서 관리자 어시스턴트 초기화 완료.")
                 } else {
-                    logger.warning("[AdminAssistant] OpenAI API 키를 찾을 수 없어 관리자 어시스턴트를 초기화할 수 없습니다. 데이터베이스 'Settings' 테이블에서 'OpenAI_ApiKey' 값을 확인해주세요.")
+                    logger.warning("[AdminAssistant] OpenAI API 키를 찾을 수 없어 관리자 어시스턴트를 초기화할 수 없습니다. 데이터베이스 'Settings' 테이블에서 'OpenAI_API_Token' 값을 확인해주세요.")
                 }
             }
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다. Discord 봇 관련 기능이 제한됩니다.")
             if (openAiApiKey == null) { 
-                logger.warning("[AdminAssistant] OpenAI API 키도 찾을 수 없습니다. 관리자 어시스턴트 기능이 비활성화됩니다.")
+                logger.warning("[AdminAssistant] OpenAI API 키도 찾을 수 없습니다. (데이터베이스 'Settings' 테이블의 'OpenAI_API_Token' 값 확인 필요) 관리자 어시스턴트 기능이 비활성화됩니다.")
             }
         }
 
