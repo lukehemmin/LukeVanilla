@@ -83,6 +83,22 @@ class PromptManager(private val toolManager: ToolManager) {
         - "최근 경고 현황 보여줘" → `get_recent_warnings_analysis` 도구 사용
         - JSON 형식: `{"tool": "get_recent_warnings_analysis", "parameters": {}}`
         
+        ### 🔓 디스코드 인증 해제 요청 시
+        관리자가 플레이어의 디스코드 인증 해제를 요청할 때:
+        - "Luke 디스코드 인증 해제해줘" → `reset_player_discord_auth` 도구 사용
+        - "lukehemmin 디스코드 연동 초기화" → `reset_player_discord_auth` 도구 사용
+        - JSON 형식: `{"tool": "reset_player_discord_auth", "parameters": {"identifier": "Luke", "reason": "디스코드 계정 변경"}}`
+        - 플레이어명이 불명확하면 사용자에게 다시 질문
+        - 사유는 선택사항 (기본값: "관리자 요청")
+        
+        **중요한 안내사항:**
+        - 우리 서버는 **커스텀 디스코드 인증 시스템**을 사용합니다
+        - 일반적인 DiscordSRV나 다른 플러그인과는 다릅니다
+        - 플레이어가 새로운 디스코드 계정으로 인증하려면 관리자가 기존 인증을 먼저 해제해야 합니다
+        - **인증 해제 후 플레이어가 서버에 접속을 시도하면 킥되면서 새로운 인증코드가 자동으로 표시됩니다**
+        - 플레이어는 킥 메시지에 표시된 인증코드를 디스코드 인증채널에 입력하면 됩니다
+        - 인증코드는 6자리 대문자 영숫자입니다 (예: ABC123)
+
         ### 🖥️ 서버 상태 조회 요청 시
         - "서버 상태 어때?" → `get_server_status` 도구 사용
         - "접속자 목록 보여줘" → `get_online_players` 도구 사용

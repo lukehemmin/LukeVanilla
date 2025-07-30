@@ -21,7 +21,8 @@ class ServerStatusTool : ToolHandler {
         val format = parameters["format"] as? String ?: "embed"
         
         try {
-            val serverStatus = ServerStatusProvider.getServerStatusString()
+            // MultiServerReader를 사용하여 통합 서버 상태 조회
+            val serverStatus = context.adminAssistant.multiServerReader.getIntegratedServerStatus()
             
             when (format.lowercase()) {
                 "embed" -> {
@@ -128,20 +129,22 @@ class OnlinePlayersTool : ToolHandler {
         val includeDetails = parameters["include_details"] as? Boolean ?: false
         
         try {
-            val onlinePlayers = Bukkit.getOnlinePlayers()
+            // MultiServerReader를 사용하여 모든 서버의 온라인 플레이어 조회
+            val allOnlinePlayers = context.adminAssistant.multiServerReader.getAllOnlinePlayers()
+            val totalPlayerCount = context.adminAssistant.multiServerReader.getTotalOnlinePlayersCount()
             
-            if (onlinePlayers.isEmpty()) {
+            if (totalPlayerCount.total == 0) {
                 return ToolResult(
                     success = true,
-                    message = "현재 접속 중인 플레이어가 없습니다."
+                    message = "현재 모든 서버에 접속 중인 플레이어가 없습니다."
                 )
             } else {
-                val embed = createOnlinePlayersEmbed(onlinePlayers.toList(), includeDetails)
+                val embed = createMultiServerPlayersEmbed(allOnlinePlayers, totalPlayerCount, includeDetails)
                 context.event.channel.sendMessageEmbeds(embed).queue()
                 
                 return ToolResult(
                     success = true,
-                    message = "현재 접속 중인 플레이어 목록을 조회했습니다. (총 ${onlinePlayers.size}명)",
+                    message = "모든 서버의 접속 중인 플레이어 목록을 조회했습니다. (총 ${totalPlayerCount.total}명)",
                     shouldShowToUser = false
                 )
             }
@@ -151,6 +154,53 @@ class OnlinePlayersTool : ToolHandler {
                 message = "온라인 플레이어 조회 중 오류가 발생했습니다: ${e.message}"
             )
         }
+    }
+    
+    private fun createMultiServerPlayersEmbed(
+        allPlayers: Map<String, List<com.lukehemmin.lukeVanilla.System.Database.Database.OnlinePlayerInfo>>,
+        playerCount: com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader.PlayerCount,
+        includeDetails: Boolean
+    ): net.dv8tion.jda.api.entities.MessageEmbed {
+        val embed = EmbedBuilder().apply {
+            setTitle("👥 멀티서버 접속 중인 플레이어")
+            setColor(Color.BLUE)
+            setDescription("모든 서버에 접속 중인 플레이어 목록입니다.")
+            
+            // 서버별로 플레이어 목록 표시
+            allPlayers.forEach { (serverName, players) ->
+                val serverDisplayName = when (serverName) {
+                    "lobby" -> "🏛️ 로비 서버"
+                    "vanilla" -> "🌍 야생 서버" 
+                    else -> "🖥️ $serverName"
+                }
+                
+                if (players.isEmpty()) {
+                    addField(serverDisplayName, "접속자 없음", true)
+                } else {
+                    if (includeDetails) {
+                        val playerList = players.joinToString("\n") { player ->
+                            val location = if (player.locationWorld != null) {
+                                " (${player.locationWorld}: ${player.locationX.toInt()}, ${player.locationY.toInt()}, ${player.locationZ.toInt()})"
+                            } else ""
+                            "• **${player.playerName}**$location"
+                        }
+                        addField(serverDisplayName, playerList, false)
+                    } else {
+                        val playerNames = players.map { it.playerName }.joinToString(", ")
+                        addField(serverDisplayName, playerNames, false)
+                    }
+                }
+            }
+            
+            // 총 접속자 수 정보
+            addField("📊 서버별 접속자", "로비: ${playerCount.lobby}명 | 야생: ${playerCount.vanilla}명", true)
+            addField("👥 총 접속자 수", "${playerCount.total}명", true)
+            
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+            setFooter("조회 시간: ${sdf.format(Date())}")
+        }
+        
+        return embed.build()
     }
     
     private fun createOnlinePlayersEmbed(

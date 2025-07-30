@@ -34,6 +34,8 @@ import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
 import com.lukehemmin.lukeVanilla.System.Discord.AIassistant.AdminAssistant
+import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader
+import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerUpdater
 import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
@@ -58,6 +60,7 @@ class Main : JavaPlugin() {
     private var farmVillageSystem: FarmVillageSystem? = null
     private lateinit var debugManager: DebugManager
     private var luckPerms: LuckPerms? = null
+    private var multiServerUpdater: MultiServerUpdater? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -325,11 +328,20 @@ class Main : JavaPlugin() {
                     // WarningService 인스턴스 생성
                     val warningService = WarningService(database, discordBot.jda)
                     
+                    // MultiServerReader 인스턴스 생성 (로비 서버에서 멀티서버 정보 조회용)
+                    val multiServerReader = MultiServerReader(this, database)
+                    
+                    // MultiServerUpdater 초기화 (로비 서버에서도 실행)
+                    multiServerUpdater = MultiServerUpdater(this, database)
+                    multiServerUpdater?.start()
+                    logger.info("[MultiServerUpdater] 로비 서버에서 멀티서버 동기화 시스템 초기화 완료.")
+                    
                     val adminAssistant = AdminAssistant(
                         dbConnectionProvider = ::provideDbConnection,
                         openAIApiKey = openAiApiKey, // API 키를 생성자에 전달
                         database = database,
-                        warningService = warningService
+                        warningService = warningService,
+                        multiServerReader = multiServerReader
                     )
                     discordBot.jda.addEventListener(adminAssistant)
                     logger.info("[AdminAssistant] 로비 서버에서 관리자 어시스턴트 초기화 완료.")
@@ -487,6 +499,11 @@ class Main : JavaPlugin() {
         if (serviceType == "Vanilla") {
             server.pluginManager.registerEvents(SafeZoneManager(this), this)
             logger.info("[SafeZoneManager] 야생 서버에서 안전 구역 관리자 초기화 완료.")
+            
+            // MultiServerUpdater 초기화 (야생 서버에서만 실행)
+            multiServerUpdater = MultiServerUpdater(this, database)
+            multiServerUpdater?.start()
+            logger.info("[MultiServerUpdater] 야생 서버에서 멀티서버 동기화 시스템 초기화 완료.")
         }
 
         // StatsSystem 초기화
@@ -596,6 +613,9 @@ class Main : JavaPlugin() {
         
         // 옷장 위치 시스템 정리
         wardrobeLocationSystem?.cleanup()
+        
+        // 멀티서버 동기화 시스템 중단
+        multiServerUpdater?.stop()
         
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         try {

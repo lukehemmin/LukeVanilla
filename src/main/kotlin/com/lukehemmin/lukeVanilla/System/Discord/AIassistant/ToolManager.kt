@@ -24,6 +24,7 @@ class ToolManager {
         // 플레이어 관련 도구
         registerTool(PlayerInfoTool.definition)
         registerTool(PlayerItemsTool.definition)
+        registerTool(ResetPlayerAuthTool.definition)
         
         // 경고 시스템 도구
         registerTool(AddWarningTool.definition)

@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.Discord.AIassistant
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Discord.ServerStatusProvider
+import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader
 import com.lukehemmin.lukeVanilla.System.WarningSystem.RiskLevel
 import com.lukehemmin.lukeVanilla.System.WarningSystem.WarningService
 import com.openai.client.OpenAIClient
@@ -30,10 +31,11 @@ import java.util.UUID
 
 
 class AdminAssistant(
-    private val dbConnectionProvider: () -> Connection,
+    val dbConnectionProvider: () -> Connection,
     private val openAIApiKey: String? = null, // 생성자로 API 키를 전달받음
     private val database: Database,
-    private val warningService: WarningService
+    private val warningService: WarningService,
+    val multiServerReader: MultiServerReader
 ) : ListenerAdapter() {
     private var openAIBaseUrl: String? = null
     private var openAIModel: String? = null
@@ -677,12 +679,23 @@ class AdminAssistant(
                 playerName
             }
 
-            // 서버에 접속한 플레이어 정보 찾기
-            val onlinePlayer = Bukkit.getPlayer(actualPlayerName)
+            // MultiServerReader를 사용하여 플레이어 상태 확인
+            val playerStatus = multiServerReader.getPlayerStatusByName(actualPlayerName)
 
-            if (onlinePlayer != null) {
-                // 온라인 플레이어에게 경고 부여
-                processOnlinePlayerWarning(event, onlinePlayer, reason, adminDiscordId)
+            if (playerStatus != null && playerStatus.isOnline) {
+                // 플레이어가 온라인인 경우
+                val currentServer = playerStatus.currentServer
+                val locationInfo = playerStatus.locationInfo
+                
+                // 현재 로비 서버에 있는지 확인
+                val localOnlinePlayer = Bukkit.getPlayer(actualPlayerName)
+                if (localOnlinePlayer != null) {
+                    // 로비 서버에 있는 경우 - 기존 방식 사용
+                    processOnlinePlayerWarning(event, localOnlinePlayer, reason, adminDiscordId)
+                } else {
+                    // 다른 서버(야생)에 있는 경우 - 오프라인 처리 방식 사용하지만 메시지는 온라인으로
+                    processMultiServerPlayerWarning(event, actualPlayerName, playerStatus, reason, adminDiscordId)
+                }
             } else {
                 // 오프라인 플레이어의 UUID 조회 후 처리
                 dbConnectionProvider().use { connection ->
@@ -1040,6 +1053,157 @@ class AdminAssistant(
             System.err.println("[AdminAssistant] 경고 차감 처리 중 예외 발생: ${e.message}")
             e.printStackTrace()
             event.channel.sendMessage("경고 차감 처리 중 오류가 발생했습니다: ${e.message}").queue()
+        }
+    }
+
+    /**
+     * 멀티서버 환경에서 다른 서버에 접속중인 플레이어 경고 처리
+     */
+    private fun processMultiServerPlayerWarning(
+        event: MessageReceivedEvent, 
+        playerName: String,
+        playerStatus: com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader.PlayerStatus,
+        reason: String, 
+        adminDiscordId: String
+    ) {
+        try {
+            val playerUuid = UUID.fromString(playerStatus.playerUuid)
+            
+            // 경고 정보를 DB에 직접 추가 (다른 서버에 있는 플레이어는 WarningService.addWarning 사용 불가)
+            dbConnectionProvider().use { connection ->
+                // 관리자 정보 생성
+                val adminName = event.author.name
+
+                // 플레이어 ID 가져오기
+                val selectPlayerIdQuery = "SELECT player_id, active_warnings_count FROM warnings_players WHERE uuid = ?"
+                var playerId: Int? = null
+                var currentWarnings = 0
+
+                connection.prepareStatement(selectPlayerIdQuery).use { statement ->
+                    statement.setString(1, playerUuid.toString())
+                    statement.executeQuery().use { resultSet ->
+                        if (resultSet.next()) {
+                            playerId = resultSet.getInt("player_id")
+                            currentWarnings = resultSet.getInt("active_warnings_count")
+                        }
+                    }
+                }
+
+                if (playerId == null) {
+                    // 플레이어 정보가 없으면 생성
+                    val insertPlayerQuery = "INSERT INTO warnings_players (uuid, username) VALUES (?, ?)"
+                    connection.prepareStatement(insertPlayerQuery, Statement.RETURN_GENERATED_KEYS).use { statement ->
+                        statement.setString(1, playerUuid.toString())
+                        statement.setString(2, playerName)
+                        statement.executeUpdate()
+
+                        statement.generatedKeys.use { keys ->
+                            if (keys.next()) {
+                                playerId = keys.getInt(1)
+                            }
+                        }
+                    }
+                }
+
+                if (playerId == null) {
+                    event.channel.sendMessage("플레이어 정보 처리 중 오류가 발생했습니다.").queue()
+                    return
+                }
+
+                // 경고 추가
+                val insertWarningQuery = """
+                    INSERT INTO warnings_records 
+                    (player_id, admin_uuid, admin_name, reason)
+                    VALUES (?, ?, ?, ?)
+                """.trimIndent()
+
+                // Discord ID로 실제 마인크래프트 UUID 조회
+                val adminUuid = getMinecraftUuidByDiscordId(adminDiscordId)
+                    ?: UUID.nameUUIDFromBytes("discord_$adminDiscordId".toByteArray()) // 백업용
+
+                connection.prepareStatement(insertWarningQuery).use { statement ->
+                    statement.setInt(1, playerId)
+                    statement.setString(2, adminUuid.toString())
+                    statement.setString(3, adminName)
+                    statement.setString(4, reason)
+                    statement.executeUpdate()
+                }
+
+                // 경고 횟수 업데이트
+                currentWarnings++
+                val updateCountQuery = """
+                    UPDATE warnings_players 
+                    SET active_warnings_count = ?,
+                        last_warning_date = CURRENT_TIMESTAMP
+                    WHERE player_id = ?
+                """.trimIndent()
+
+                connection.prepareStatement(updateCountQuery).use { statement ->
+                    statement.setInt(1, currentWarnings)
+                    statement.setInt(2, playerId)
+                    statement.executeUpdate()
+                }
+
+                // 서버 위치 정보 생성
+                val serverDisplayName = when (playerStatus.currentServer) {
+                    "lobby" -> "로비 서버"
+                    "vanilla" -> "야생 서버"
+                    else -> "${playerStatus.currentServer} 서버"
+                }
+                
+                val locationText = if (playerStatus.locationInfo != null) {
+                    " (${playerStatus.locationInfo.getFormattedLocation()})"
+                } else ""
+
+                // 경고 처리 결과 메시지 - 정확한 위치 정보 포함
+                val resultMessage = "'$playerName'님에게 경고가 부여되었습니다. (현재 ${currentWarnings}회) - ${serverDisplayName}에서 접속중$locationText"
+                event.channel.sendMessage(resultMessage).queue()
+
+                // 경고 횟수가 5회 이상이면 자동 차단 처리
+                if (currentWarnings >= WarningService.Companion.AUTO_BAN_THRESHOLD) {
+                    processBan(event, playerName, playerUuid.toString(), "경고 누적 ${currentWarnings}회 (자동 차단)")
+                    
+                    // 교차 서버 밴 명령어 추가 (다른 서버에서도 밴 처리)
+                    addCrossServerBanCommand(playerStatus, reason, adminName)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            event.channel.sendMessage("경고 처리 중 오류가 발생했습니다: ${e.message}").queue()
+        }
+    }
+
+    /**
+     * 교차 서버 밴 명령어 추가
+     */
+    private fun addCrossServerBanCommand(
+        playerStatus: com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader.PlayerStatus,
+        reason: String,
+        adminName: String
+    ) {
+        try {
+            val targetServer = playerStatus.currentServer ?: return
+            if (targetServer == "lobby") return // 로비에 있으면 이미 처리됨
+            
+            val commandData = mapOf(
+                "reason" to "경고 누적 (자동 차단): $reason",
+                "duration" to "permanent"
+            )
+            
+            database.addCrossServerCommand(
+                commandType = "ban",
+                targetPlayerUuid = playerStatus.playerUuid,
+                targetPlayerName = playerStatus.playerName,
+                sourceServer = "lobby",
+                targetServer = targetServer,
+                commandData = commandData,
+                commandReason = "경고 누적으로 인한 자동 차단",
+                issuedBy = adminName
+            )
+            
+            println("[AdminAssistant] 교차 서버 밴 명령어 추가: ${playerStatus.playerName} -> $targetServer")
+        } catch (e: Exception) {
+            println("[AdminAssistant] 교차 서버 밴 명령어 추가 실패: ${e.message}")
         }
     }
 }
