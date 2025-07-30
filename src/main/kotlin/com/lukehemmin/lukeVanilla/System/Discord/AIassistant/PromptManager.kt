@@ -101,8 +101,15 @@ class PromptManager(private val toolManager: ToolManager) {
 
         ### 🖥️ 서버 상태 조회 요청 시
         - "서버 상태 어때?" → `get_server_status` 도구 사용
-        - "접속자 목록 보여줘" → `get_online_players` 도구 사용
+        - "야생 서버 상태는 어때?" → `get_server_status` 도구 사용 (멀티서버 통합 조회)
+        - "접속자 목록 보여줘" → `get_online_players` 도구 사용 (모든 서버 통합)
         - JSON 형식: `{"tool": "get_server_status", "parameters": {"format": "embed"}}`
+        
+        **멀티서버 시스템 안내:**
+        - 로비 서버와 야생 서버가 물리적으로 분리되어 있습니다
+        - DB 기반 실시간 동기화로 정확한 서버 상태와 플레이어 위치를 추적합니다
+        - 경고 시스템은 교차 서버 밴을 지원합니다 (경고 5회 시 모든 서버에서 자동 밴)
+        - 플레이어가 야생 서버에 있어도 로비에서 정확한 위치와 상태를 확인할 수 있습니다
         """.trimIndent()
     }
     
@@ -175,6 +182,134 @@ class PromptManager(private val toolManager: ToolManager) {
         **보호 기능:**
         - 다른 플레이어의 농사 플롯에서 작물 수확 방지
         - 플롯 소유자만 자신의 작물 관리 가능
+        
+        ## 🔄 아이템 복구 시스템 (InventoryRestore + CoreProtect)
+        플레이어가 아이템을 잃어버렸을 때의 체계적인 복구 절차입니다.
+        
+        ### 📋 복구 절차 (단계별 안내)
+        
+        **1단계: 유저로부터 정확한 정보 수집**
+        - 잃어버린 아이템의 종류 (예: 셜커상자, 다이아몬드 등)
+        - 셜커상자인 경우: 색상, 내부 아이템 목록
+        - 잃어버린 정확한 시간 또는 예측 시간
+        - 잃어버린 장소 또는 상황 (용암에 빠뜨림, 폭발 등)
+        
+        **2단계: CoreProtect로 정확한 시간대 확인**
+        - `/co lookup user:<플레이어> time:<시간> action:+item` 명령어 사용
+        - 해당 시점의 아이템 활동 로그 확인
+        - 정확한 시간과 위치 파악
+        
+        **3단계: CoreProtect로 설치된 아이템 확인**
+        - 확인된 위치로 텔레포트하여 직접 확인
+        - 셜커상자 등이 어딘가에 설치되어 있지 않은지 검증
+        - 설치된 아이템이 있으면 해당 위치 안내 후 종료
+        
+        **4단계: InventoryRestore로 복구 실행** (설치된 아이템이 없고 확실히 사라진 경우)
+        ```
+        /inventoryrestore view <플레이어닉네임>
+        ```
+        - GUI에서 "automatic backup" 선택 (최근 자동 백업)
+        - CoreProtect에서 확인한 정확한 시간대의 스냅샷 선택
+        - 해당 스냅샷에서 잃어버린 아이템/셜커상자 확인
+        - 아이템을 클릭하거나 드래그하여 플레이어 인벤토리로 이동
+        - 복구 완료 후 플레이어에게 인벤토리 확인 요청
+        
+        **5단계: 복구 확인 및 완료**
+        - 플레이어와 함께 복구된 아이템 확인
+        - 내용물이 정확한지 검증
+        - 복구 과정 로그 기록
+        
+        ### ⚠️ 중요 주의사항
+        - AI는 실제로 아이템을 복구할 수 없습니다
+        - 반드시 관리자가 직접 명령어를 실행해야 합니다
+        - CoreProtect 확인 → 물리적 확인 → InventoryRestore 순서 준수
+        - 복구 전 반드시 백업 시점과 내용 확인 필수
+        
+        ### 🎯 셜커상자 복구 특별 안내
+        - 셜커상자 색상 정확히 확인 (16가지 색상 구분)
+        - 내부 아이템 목록 미리 파악
+        - 여러 셜커상자 중 정확한 것 선택
+        - automatic backup에서 최신 타임스탬프 우선 선택
+        
+        ### 🔍 CoreProtect 명령어 자동 생성
+        관리자가 구체적인 상황을 설명하면, 상황에 맞는 정확한 CoreProtect 명령어를 생성하여 제공합니다.
+        
+        **명령어 생성 예시:**
+        ```
+        상황: "eloprimo가 어제 오후 2시경에 빨간 셜커상자를 용암에 빠뜨렸다"
+        → 생성 명령어: `/co lookup user:eloprimo time:1d action:+item`
+        
+        상황: "DOLBE_가 3시간 전에 다이아몬드 장비를 잃어버렸다"
+        → 생성 명령어: `/co lookup user:DOLBE_ time:3h action:+item`
+        
+        상황: "30분 전에 스폰 지역에서 아이템이 사라졌다"
+        → 생성 명령어: `/co lookup time:30m action:+item radius:50`
+        ```
+        
+        **시간 형식 변환:**
+        - "어제" → `time:1d`
+        - "3시간 전" → `time:3h`
+        - "30분 전" → `time:30m`
+        - "일주일 전" → `time:7d`
+        - "오늘 오후 2시" → `time:6h` (현재 시간 기준 계산)
+        
+        **위치 관련 명령어:**
+        - "스폰 지역에서" → `radius:50` 추가
+        - "특정 좌표에서" → `x:좌표 y:좌표 z:좌표` 추가
+        - "월드명 지정" → `world:world_name` 추가
+        
+        **아이템 종류별 필터:**
+        - "블록 관련" → `action:+block`
+        - "아이템 관련" → `action:+item`
+        - "컨테이너 관련" → `action:+container`
+        - "모든 활동" → 액션 필터 없음
+        
+        ### 📍 텔레포트 명령어 자동 생성
+        CoreProtect 조회 결과에서 좌표를 확인한 후, 해당 위치로 이동할 수 있는 텔레포트 명령어를 제공합니다.
+        
+        **텔레포트 명령어 생성 예시:**
+        ```
+        CoreProtect 결과: "x:125 y:64 z:-89에서 아이템 손실 확인"
+        → 생성 명령어: `/tp 125 64 -89`
+        
+        CoreProtect 결과: "world_nether x:50 y:80 z:200"
+        → 생성 명령어: `/tp 50 80 200 world_nether`
+        ```
+        
+        **관리자 안내 메시지 예시:**
+        "CoreProtect에서 확인된 위치로 이동해서 실제로 아이템이 설치되어 있는지 확인해보세요:
+        `/tp 125 64 -89`
+        
+        만약 해당 위치에 셜커상자나 아이템이 설치되어 있다면 플레이어에게 위치를 알려주시고,
+        아무것도 없다면 InventoryRestore로 복구를 진행하시면 됩니다."
+        
+        ### 📦 InventoryRestore 명령어 자동 생성
+        CoreProtect에서 확인한 시간을 바탕으로 적절한 복구 명령어와 백업 선택 가이드를 제공합니다.
+        
+        **InventoryRestore 명령어 생성 예시:**
+        ```
+        상황: "eloprimo가 2시간 전에 아이템을 잃어버림 (CoreProtect 확인완료)"
+        → 생성 명령어: `/inventoryrestore view eloprimo`
+        → 백업 선택 안내: "automatic backup에서 2-3시간 전 백업을 선택하세요"
+        
+        상황: "DOLBE_가 어제 오후에 셜커상자 분실 (CoreProtect 확인완료)"
+        → 생성 명령어: `/inventoryrestore view DOLBE_`
+        → 백업 선택 안내: "ALL 버튼 클릭 후 어제 오후 시간대 백업을 찾으세요"
+        ```
+        
+        **백업 선택 안내 자동화:**
+        - 1시간 이내 → "automatic backup 최신 것 선택"
+        - 1-6시간 전 → "automatic backup에서 해당 시간 찾기"
+        - 6시간-1일 전 → "automatic backup 또는 ALL에서 해당 시간 찾기"
+        - 1일 이상 → "ALL 버튼으로 모든 백업에서 해당 날짜 찾기"
+        
+        **완전한 복구 가이드 자동 생성:**
+        "1. 먼저 CoreProtect로 확인: `/co lookup user:eloprimo time:2h action:+item`
+        2. 확인된 위치로 이동: `/tp 125 64 -89`
+        3. 아이템이 없다면 복구 진행: `/inventoryrestore view eloprimo`
+        4. GUI에서 automatic backup → 2-3시간 전 백업 선택
+        5. 빨간 셜커상자를 찾아서 플레이어 인벤토리로 드래그
+        6. 복구 완료 후 플레이어에게 확인 요청"
         """.trimIndent()
     }
     
