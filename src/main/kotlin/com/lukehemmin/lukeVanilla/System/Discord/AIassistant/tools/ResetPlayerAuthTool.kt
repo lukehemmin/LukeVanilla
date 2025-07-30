@@ -75,13 +75,39 @@ class ResetPlayerAuthTool : ToolHandler {
     private fun resetPlayerDiscordAuth(playerUuid: String, context: ToolExecutionContext): Boolean {
         return try {
             context.adminAssistant.dbConnectionProvider().use { connection ->
-                val updateQuery = "UPDATE lukevanilla.Player_Data SET DiscordID = NULL WHERE UUID = ?"
+                // 트랜잭션 시작
+                connection.autoCommit = false
                 
-                connection.prepareStatement(updateQuery).use { statement ->
-                    statement.setString(1, playerUuid)
-                    val rowsAffected = statement.executeUpdate()
+                try {
+                    // 1. Player_Data 테이블에서 DiscordID 제거
+                    val updatePlayerDataQuery = "UPDATE lukevanilla.Player_Data SET DiscordID = NULL WHERE UUID = ?"
+                    var rowsAffected = 0
                     
+                    connection.prepareStatement(updatePlayerDataQuery).use { statement ->
+                        statement.setString(1, playerUuid)
+                        rowsAffected += statement.executeUpdate()
+                    }
+                    
+                    // 2. Player_Auth 테이블에서 IsAuth를 FALSE로 설정
+                    val updatePlayerAuthQuery = "UPDATE lukevanilla.Player_Auth SET IsAuth = FALSE WHERE UUID = ?"
+                    
+                    connection.prepareStatement(updatePlayerAuthQuery).use { statement ->
+                        statement.setString(1, playerUuid)
+                        rowsAffected += statement.executeUpdate()
+                    }
+                    
+                    // 트랜잭션 커밋
+                    connection.commit()
+                    
+                    println("[ResetPlayerAuthTool] 인증 해제 완료 - Player_Data.DiscordID=NULL, Player_Auth.IsAuth=FALSE (UUID: $playerUuid)")
                     rowsAffected > 0
+                    
+                } catch (e: Exception) {
+                    // 오류 발생 시 롤백
+                    connection.rollback()
+                    throw e
+                } finally {
+                    connection.autoCommit = true
                 }
             }
         } catch (e: Exception) {
