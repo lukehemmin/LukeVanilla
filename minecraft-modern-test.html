@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마인크래프트 도서관 - 현대적 디자인</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        :root {
+            --mc-primary: #5865f2;
+            --mc-secondary: #57f287;
+            --mc-accent: #ffa500;
+            --mc-gold: #ffcc02;
+            --mc-bg-dark: #1e2124;
+            --mc-bg-medium: #2f3136;
+            --mc-bg-light: #36393f;
+            --mc-text-primary: #ffffff;
+            --mc-text-secondary: #b9bbbe;
+            --mc-text-muted: #72767d;
+            --mc-border: #4f5660;
+            --mc-success: #57f287;
+            --mc-warning: #fee75c;
+            --mc-danger: #ed4245;
+            --mc-grass: #7cb342;
+            --mc-dirt: #8d6e63;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 16px;
+            background: linear-gradient(135deg, var(--mc-bg-dark) 0%, var(--mc-bg-medium) 100%);
+            min-height: 100vh;
+            color: var(--mc-text-primary);
+            line-height: 1.6;
+        }
+        
+        /* 메인 컨테이너 */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        /* 헤더 */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 24px;
+            background: linear-gradient(135deg, var(--mc-primary) 0%, var(--mc-secondary) 100%);
+            border-radius: 16px;
+            box-shadow: 
+                0 8px 32px rgba(88, 101, 242, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            position: relative;
+        }
+        
+        /* 네비게이션 */
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .nav-btn {
+            padding: 14px 28px;
+            background: var(--mc-bg-light);
+            border: 1px solid var(--mc-border);
+            border-radius: 8px;
+            color: var(--mc-text-primary);
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nav-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .nav-btn:hover {
+            background: var(--mc-primary);
+            border-color: var(--mc-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(88, 101, 242, 0.4);
+        }
+        
+        .nav-btn:hover::before {
+            left: 100%;
+        }
+        
+        .nav-btn.active {
+            background: linear-gradient(135deg, var(--mc-primary), var(--mc-secondary));
+            border-color: transparent;
+            color: white;
+        }
+        
+        /* 통계 카드 */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        
+        .stat-card {
+            background: var(--mc-bg-light);
+            border: 1px solid var(--mc-border);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--mc-primary), var(--mc-secondary), var(--mc-accent));
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+            border-color: var(--mc-primary);
+        }
+        
+        .stat-card .icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            display: block;
+        }
+        
+        .stat-card.books .icon { color: var(--mc-accent); }
+        .stat-card.authors .icon { color: var(--mc-success); }
+        .stat-card.seasons .icon { color: var(--mc-warning); }
+        
+        .stat-card .number {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--mc-text-primary);
+            margin-bottom: 8px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .stat-card .label {
+            font-size: 1.1rem;
+            color: var(--mc-text-secondary);
+            font-weight: 500;
+        }
+        
+        /* 알림 */
+        .alert {
+            background: linear-gradient(135deg, rgba(87, 242, 135, 0.1), rgba(88, 101, 242, 0.1));
+            border: 1px solid var(--mc-success);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            position: relative;
+        }
+        
+        .alert-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--mc-success);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .alert-content {
+            color: var(--mc-text-secondary);
+            font-size: 1rem;
+        }
+        
+        /* 검색 영역 */
+        .search-section {
+            background: var(--mc-bg-light);
+            border: 1px solid var(--mc-border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .search-bar input {
+            flex: 1;
+            min-width: 300px;
+            padding: 14px 20px;
+            background: var(--mc-bg-dark);
+            border: 1px solid var(--mc-border);
+            border-radius: 8px;
+            color: var(--mc-text-primary);
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+        
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--mc-primary);
+            box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
+        }
+        
+        .search-bar input::placeholder {
+            color: var(--mc-text-muted);
+        }
+        
+        .search-btn {
+            padding: 14px 24px;
+            background: var(--mc-primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .search-btn:hover {
+            background: #4752c4;
+            transform: translateY(-1px);
+        }
+        
+        /* 책 목록 */
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        
+        .book-card {
+            background: var(--mc-bg-light);
+            border: 1px solid var(--mc-border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .book-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--mc-accent), var(--mc-primary));
+        }
+        
+        .book-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+            border-color: var(--mc-primary);
+        }
+        
+        .book-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--mc-text-primary);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        
+        .book-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            color: var(--mc-text-muted);
+            flex-wrap: wrap;
+        }
+        
+        .book-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .book-preview {
+            color: var(--mc-text-secondary);
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            height: 80px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+        }
+        
+        .book-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .book-tag {
+            background: rgba(88, 101, 242, 0.2);
+            color: var(--mc-primary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid rgba(88, 101, 242, 0.3);
+        }
+        
+        .read-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--mc-primary), #4752c4);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .read-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .read-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(88, 101, 242, 0.4);
+        }
+        
+        .read-btn:hover::before {
+            left: 100%;
+        }
+        
+        /* 푸터 */
+        .footer {
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 60px;
+            border-top: 1px solid var(--mc-border);
+            color: var(--mc-text-muted);
+            font-size: 0.9rem;
+        }
+        
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .header {
+                padding: 24px 16px;
+            }
+            
+            .header h1 {
+                font-size: 2.2rem;
+            }
+            
+            .nav {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .books-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .search-bar {
+                flex-direction: column;
+            }
+            
+            .search-bar input {
+                min-width: 100%;
+            }
+        }
+        
+        /* 로딩 애니메이션 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--mc-text-muted);
+            border-radius: 50%;
+            border-top-color: var(--mc-primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 스크롤바 커스텀 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--mc-bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--mc-primary);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4752c4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <header class="header">
+            <h1>📚 마인크래프트 도서관</h1>
+            <p>플레이어들이 작성한 이야기를 모아보는 곳</p>
+        </header>
+        
+        <!-- 네비게이션 -->
+        <nav class="nav">
+            <button class="nav-btn active">🏠 홈</button>
+            <button class="nav-btn">📖 공개 책</button>
+            <button class="nav-btn">📚 공유</button>
+            <button class="nav-btn">📊 아카이브</button>
+        </nav>
+        
+        <!-- 통계 -->
+        <section class="stats">
+            <div class="stat-card books">
+                <span class="icon">📚</span>
+                <div class="number">5</div>
+                <div class="label">총 책 수</div>
+            </div>
+            <div class="stat-card authors">
+                <span class="icon">👥</span>
+                <div class="number">5</div>
+                <div class="label">작성자 수</div>
+            </div>
+            <div class="stat-card seasons">
+                <span class="icon">🏆</span>
+                <div class="number">2</div>
+                <div class="label">시즌 수</div>
+            </div>
+        </section>
+        
+        <!-- 알림 -->
+        <div class="alert">
+            <div class="alert-title">
+                <span>🔐</span>
+                로그인하여 더 많은 기능을 이용하세요
+            </div>
+            <div class="alert-content">
+                로그인하시면 책을 공개하거나 개인 책을 볼 수 있습니다.
+            </div>
+        </div>
+        
+        <!-- 검색 -->
+        <section class="search-section">
+            <div class="search-bar">
+                <input type="text" placeholder="책 제목, 내용, 작성자 검색...">
+                <button class="search-btn">🔍 검색</button>
+                <button class="search-btn">⚙️ 필터</button>
+            </div>
+        </section>
+        
+        <!-- 책 목록 -->
+        <main class="books-grid">
+            <article class="book-card">
+                <h3 class="book-title">첫 번째 모험</h3>
+                <div class="book-meta">
+                    <span>👤 Steve Kim</span>
+                    <span>📅 2024년 1월 14일</span>
+                    <span>📄 시즌 1</span>
+                </div>
+                <p class="book-preview">
+                    오늘은 새로운 세계에 첫 발을 내딛는 날이었다. 끝없이 펼쳐진 초원과 멀리 보이는 산맥, 그리고 바스락거리는 나뭇잎 소리가 나를 반겼다. 이 모든 것이 내 것이 될 수 있다는 생각에 가슴이 뛰었다...
+                </p>
+                <div class="book-tags">
+                    <span class="book-tag">#모험</span>
+                    <span class="book-tag">#첫날</span>
+                    <span class="book-tag">#건축</span>
+                </div>
+                <button class="read-btn">📖 책 읽기</button>
+            </article>
+            
+            <article class="book-card">
+                <h3 class="book-title">다이아몬드를 찾아서</h3>
+                <div class="book-meta">
+                    <span>👤 Alex Park</span>
+                    <span>📅 2024년 2월 19일</span>
+                    <span>📄 시즌 2</span>
+                </div>
+                <p class="book-preview">
+                    깊은 지하로 내려가며 다이아몬드를 찾는 모험을 시작했다. 곡괭이를 들고 한 층씩 내려갈 때마다 새로운 광물들을 발견하는 재미가 쏠쏠했다. 드디어 그 반짝이는 파란 보석을 발견했을 때의 기쁨이란...
+                </p>
+                <div class="book-tags">
+                    <span class="book-tag">#채굴</span>
+                    <span class="book-tag">#다이아몬드</span>
+                    <span class="book-tag">#지하</span>
+                </div>
+                <button class="read-btn">📖 책 읽기</button>
+            </article>
+            
+            <article class="book-card">
+                <h3 class="book-title">마법의 성 건설기</h3>
+                <div class="book-meta">
+                    <span>👤 Wizard Lee</span>
+                    <span>📅 2024년 3월 9일</span>
+                    <span>📄 시즌 1</span>
+                </div>
+                <p class="book-preview">
+                    하늘 높이 떠있는 마법의 성을 만들어가는 과정을 기록해본다. 구름 위에 떠있는 성이라니, 상상만으로도 가슴이 뛴다. 먼저 기초 공사부터 시작해서 조금씩 웅장한 성을 완성해나가는 중이다...
+                </p>
+                <div class="book-tags">
+                    <span class="book-tag">#건축</span>
+                    <span class="book-tag">#마법</span>
+                    <span class="book-tag">#성</span>
+                </div>
+                <button class="read-btn">📖 책 읽기</button>
+            </article>
+            
+            <article class="book-card">
+                <h3 class="book-title">엔더 드래곤과의 대결</h3>
+                <div class="book-meta">
+                    <span>👤 DragonSlayer99</span>
+                    <span>📅 2024년 4월 4일</span>
+                    <span>📄 시즌 3</span>
+                </div>
+                <p class="book-preview">
+                    마침내 엔더 월드로 들어가 드래곤과 대결하는 순간이 왔다. 온갖 준비를 마치고 포털을 통과하는 순간의 긴장감이란... 검은 하늘과 끝섬, 그리고 멀리서 날아오는 거대한 드래곤의 모습이 압도적이었다...
+                </p>
+                <div class="book-tags">
+                    <span class="book-tag">#보스전</span>
+                    <span class="book-tag">#엔더드래곤</span>
+                    <span class="book-tag">#엔드</span>
+                </div>
+                <button class="read-btn">📖 책 읽기</button>
+            </article>
+            
+            <article class="book-card">
+                <h3 class="book-title">우정의 마을</h3>
+                <div class="book-meta">
+                    <span>👤 Villager Friend</span>
+                    <span>📅 2024년 2월 27일</span>
+                    <span>📄 시즌 2</span>
+                </div>
+                <p class="book-preview">
+                    우민들과 친해지며 시작하는 마을 생활이 이렇게 재미있을 줄 몰랐다. 거래를 통해 서로 필요한 것들을 주고받고, 마을을 더 발전시키기 위해 함께 노력하는 모습이 정말 보기 좋다...
+                </p>
+                <div class="book-tags">
+                    <span class="book-tag">#우민</span>
+                    <span class="book-tag">#마을</span>
+                    <span class="book-tag">#거래</span>
+                </div>
+                <button class="read-btn">📖 책 읽기</button>
+            </article>
+            
+            <article class="book-card">
+                <h3 class="book-title">레드스톤 자동화 대작전</h3>
+                <div class="book-meta">
+                    <span>👤 Engineer Kim</span>
+                    <span>📅 2024년 3월 15일</span>
+                    <span>📄 시즌 2</span>
+                </div>
+                <p class="book-preview">
+                    레드스톤의 세계에 빠져보자! 간단한 회로부터 복잡한 자동화 시설까지, 한 단계씩 배워가며 만들어보는 과정을 기록한다. 처음에는 단순한 문 여닫기부터 시작했지만 이제는 자동 농장까지...
+                </p>
+                <div class="book-tags">
+                    <span class="book-tag">#레드스톤</span>
+                    <span class="book-tag">#자동화</span>
+                    <span class="book-tag">#공학</span>
+                </div>
+                <button class="read-btn">📖 책 읽기</button>
+            </article>
+        </main>
+        
+        <!-- 푸터 -->
+        <footer class="footer">
+            © 2024 LukeVanilla 책 시스템 | Made with ❤️
+        </footer>
+    </div>
+    
+    <script>
+        // 네비게이션 버튼
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+        
+        // 책 읽기 버튼
+        document.querySelectorAll('.read-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // 로딩 효과
+                const originalText = this.textContent;
+                this.innerHTML = '<span class="loading"></span> 로딩 중...';
+                this.disabled = true;
+                
+                setTimeout(() => {
+                    alert('책 뷰어를 열겠습니다!');
+                    this.textContent = originalText;
+                    this.disabled = false;
+                }, 1000);
+            });
+        });
+        
+        // 검색 기능
+        document.querySelector('.search-btn').addEventListener('click', function() {
+            const query = document.querySelector('.search-bar input').value;
+            if (query.trim()) {
+                alert(`"${query}" 검색 결과를 표시합니다.`);
+            }
+        });
+        
+        // 엔터키로 검색
+        document.querySelector('.search-bar input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.querySelector('.search-btn').click();
+            }
+        });
+        
+        // 카드 호버 효과 개선
+        document.querySelectorAll('.book-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-8px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = '';
+            });
+        });
+    </script>
+</body>
+</html>

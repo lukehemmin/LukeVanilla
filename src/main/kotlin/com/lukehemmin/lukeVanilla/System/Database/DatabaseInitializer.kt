@@ -48,6 +48,10 @@ class DatabaseInitializer(private val database: Database) {
         createServerOnlinePlayersTable()
         createCrossServerCommandsTable()
 
+        // BookSystem 테이블들
+        createBooksTable()
+        createBookSessionsTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -793,6 +797,69 @@ class DatabaseInitializer(private val database: Database) {
                     INDEX `idx_player_uuid` (`target_player_uuid`),
                     INDEX `idx_created_at` (`created_at`)
                 );
+                """.trimIndent()
+            )
+        }
+    }
+
+    // ================================
+    // BookSystem 테이블 생성 메소드들
+    // ================================
+
+    /**
+     * 책 정보를 저장하는 테이블
+     */
+    private fun createBooksTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS books (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `uuid` VARCHAR(36) NOT NULL COMMENT '작성자 UUID',
+                    `title` VARCHAR(255) NOT NULL COMMENT '책 제목',
+                    `content` LONGTEXT NOT NULL COMMENT '책 내용 (JSON 형태)',
+                    `page_count` INT NOT NULL DEFAULT 1 COMMENT '페이지 수',
+                    `is_signed` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '서명된 책인지 여부',
+                    `is_public` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '공개 여부',
+                    `is_archived` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '아카이브 여부',
+                    `season` VARCHAR(50) DEFAULT NULL COMMENT '시즌 정보',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성일시',
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+                    INDEX `idx_uuid` (`uuid`),
+                    INDEX `idx_public` (`is_public`),
+                    INDEX `idx_archived` (`is_archived`),
+                    INDEX `idx_season` (`season`),
+                    INDEX `idx_created_at` (`created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='책 정보 테이블';
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 웹 인증 세션을 관리하는 테이블
+     */
+    private fun createBookSessionsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS book_sessions (
+                    `session_id` VARCHAR(64) PRIMARY KEY COMMENT '세션 ID',
+                    `uuid` VARCHAR(36) NOT NULL COMMENT '플레이어 UUID',
+                    `token` VARCHAR(128) NOT NULL COMMENT '인증 토큰',
+                    `ip_address` VARCHAR(45) DEFAULT NULL COMMENT '접속 IP',
+                    `user_agent` TEXT DEFAULT NULL COMMENT '사용자 에이전트',
+                    `is_active` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '활성 상태',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성일시',
+                    `expires_at` TIMESTAMP NULL COMMENT '만료일시',
+                    `last_used_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '마지막 사용일시',
+                    INDEX `idx_uuid` (`uuid`),
+                    INDEX `idx_token` (`token`),
+                    INDEX `idx_expires_at` (`expires_at`),
+                    INDEX `idx_active` (`is_active`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='책 시스템 웹 인증 세션 테이블';
                 """.trimIndent()
             )
         }
