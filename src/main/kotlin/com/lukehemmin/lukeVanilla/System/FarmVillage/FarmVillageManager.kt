@@ -21,6 +21,13 @@ import net.luckperms.api.model.user.User
 import net.luckperms.api.node.Node
 import org.bukkit.OfflinePlayer
 import java.util.concurrent.CompletableFuture
+import org.bukkit.configuration.file.FileConfiguration
+import org.bukkit.Bukkit.getOnlinePlayers
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.block.Action
+import net.kyori.adventure.text.format.TextDecoration
 
 class FarmVillageManager(
     private val plugin: Main,
@@ -28,7 +35,7 @@ class FarmVillageManager(
     private val landManager: LandManager,
     private val debugManager: DebugManager,
     private val luckPerms: LuckPerms?
-) {
+) : Listener {
 
     private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
     private val seedMerchantGUI = SeedMerchantGUI(plugin, this)
@@ -41,6 +48,10 @@ class FarmVillageManager(
     private val weeklyScrollExchangeGUI = WeeklyScrollExchangeGUI(plugin, farmVillageData, weeklyScrollRotationSystem)
     private val gson = Gson()
     private var npcMerchants = listOf<NPCMerchant>()
+    
+    // Area selection system
+    private val playersSelecting = mutableMapOf<UUID, AreaSelection>()
+    private val areaSelectionTool = createSelectionTool()
 
     init {
         plugin.server.pluginManager.registerEvents(packageEditGUI, plugin)
@@ -51,6 +62,7 @@ class FarmVillageManager(
         plugin.server.pluginManager.registerEvents(soilReceiveGUI, plugin)
         plugin.server.pluginManager.registerEvents(npcMerchantListener, plugin)
         plugin.server.pluginManager.registerEvents(weeklyScrollExchangeGUI, plugin)
+        plugin.server.pluginManager.registerEvents(this, plugin)
         exchangeMerchantGUI.setFarmVillageManager(this)
         weeklyScrollExchangeGUI.setFarmVillageManager(this)
         farmVillageData.setPlugin(plugin)
@@ -499,7 +511,144 @@ class FarmVillageManager(
     fun getWeeklyScrollRotationSystem(): WeeklyScrollRotationSystem {
         return weeklyScrollRotationSystem
     }
+
+    private fun createSelectionTool(): ItemStack {
+        val tool = ItemStack(Material.GOLDEN_AXE)
+        val meta = tool.itemMeta
+        meta?.displayName(Component.text("농사마을 구역 선택 도구", NamedTextColor.GOLD, TextDecoration.BOLD))
+        meta?.lore(listOf(
+            Component.text("좌클릭: 첫 번째 모서리 선택", NamedTextColor.YELLOW),
+            Component.text("우클릭: 두 번째 모서리 선택", NamedTextColor.YELLOW),
+            Component.text("설정이 완료되면 자동으로 회수됩니다", NamedTextColor.GRAY)
+        ))
+        tool.itemMeta = meta
+        return tool
+    }
+
+    fun startAreaSelection(player: Player) {
+        if (playersSelecting.containsKey(player.uniqueId)) {
+            player.sendMessage(Component.text("이미 구역 선택 모드가 활성화되어 있습니다.", NamedTextColor.RED))
+            return
+        }
+
+        playersSelecting[player.uniqueId] = AreaSelection()
+        val tool = areaSelectionTool.clone()
+        player.inventory.addItem(tool)
+        
+        player.sendMessage(Component.text("=== 농사마을 구역 선택 모드 시작 ===", NamedTextColor.GOLD, TextDecoration.BOLD))
+        player.sendMessage(Component.text("황금 도끼로 첫 번째 모서리를 좌클릭하세요.", NamedTextColor.YELLOW))
+        player.sendMessage(Component.text("취소하려면: /농사마을 시스템 농사마을구역지정 취소", NamedTextColor.GRAY))
+    }
+
+    fun cancelAreaSelection(player: Player) {
+        if (!playersSelecting.containsKey(player.uniqueId)) {
+            player.sendMessage(Component.text("구역 선택 모드가 활성화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+
+        playersSelecting.remove(player.uniqueId)
+        removeSelectionTool(player)
+        
+        player.sendMessage(Component.text("농사마을 구역 선택을 취소했습니다.", NamedTextColor.YELLOW))
+    }
+
+    private fun removeSelectionTool(player: Player) {
+        val inventory = player.inventory
+        for (i in 0 until inventory.size) {
+            val item = inventory.getItem(i)
+            if (item != null && isSelectionTool(item)) {
+                inventory.setItem(i, null)
+                break
+            }
+        }
+    }
+
+    private fun isSelectionTool(item: ItemStack): Boolean {
+        if (item.type != Material.GOLDEN_AXE) return false
+        val meta = item.itemMeta ?: return false
+        val displayName = meta.displayName() ?: return false
+        return displayName == Component.text("농사마을 구역 선택 도구", NamedTextColor.GOLD, TextDecoration.BOLD)
+    }
+
+    @EventHandler
+    fun onPlayerInteract(event: PlayerInteractEvent) {
+        val player = event.player
+        val item = event.item
+        
+        if (item == null || !isSelectionTool(item)) return
+        if (!playersSelecting.containsKey(player.uniqueId)) return
+        
+        event.isCancelled = true
+        val clickedBlock = event.clickedBlock ?: return
+        val location = clickedBlock.location
+        val selection = playersSelecting[player.uniqueId]!!
+        
+        when (event.action) {
+            Action.LEFT_CLICK_BLOCK -> {
+                selection.pos1 = location
+                player.sendMessage(Component.text("첫 번째 모서리 설정: ${location.blockX}, ${location.blockY}, ${location.blockZ}", NamedTextColor.GREEN))
+                player.sendMessage(Component.text("이제 황금 도끼로 두 번째 모서리를 우클릭하세요.", NamedTextColor.YELLOW))
+            }
+            Action.RIGHT_CLICK_BLOCK -> {
+                if (selection.pos1 == null) {
+                    player.sendMessage(Component.text("먼저 첫 번째 모서리를 좌클릭하세요.", NamedTextColor.RED))
+                    return
+                }
+                
+                selection.pos2 = location
+                player.sendMessage(Component.text("두 번째 모서리 설정: ${location.blockX}, ${location.blockY}, ${location.blockZ}", NamedTextColor.GREEN))
+                
+                // 구역 저장
+                saveAreaToConfig(player, selection)
+            }
+            else -> {}
+        }
+    }
+
+    private fun saveAreaToConfig(player: Player, selection: AreaSelection) {
+        val pos1 = selection.pos1!!
+        val pos2 = selection.pos2!!
+        
+        // 두 좌표가 같은 월드인지 확인
+        if (pos1.world != pos2.world) {
+            player.sendMessage(Component.text("두 모서리가 다른 월드에 있습니다!", NamedTextColor.RED))
+            return
+        }
+        
+        val minX = minOf(pos1.blockX, pos2.blockX)
+        val maxX = maxOf(pos1.blockX, pos2.blockX)
+        val minZ = minOf(pos1.blockZ, pos2.blockZ)
+        val maxZ = maxOf(pos1.blockZ, pos2.blockZ)
+        
+        // Config 업데이트
+        val config = plugin.config
+        config.set("myland.use-area-restriction", true)
+        config.set("myland.area.world", pos1.world?.name)
+        config.set("myland.area.x1", minX)
+        config.set("myland.area.z1", minZ)
+        config.set("myland.area.x2", maxX)
+        config.set("myland.area.z2", maxZ)
+        
+        plugin.saveConfig()
+        
+        // LandManager에 새 설정 로드
+        landManager.loadConfig()
+        
+        // 선택 모드 종료
+        playersSelecting.remove(player.uniqueId)
+        removeSelectionTool(player)
+        
+        player.sendMessage(Component.text("=== 농사마을 구역 설정 완료 ===", NamedTextColor.GREEN, TextDecoration.BOLD))
+        player.sendMessage(Component.text("월드: ${pos1.world?.name}", NamedTextColor.AQUA))
+        player.sendMessage(Component.text("구역: ($minX, $minZ) ~ ($maxX, $maxZ)", NamedTextColor.AQUA))
+        player.sendMessage(Component.text("config.yml이 업데이트되었습니다.", NamedTextColor.GRAY))
+    }
 }
+
+data class AreaSelection(
+    var pos1: Location? = null,
+    var pos2: Location? = null
+)
 
 enum class ConfiscateResult {
     SUCCESS,
