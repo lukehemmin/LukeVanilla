@@ -53,4 +53,8 @@ class FarmVillageSystem(
     fun disable() {
         plugin.logger.info("[FarmVillage] 농사마을 시스템이 비활성화되었습니다.")
     }
+
+    fun getFarmVillageManager(): FarmVillageManager {
+        return farmVillageManager
+    }
 } 

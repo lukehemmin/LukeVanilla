@@ -591,9 +591,14 @@ class Main : JavaPlugin() {
                 privateLandSystem?.enable()
 
                 // FarmVillage 시스템 초기화 (PrivateLandSystem에 의존)
-                privateLandSystem?.let {
-                    farmVillageSystem = FarmVillageSystem(this, database, it, debugManager, luckPerms)
+                privateLandSystem?.let { privateLand ->
+                    farmVillageSystem = FarmVillageSystem(this, database, privateLand, debugManager, luckPerms)
                     farmVillageSystem?.enable()
+                    
+                    // LandCommand에서 농사마을 땅 번호를 표시할 수 있도록 FarmVillageManager 참조 설정
+                    farmVillageSystem?.let { farmVillage ->
+                        privateLand.setFarmVillageManager(farmVillage.getFarmVillageManager())
+                    }
                 }
 
             } catch (e: Exception) {
