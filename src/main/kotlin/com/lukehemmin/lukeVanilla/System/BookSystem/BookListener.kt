@@ -20,14 +20,17 @@ class BookListener(
     private val bookRepository: BookRepository,
     private val logger: Logger
 ) : Listener {
+    
+    private val bookItemManager = BookItemManager(plugin, logger)
 
     /**
      * 플레이어가 책을 편집할 때 발생하는 이벤트
      */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)  
     fun onPlayerEditBook(event: PlayerEditBookEvent) {
         val player = event.player
         val bookMeta = event.newBookMeta
+        val item = player.inventory.itemInMainHand // 편집 중인 아이템
         
         try {
             // 책 내용이 비어있으면 저장하지 않음
@@ -46,31 +49,76 @@ class BookListener(
                 generation = bookMeta.generation?.ordinal
             )
 
-            // 비동기로 데이터베이스에 저장
+            // 기존 책 ID 확인 (편집 전 아이템에서)
+            val existingBookId = bookItemManager.getBookId(item)
+            val existingOwner = bookItemManager.getBookOwner(item)
+            val playerUuid = player.uniqueId.toString()
+
+            // 비동기로 데이터베이스에 저장/업데이트
             plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
                 try {
-                    val bookId = bookRepository.saveBook(bookInfo, player.uniqueId.toString(), currentSeason)
-                    
-                    if (bookId != null) {
-                        // 메인 스레드에서 플레이어에게 알림
-                        plugin.server.scheduler.runTask(plugin, Runnable {
-                            player.sendMessage("§a[책 시스템] §f책이 저장되었습니다! §7(ID: $bookId)")
-                            player.sendMessage("§a[책 시스템] §f'/책 목록' 명령어로 내 책들을 확인할 수 있습니다.")
-                        })
+                    if (existingBookId != null && existingOwner == playerUuid) {
+                        // 기존 책 업데이트
+                        val success = bookRepository.updateExistingBook(existingBookId, bookInfo, playerUuid)
                         
-                        logger.info("[BookSystem] 플레이어 ${player.name}의 책이 저장되었습니다. (ID: $bookId)")
-                    } else {
                         plugin.server.scheduler.runTask(plugin, Runnable {
-                            player.sendMessage("§c[책 시스템] §f책 저장 중 오류가 발생했습니다.")
+                            if (success) {
+                                // 편집된 아이템의 메타데이터에 NBT 태그 업데이트
+                                val updatedMeta = bookItemManager.incrementVersionInMeta(bookMeta, existingBookId, playerUuid)
+                                event.newBookMeta = updatedMeta
+                                
+                                // 플레이어 인벤토리의 아이템도 업데이트 (1틱 후)
+                                plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                                    val currentItem = player.inventory.itemInMainHand
+                                    if (bookItemManager.isBookItem(currentItem)) {
+                                        bookItemManager.incrementVersion(currentItem)
+                                    }
+                                }, 1L)
+                                
+                                val newVersion = bookItemManager.getVersionFromMeta(updatedMeta)
+                                player.sendMessage("§a[책 시스템] §f책이 업데이트되었습니다! §7(ID: $existingBookId, v$newVersion)")
+                                logger.info("[BookSystem] 플레이어 ${player.name}의 책이 업데이트되었습니다. (ID: $existingBookId)")
+                            } else {
+                                player.sendMessage("§c[책 시스템] §f책 업데이트 중 오류가 발생했습니다.")
+                            }
                         })
-                        logger.warning("[BookSystem] 플레이어 ${player.name}의 책 저장에 실패했습니다.")
+                    } else {
+                        // 새로운 책 저장
+                        val bookId = bookRepository.saveBook(bookInfo, playerUuid, currentSeason)
+                        
+                        if (bookId != null) {
+                            plugin.server.scheduler.runTask(plugin, Runnable {
+                                // 편집된 아이템의 메타데이터에 NBT 태그 추가
+                                val updatedMeta = bookItemManager.setBookIdInMeta(bookMeta, bookId, playerUuid)
+                                event.newBookMeta = updatedMeta
+                                
+                                // 플레이어 인벤토리의 아이템도 업데이트 (1틱 후)
+                                plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                                    val currentItem = player.inventory.itemInMainHand
+                                    if (bookItemManager.isBookItem(currentItem)) {
+                                        bookItemManager.setBookId(currentItem, bookId, playerUuid)
+                                    }
+                                }, 1L)
+                                
+                                // 간단한 성공 알림 (자연스럽게)
+                                player.sendMessage("§a[책 시스템] §f책이 저장되었습니다! §7(ID: $bookId)")
+                                player.sendMessage("§7이제 이 책을 계속 편집하면 자동으로 업데이트됩니다.")
+                                
+                                logger.info("[BookSystem] 플레이어 ${player.name}의 새 책이 저장되었습니다. (ID: $bookId)")
+                            })
+                        } else {
+                            plugin.server.scheduler.runTask(plugin, Runnable {
+                                player.sendMessage("§c[책 시스템] §f책 저장 중 오류가 발생했습니다.")
+                                logger.warning("[BookSystem] 플레이어 ${player.name}의 책 저장에 실패했습니다.")
+                            })
+                        }
                     }
                 } catch (e: Exception) {
-                    logger.severe("[BookSystem] 책 저장 중 예외 발생: ${e.message}")
+                    logger.severe("[BookSystem] 책 저장/업데이트 중 예외 발생: ${e.message}")
                     e.printStackTrace()
                     
                     plugin.server.scheduler.runTask(plugin, Runnable {
-                        player.sendMessage("§c[책 시스템] §f책 저장 중 오류가 발생했습니다.")
+                        player.sendMessage("§c[책 시스템] §f책 처리 중 오류가 발생했습니다.")
                     })
                 }
             })

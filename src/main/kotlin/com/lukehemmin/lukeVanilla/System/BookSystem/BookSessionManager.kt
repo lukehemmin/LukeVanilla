@@ -234,12 +234,29 @@ class BookSessionManager(
     }
 
     /**
+     * 데이터베이스 타임스탬프를 LocalDateTime으로 안전하게 변환
+     */
+    private fun parseDbTimestamp(timestamp: String): LocalDateTime? {
+        return try {
+            // 여러 가능한 형식을 처리
+            val cleanedTimestamp = timestamp
+                .replace(" ", "T")          // 공백을 T로 변경
+                .replace(Regex("\\.\\d+$"), "") // 마이크로초/나노초 제거 (.0, .123 등)
+            
+            LocalDateTime.parse(cleanedTimestamp, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        } catch (e: Exception) {
+            logger.warning("[BookSessionManager] 타임스탬프 파싱 실패: $timestamp, 오류: ${e.message}")
+            null
+        }
+    }
+
+    /**
      * 세션 유효성 검증
      */
     private fun isSessionValid(session: BookSession): Boolean {
         if (!session.isActive) return false
         
-        val expiresAt = LocalDateTime.parse(session.expiresAt, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        val expiresAt = parseDbTimestamp(session.expiresAt) ?: return false
         return expiresAt.isAfter(LocalDateTime.now())
     }
 

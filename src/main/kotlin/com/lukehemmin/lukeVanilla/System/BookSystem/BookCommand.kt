@@ -18,7 +18,8 @@ class BookCommand(
     private val logger: Logger
 ) : CommandExecutor, TabCompleter {
 
-    private val externalDomain = plugin.config.getString("book_system.external_domain", "localhost:9090") ?: "localhost:9090"
+    private val bookItemManager = BookItemManager(plugin, logger)
+    private val externalDomain = plugin.config.getString("book_system.external_domain", "localhost:9595") ?: "localhost:9595"
     private val externalProtocol = plugin.config.getString("book_system.external_protocol", "http") ?: "http"
 
     override fun onCommand(
@@ -47,6 +48,7 @@ class BookCommand(
             "토큰", "token" -> handleTokenCommand(sender)
             "도움말", "help" -> { sendHelpMessage(sender); true }
             "통계", "stats" -> handleStatsCommand(sender)
+            "시즌", "season" -> handleSeasonCommand(sender, args)
             else -> { sendHelpMessage(sender); true }
         }
     }
@@ -68,6 +70,10 @@ class BookCommand(
         player.sendMessage("§a▪ §e/책 웹사이트 §f- 웹에서 책 관리하기")
         player.sendMessage("§a▪ §e/책 토큰 §f- 웹 인증 토큰 생성")
         player.sendMessage("§a▪ §e/책 통계 §f- 책 시스템 통계 보기")
+        player.sendMessage("§a▪ §e/책 시즌 [시즌명] §f- 현재 시즌 확인/변경 (관리자)")
+        player.sendMessage("§a▪")
+        player.sendMessage("§a▪ §7💡 팁: 책과 깃펜으로 작성한 내용은 자동 저장됩니다!")
+        player.sendMessage("§a▪ §7같은 책을 계속 편집하면 업데이트되고 중복 저장되지 않아요.")
         player.sendMessage("§a▪")
         player.sendMessage("§a▪ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ▪")
         player.sendMessage("")
@@ -291,8 +297,32 @@ class BookCommand(
             player.sendMessage("§a▪ §f인증 코드: §e§l$authCode")
             player.sendMessage("§a▪")
             player.sendMessage("§a▪ §f이 코드는 §c5분 후 만료§f됩니다.")
-            player.sendMessage("§a▪ §f웹사이트(§e$externalProtocol://$externalDomain§f)에서")
-            player.sendMessage("§a▪ §f이 코드를 입력하여 로그인하세요.")
+            player.sendMessage("§a▪")
+            player.sendMessage("§a▪ §f📱 자동 로그인 링크:")
+            
+            // 클릭 가능한 자동 로그인 링크 생성
+            val autoLoginUrl = "$externalProtocol://$externalDomain?code=$authCode"
+            
+            // ComponentBuilder를 사용하여 클릭 가능한 링크 생성
+            val linkComponent = net.md_5.bungee.api.chat.ComponentBuilder("§a▪")
+                .append("  🔗 클릭하여 자동 로그인")
+                .color(net.md_5.bungee.api.ChatColor.AQUA)
+                .underlined(true)
+                .event(net.md_5.bungee.api.chat.ClickEvent(
+                    net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL, 
+                    autoLoginUrl
+                ))
+                .event(net.md_5.bungee.api.chat.HoverEvent(
+                    net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
+                    arrayOf(net.md_5.bungee.api.chat.TextComponent("클릭하면 브라우저에서 자동으로 로그인됩니다!"))
+                ))
+                .create()
+            
+            // 메시지 전송
+            player.spigot().sendMessage(*linkComponent)
+            player.sendMessage("§a▪")
+            player.sendMessage("§a▪ §f또는 수동으로 코드 입력:")
+            player.sendMessage("§a▪ §e$externalProtocol://$externalDomain")
             player.sendMessage("§a▪")
             player.sendMessage("§a▪ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ▪")
             player.sendMessage("")
@@ -327,6 +357,82 @@ class BookCommand(
                 })
             }
         })
+        return true
+    }
+
+    /**
+     * 시즌 관리 명령어 처리
+     */
+    private fun handleSeasonCommand(player: Player, args: Array<out String>): Boolean {
+        if (args.size == 1) {
+            // 현재 시즌 정보 표시
+            val currentSeason = plugin.config.getString("book_system.current_season", "Season1")
+            
+            player.sendMessage("")
+            player.sendMessage("§a▪ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ▪")
+            player.sendMessage("§a▪              §f현재 시즌 정보               §a▪")
+            player.sendMessage("§a▪ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ▪")
+            player.sendMessage("§a▪")
+            player.sendMessage("§a▪ §f현재 시즌: §e$currentSeason")
+            player.sendMessage("§a▪")
+            player.sendMessage("§a▪ §f새로운 책들은 이 시즌으로 분류됩니다.")
+            
+            if (player.hasPermission("lukevanilla.admin") || player.isOp) {
+                player.sendMessage("§a▪")
+                player.sendMessage("§a▪ §f시즌 변경: §e/책 시즌 <새시즌명>")
+            }
+            
+            player.sendMessage("§a▪")
+            player.sendMessage("§a▪ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ▪")
+            player.sendMessage("")
+            
+            return true
+        }
+        
+        // 시즌 변경 (관리자만)
+        if (!player.hasPermission("lukevanilla.admin") && !player.isOp) {
+            player.sendMessage("§c[책 시스템] §f시즌을 변경할 권한이 없습니다.")
+            return true
+        }
+        
+        val newSeason = args[1]
+        
+        // 시즌명 유효성 검사
+        if (newSeason.length < 2 || newSeason.length > 20) {
+            player.sendMessage("§c[책 시스템] §f시즌명은 2-20자 이내로 입력해주세요.")
+            return true
+        }
+        
+        if (!newSeason.matches(Regex("[a-zA-Z0-9가-힣_-]+"))) {
+            player.sendMessage("§c[책 시스템] §f시즌명은 한글, 영문, 숫자, _, - 만 사용 가능합니다.")
+            return true
+        }
+        
+        val oldSeason = plugin.config.getString("book_system.current_season", "Season1")
+        
+        // 설정 변경
+        plugin.config.set("book_system.current_season", newSeason)
+        plugin.saveConfig()
+        
+        player.sendMessage("")
+        player.sendMessage("§a▪ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ▪")
+        player.sendMessage("§a▪              §f시즌이 변경되었습니다!              §a▪")
+        player.sendMessage("§a▪ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ▪")
+        player.sendMessage("§a▪")
+        player.sendMessage("§a▪ §f이전 시즌: §7$oldSeason")
+        player.sendMessage("§a▪ §f새로운 시즌: §e$newSeason")
+        player.sendMessage("§a▪")
+        player.sendMessage("§a▪ §f이제 새로 작성되는 책들은 §e$newSeason§f으로")
+        player.sendMessage("§a▪ §f분류됩니다.")
+        player.sendMessage("§a▪")
+        player.sendMessage("§a▪ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ▪")
+        player.sendMessage("")
+        
+        // 서버 전체에 시즌 변경 알림
+        plugin.server.broadcastMessage("§a[책 시스템] §f시즌이 §e$newSeason§f으로 변경되었습니다!")
+        
+        logger.info("[BookCommand] 관리자 ${player.name}이 시즌을 '$oldSeason'에서 '$newSeason'으로 변경했습니다.")
+        
         return true
     }
 
@@ -432,7 +538,7 @@ class BookCommand(
 
         return when (args.size) {
             1 -> {
-                val commands = listOf("목록", "공개", "비공개", "삭제", "정보", "웹사이트", "토큰", "통계", "도움말")
+                val commands = listOf("목록", "공개", "비공개", "삭제", "정보", "웹사이트", "토큰", "통계", "시즌", "도움말")
                 commands.filter { it.startsWith(args[0], true) }
             }
             2 -> {
@@ -440,6 +546,11 @@ class BookCommand(
                     "공개", "비공개", "삭제", "정보" -> {
                         // 실제로는 플레이어의 책 ID 목록을 가져와서 자동완성할 수 있음
                         listOf("<책ID>")
+                    }
+                    "시즌", "season" -> {
+                        if (sender.hasPermission("lukevanilla.admin") || sender.isOp) {
+                            listOf("<새시즌명>", "Season2", "Season3", "Winter2024", "Spring2025")
+                        } else null
                     }
                     else -> null
                 }

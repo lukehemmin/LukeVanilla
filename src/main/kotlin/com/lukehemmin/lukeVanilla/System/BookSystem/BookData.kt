@@ -18,6 +18,7 @@ data class BookData(
     val isPublic: Boolean = false,
     val isArchived: Boolean = false,
     val season: String? = null,
+    val playerName: String? = null, // 플레이어 닉네임
     val createdAt: String = "",
     val updatedAt: String = ""
 )
@@ -125,4 +126,13 @@ data class MinecraftBookInfo(
     val pages: List<String>,
     val author: String?,
     val generation: Int? = null // 책의 세대 (원본=0, 사본=1, 사본의 사본=2, 낡은 책=3)
+)
+
+/**
+ * 공개 통계 응답
+ */
+@Serializable
+data class PublicStatsResponse(
+    val totalPublicBooks: Long,
+    val seasonStats: Map<String, Long>
 )

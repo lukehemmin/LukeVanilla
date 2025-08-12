@@ -60,6 +60,35 @@ class BookRepository(private val database: Database) {
     }
 
     /**
+     * 마인크래프트 책 정보로 기존 책을 업데이트
+     */
+    fun updateExistingBook(bookId: Long, book: MinecraftBookInfo, playerUuid: String): Boolean {
+        val bookContent = BookContent(
+            pages = book.pages.mapIndexed { index, content ->
+                BookPage(pageNumber = index + 1, content = content)
+            }
+        )
+
+        database.getConnection().use { connection ->
+            val sql = """
+                UPDATE books 
+                SET title = ?, content = ?, page_count = ?, is_signed = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND uuid = ?
+            """.trimIndent()
+
+            val statement = connection.prepareStatement(sql)
+            statement.setString(1, book.title)
+            statement.setString(2, json.encodeToString(bookContent))
+            statement.setInt(3, book.pages.size)
+            statement.setBoolean(4, book.author != null)
+            statement.setLong(5, bookId)
+            statement.setString(6, playerUuid)
+
+            return statement.executeUpdate() > 0
+        }
+    }
+
+    /**
      * 책 정보 업데이트
      */
     fun updateBook(bookId: Long, title: String, content: BookContent, playerUuid: String): Boolean {
@@ -132,12 +161,12 @@ class BookRepository(private val database: Database) {
         val offset = (page - 1) * size
         
         database.getConnection().use { connection ->
-            val publicFilter = if (publicOnly) "AND is_public = TRUE" else ""
+            val publicFilter = if (publicOnly) "AND b.is_public = TRUE" else ""
             
             // 총 개수 조회
             val countSql = """
-                SELECT COUNT(*) FROM books 
-                WHERE uuid = ? $publicFilter
+                SELECT COUNT(*) FROM books b
+                WHERE b.uuid = ? $publicFilter
             """.trimIndent()
             
             val countStatement = connection.prepareStatement(countSql)
@@ -145,11 +174,13 @@ class BookRepository(private val database: Database) {
             val countResult = countStatement.executeQuery()
             val totalCount = if (countResult.next()) countResult.getLong(1) else 0L
 
-            // 책 목록 조회
+            // 책 목록 조회 (플레이어 닉네임 포함) - 콜레이션 충돌 방지
             val sql = """
-                SELECT * FROM books 
-                WHERE uuid = ? $publicFilter
-                ORDER BY created_at DESC
+                SELECT b.*, pd.NickName as player_name 
+                FROM books b
+                LEFT JOIN Player_Data pd ON b.uuid COLLATE utf8mb4_general_ci = pd.UUID COLLATE utf8mb4_general_ci
+                WHERE b.uuid = ? $publicFilter
+                ORDER BY b.created_at DESC
                 LIMIT ? OFFSET ?
             """.trimIndent()
 
@@ -162,7 +193,7 @@ class BookRepository(private val database: Database) {
             val books = mutableListOf<BookData>()
 
             while (result.next()) {
-                books.add(mapResultSetToBookData(result))
+                books.add(mapResultSetToBookDataWithPlayerName(result))
             }
 
             return Pair(books, totalCount)
@@ -305,7 +336,10 @@ class BookRepository(private val database: Database) {
             statement.setString(4, session.ipAddress)
             statement.setString(5, session.userAgent)
             // LocalDateTime 문자열을 Timestamp로 변환
-            val expiresDateTime = LocalDateTime.parse(session.expiresAt, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val cleanedTimestamp = session.expiresAt
+                .replace(" ", "T")          // 공백을 T로 변경
+                .replace(Regex("\\.\\d+$"), "") // 마이크로초/나노초 제거 (.0, .123 등)
+            val expiresDateTime = LocalDateTime.parse(cleanedTimestamp, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             statement.setTimestamp(6, Timestamp.valueOf(expiresDateTime))
 
             return statement.executeUpdate() > 0
@@ -393,7 +427,27 @@ class BookRepository(private val database: Database) {
     // ================================
 
     /**
-     * ResultSet을 BookData로 변환
+     * ResultSet을 BookData로 변환 (플레이어 이름 포함)
+     */
+    private fun mapResultSetToBookDataWithPlayerName(result: ResultSet): BookData {
+        return BookData(
+            id = result.getLong("id"),
+            uuid = result.getString("uuid"),
+            title = result.getString("title"),
+            content = result.getString("content"),
+            pageCount = result.getInt("page_count"),
+            isSigned = result.getBoolean("is_signed"),
+            isPublic = result.getBoolean("is_public"),
+            isArchived = result.getBoolean("is_archived"),
+            season = result.getString("season"),
+            playerName = result.getString("player_name"), // 플레이어 닉네임 추가
+            createdAt = result.getTimestamp("created_at").toString(),
+            updatedAt = result.getTimestamp("updated_at").toString()
+        )
+    }
+
+    /**
+     * ResultSet을 BookData로 변환 (기본 - 플레이어 이름 없음)
      */
     private fun mapResultSetToBookData(result: ResultSet): BookData {
         return BookData(
@@ -406,6 +460,7 @@ class BookRepository(private val database: Database) {
             isPublic = result.getBoolean("is_public"),
             isArchived = result.getBoolean("is_archived"),
             season = result.getString("season"),
+            playerName = null, // 플레이어 이름 없음
             createdAt = result.getTimestamp("created_at").toString(),
             updatedAt = result.getTimestamp("updated_at").toString()
         )

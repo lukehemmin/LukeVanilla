@@ -11,6 +11,19 @@ database:
   user: "username"
   password: "password"
 
+myland:
+  # 지역 제한 기능을 사용할지 여부를 결정합니다. (true: 사용, false: 미사용)
+  # false로 설정하면 모든 지역에서 땅을 구매하고 보호받을 수 있습니다.
+  use-area-restriction: true
+
+  # 지역 제한을 사용할 경우, 적용될 영역을 설정합니다.
+  area:
+    world: world
+    x1: -16
+    z1: 0
+    x2: 15
+    z2: 95
+
 # HMCCosmetics 옷장 위치 시스템 설정
 wardrobe:
   world: "world"  # 옷장이 위치한 월드 이름

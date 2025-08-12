@@ -319,6 +319,25 @@ class BookAPI(
                 return
             }
 
+            // 책 정보 먼저 확인 (서명된 책인지 체크)
+            val book = bookRepository.getBook(bookId)
+            if (book == null || book.uuid != session.uuid) {
+                respond(HttpStatusCode.NotFound, ApiResponse<String>(
+                    success = false,
+                    error = "해당 책의 소유자가 아니거나 존재하지 않는 책입니다."
+                ))
+                return
+            }
+
+            // 서명된 책은 삭제 불가
+            if (book.isSigned) {
+                respond(HttpStatusCode.BadRequest, ApiResponse<String>(
+                    success = false,
+                    error = "서명된 책은 삭제할 수 없습니다."
+                ))
+                return
+            }
+
             val success = bookRepository.deleteBook(bookId, session.uuid)
             
             if (success) {
@@ -479,21 +498,21 @@ class BookAPI(
      */
     private suspend fun ApplicationCall.handlePublicStats() {
         try {
-            val seasonStats = bookRepository.getBookStatsBySeason()
+            val seasonStats = bookRepository.getBookStatsBySeason().mapValues { it.value.toLong() }
             val (_, totalPublicBooks) = bookRepository.getPublicBooks(1, 1)
             
-            val stats = mapOf(
-                "totalPublicBooks" to totalPublicBooks,
-                "seasonStats" to seasonStats
+            val statsResponse = PublicStatsResponse(
+                totalPublicBooks = totalPublicBooks,
+                seasonStats = seasonStats
             )
 
             respond(HttpStatusCode.OK, ApiResponse(
                 success = true,
-                data = stats
+                data = statsResponse
             ))
         } catch (e: Exception) {
             logger.severe("[BookAPI] 공개 통계 조회 중 예외 발생: ${e.message}")
-            respond(HttpStatusCode.InternalServerError, ApiResponse<Map<String, Any>>(
+            respond(HttpStatusCode.InternalServerError, ApiResponse<PublicStatsResponse>(
                 success = false,
                 error = "서버 내부 오류가 발생했습니다."
             ))

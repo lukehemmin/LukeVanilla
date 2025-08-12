@@ -35,13 +35,13 @@ class BookWebServer(
     private val bookAPI = BookAPI(bookRepository, sessionManager, logger)
     
     // 설정값들
-    private val port = plugin.config.getInt("book_system.web_port", 9090)
+    private val port = plugin.config.getInt("book_system.web_port", 9595)
     private val host = plugin.config.getString("book_system.web_host", "127.0.0.1") ?: "127.0.0.1"
     private val enableCors = plugin.config.getBoolean("book_system.enable_cors", true)
     private val allowedOrigins = plugin.config.getStringList("book_system.allowed_origins").ifEmpty { 
-        listOf("http://localhost:9090") 
+        listOf("http://localhost:9595") 
     }
-    private val externalDomain = plugin.config.getString("book_system.external_domain", "localhost:9090") ?: "localhost:9090"
+    private val externalDomain = plugin.config.getString("book_system.external_domain", "localhost:9595") ?: "localhost:9595"
     private val externalProtocol = plugin.config.getString("book_system.external_protocol", "http") ?: "http"
     private val webContentPath = File(plugin.dataFolder, "web").path
 
@@ -145,6 +145,17 @@ class BookWebServer(
                     )
                 )
             }
+            
+            status(HttpStatusCode.Unauthorized) { call, _ ->
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiResponse<String>(
+                        success = false,
+                        error = "SESSION_EXPIRED",
+                        message = "세션이 만료되었습니다. 다시 로그인해주세요."
+                    )
+                )
+            }
         }
 
         // 인증 설정
@@ -152,10 +163,16 @@ class BookWebServer(
             bearer("book-auth") {
                 realm = "Book System"
                 authenticate { tokenCredential ->
-                    val session = sessionManager.validateToken(tokenCredential.token)
-                    if (session != null) {
-                        BookAPI.BookSessionPrincipal(session)
-                    } else {
+                    try {
+                        val session = sessionManager.validateToken(tokenCredential.token)
+                        if (session != null) {
+                            BookAPI.BookSessionPrincipal(session)
+                        } else {
+                            logger.info("[BookWebServer] 유효하지 않은 토큰으로 인증 시도: ${tokenCredential.token.take(10)}...")
+                            null
+                        }
+                    } catch (e: Exception) {
+                        logger.warning("[BookWebServer] 토큰 검증 중 예외 발생: ${e.message}")
                         null
                     }
                 }
@@ -204,42 +221,36 @@ class BookWebServer(
 
     /**
      * 웹 컨텐츠 폴더 및 기본 파일들 설정
+     * 매번 새로운 버전으로 자동 업데이트
      */
     private fun setupWebContent() {
         val webDir = File(plugin.dataFolder, "web")
-        if (!webDir.exists()) {
-            webDir.mkdirs()
+        
+        // 기존 웹 폴더가 있으면 삭제하고 새로 생성
+        if (webDir.exists()) {
+            logger.info("[BookWebServer] 기존 웹 컨텐츠 폴더를 삭제하고 새로 생성합니다...")
+            webDir.deleteRecursively()
         }
+        
+        webDir.mkdirs()
 
-        // 기본 index.html 파일 생성
+        // 기본 index.html 파일 생성 (항상 최신 버전으로)
         val indexFile = File(webDir, "index.html")
-        if (!indexFile.exists()) {
-            indexFile.writeText(generateDefaultIndexHtml())
-        }
+        indexFile.writeText(generateDefaultIndexHtml())
 
-        // 기본 CSS 파일 생성
+        // 기본 CSS 파일 생성 (항상 최신 버전으로)
         val cssDir = File(webDir, "css")
-        if (!cssDir.exists()) {
-            cssDir.mkdirs()
-        }
-        
+        cssDir.mkdirs()
         val cssFile = File(cssDir, "style.css")
-        if (!cssFile.exists()) {
-            cssFile.writeText(generateDefaultCSS())
-        }
+        cssFile.writeText(generateDefaultCSS())
 
-        // 기본 JavaScript 파일 생성
+        // 기본 JavaScript 파일 생성 (항상 최신 버전으로)
         val jsDir = File(webDir, "js")
-        if (!jsDir.exists()) {
-            jsDir.mkdirs()
-        }
-        
+        jsDir.mkdirs()
         val jsFile = File(jsDir, "app.js")
-        if (!jsFile.exists()) {
-            jsFile.writeText(generateDefaultJS())
-        }
+        jsFile.writeText(generateDefaultJS())
 
-        logger.info("[BookWebServer] 웹 컨텐츠가 ${webDir.absolutePath} 에 준비되었습니다.")
+        logger.info("[BookWebServer] 웹 컨텐츠가 최신 버전으로 업데이트되었습니다: ${webDir.absolutePath}")
     }
 
     /**
@@ -288,8 +299,8 @@ class BookWebServer(
                         </div>
                     </section>
                     
-                    <!-- 알림 -->
-                    <div class="alert">
+                    <!-- 로그인 알림 (로그인하지 않은 경우에만 표시) -->
+                    <div id="loginAlert" class="alert" style="display: none;">
                         <div class="alert-title">
                             <span>🔐</span>
                             로그인하여 더 많은 기능을 이용하세요
@@ -806,6 +817,49 @@ class BookWebServer(
             left: 100%;
         }
         
+        /* 책 액션 버튼들 */
+        .book-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            justify-content: flex-end;
+        }
+        
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .public-btn {
+            background: var(--mc-success);
+            color: white;
+        }
+        
+        .public-btn:hover {
+            background: #3eb049;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(87, 242, 135, 0.3);
+        }
+        
+        .private-btn {
+            background: var(--mc-text-muted);
+            color: white;
+        }
+        
+        .private-btn:hover {
+            background: #5a6269;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(114, 118, 125, 0.3);
+        }
+        
         /* 로그인 컨테이너 */
         .login-container {
             max-width: 500px;
@@ -1191,10 +1245,118 @@ class BookWebServer(
 
             init() {
                 this.setupEventListeners();
+                this.checkUrlParams(); // URL 파라미터 확인
                 this.checkAuth();
                 this.showPage('home');
                 this.loadPublicStats();
                 this.loadRecentBooks();
+            }
+
+            // URL 파라미터에서 인증코드 확인
+            checkUrlParams() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const authCode = urlParams.get('code');
+                
+                if (authCode && authCode.length === 6) {
+                    // URL에서 code 파라미터 제거 (깔끔하게)
+                    const url = new URL(window.location);
+                    url.searchParams.delete('code');
+                    window.history.replaceState({}, document.title, url.pathname);
+                    
+                    // 자동 로그인 시도
+                    this.autoLogin(authCode);
+                }
+            }
+
+            // 자동 로그인 함수
+            async autoLogin(authCode) {
+                try {
+                    const response = await fetch('/api/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ authCode })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.currentToken = result.data.token;
+                        localStorage.setItem('bookToken', this.currentToken);
+                        
+                        // 성공 알림
+                        this.showNotification('🎉 자동 로그인 완료!', 'success');
+                        
+                        this.checkAuth();
+                        this.showPage('myBooks'); // 내 책 페이지로 이동
+                    } else {
+                        this.showNotification('❌ ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Auto login error:', error);
+                    this.showNotification('❌ 자동 로그인 중 오류가 발생했습니다.', 'error');
+                }
+            }
+
+            // 알림 표시 함수
+            showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = 'notification notification-' + type;
+                notification.textContent = message;
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: var(--mc-primary);
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 8px;
+                    z-index: 10000;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    font-weight: 500;
+                `;
+                
+                if (type === 'error') {
+                    notification.style.background = 'var(--mc-danger)';
+                } else if (type === 'success') {
+                    notification.style.background = 'var(--mc-success)';
+                }
+                
+                document.body.appendChild(notification);
+                
+                // 3초 후 제거
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 3000);
+            }
+
+            // API 호출 래퍼 (세션 만료 자동 처리)
+            async apiCall(url, options = {}) {
+                try {
+                    const response = await fetch(url, options);
+                    const result = await response.json();
+                    
+                    // 세션 만료 감지
+                    if (!result.success && result.error === 'SESSION_EXPIRED') {
+                        this.handleSessionExpired();
+                        return null;
+                    }
+                    
+                    return { response, result };
+                } catch (error) {
+                    console.error('API call error:', error);
+                    return null;
+                }
+            }
+
+            // 세션 만료 처리
+            handleSessionExpired() {
+                this.currentToken = null;
+                localStorage.removeItem('bookToken');
+                this.checkAuth();
+                this.showPage('home');
+                this.showNotification('⏱️ 세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
             }
 
             setupEventListeners() {
@@ -1245,6 +1407,12 @@ class BookWebServer(
                 document.getElementById('loginBtn').style.display = isLoggedIn ? 'none' : 'block';
                 document.getElementById('logoutBtn').style.display = isLoggedIn ? 'block' : 'none';
                 document.getElementById('myBooksBtn').style.display = isLoggedIn ? 'block' : 'none';
+                
+                // 로그인 알림 메시지 표시/숨김 처리
+                const loginAlert = document.getElementById('loginAlert');
+                if (loginAlert) {
+                    loginAlert.style.display = isLoggedIn ? 'none' : 'block';
+                }
             }
 
             showPage(pageName) {
@@ -1396,19 +1564,15 @@ class BookWebServer(
                 const container = document.getElementById('myBooksContainer');
                 container.innerHTML = '<div class="loading">내 책 목록을 불러오는 중...</div>';
 
-                try {
-                    const response = await fetch('/api/user/books?page=1&size=20', {
-                        headers: { 'Authorization': 'Bearer ' + this.currentToken }
-                    });
-                    const result = await response.json();
+                const apiResult = await this.apiCall('/api/user/books?page=1&size=20', {
+                    headers: { 'Authorization': 'Bearer ' + this.currentToken }
+                });
 
-                    if (result.success) {
-                        this.renderBooks(container, result.data.books, true);
-                    } else {
-                        container.innerHTML = '<div class="loading">내 책을 불러올 수 없습니다.</div>';
-                    }
-                } catch (error) {
-                    console.error('My books loading error:', error);
+                if (apiResult && apiResult.result.success) {
+                    this.renderBooks(container, apiResult.result.data.books, true);
+                } else if (apiResult) {
+                    container.innerHTML = '<div class="loading">내 책을 불러올 수 없습니다.</div>';
+                } else {
                     container.innerHTML = '<div class="loading">오류가 발생했습니다.</div>';
                 }
             }
@@ -1450,17 +1614,35 @@ class BookWebServer(
                     const content = JSON.parse(book.content);
                     const preview = (content.pages[0] && content.pages[0].content) ? 
                         content.pages[0].content.substring(0, 100) + '...' : '내용 미리보기 없음';
+                    
+                    // 페이지 수 안전하게 처리 - 더 확실하게
+                    const pageCount = book.pageCount || (content.pages ? content.pages.length : 1);
+                    
                     const statusBadge = isMyBooks ? 
                         '<span>👤 ' + (book.isPublic ? '공개' : '비공개') + '</span>' : '<span>👤 작성자</span>';
+                    
+                    // 플레이어 이름 표시 (내 책에서만)
+                    const playerNameBadge = isMyBooks && book.playerName ? 
+                        '<span>👤 ' + book.playerName + '</span>' : statusBadge;
+
+                    // 공개/비공개 토글 버튼 (내 책에서만)
+                    const toggleButtons = isMyBooks ? 
+                        '<div class="book-actions">' +
+                            (book.isPublic ? 
+                                '<button class="action-btn private-btn" onclick="event.stopPropagation(); bookSystem.toggleBookVisibility(' + book.id + ', false)">🔒 비공개로</button>' :
+                                '<button class="action-btn public-btn" onclick="event.stopPropagation(); bookSystem.toggleBookVisibility(' + book.id + ', true)">🌍 공개하기</button>') +
+                        '</div>' : '';
 
                     return '<article class="book-card" onclick="bookSystem.showBook(' + book.id + ', ' + isMyBooks + ')">' +
                             '<h3 class="book-title">' + book.title + '</h3>' +
                             '<div class="book-meta">' +
-                                '<span>📄 ' + book.pageCount + '페이지</span>' +
+                                '<span>📄 ' + pageCount + '페이지</span>' +
                                 '<span>📅 ' + book.createdAt.substring(0, 10) + '</span>' +
-                                statusBadge +
+                                playerNameBadge +
+                                (isMyBooks ? '<span>🔒 ' + (book.isPublic ? '공개' : '비공개') + '</span>' : '') +
                             '</div>' +
                             '<p class="book-preview">' + preview + '</p>' +
+                            toggleButtons +
                         '</article>';
                 }).join('');
 
@@ -1468,29 +1650,25 @@ class BookWebServer(
             }
 
             async showBook(bookId, isMyBook) {
-                try {
-                    const url = isMyBook ? 
-                        '/api/user/books/' + bookId : 
-                        '/api/books/public/' + bookId;
-                    const headers = isMyBook && this.currentToken ? 
-                        { 'Authorization': 'Bearer ' + this.currentToken } : {};
+                const url = isMyBook ? 
+                    '/api/user/books/' + bookId : 
+                    '/api/books/public/' + bookId;
+                const headers = isMyBook && this.currentToken ? 
+                    { 'Authorization': 'Bearer ' + this.currentToken } : {};
 
-                    const response = await fetch(url, { headers });
-                    const result = await response.json();
-
-                    if (result.success) {
-                        this.currentBook = result.data;
-                        const content = JSON.parse(this.currentBook.content);
-                        this.currentBookPages = content.pages;
-                        this.currentPageIndex = 0;
-                        
-                        this.updateBookModal();
-                        document.getElementById('bookModal').classList.add('show');
-                        document.body.style.overflow = 'hidden';
-                    }
-                } catch (error) {
-                    console.error('Book loading error:', error);
-                    alert('책을 불러올 수 없습니다.');
+                const apiResult = await this.apiCall(url, { headers });
+                
+                if (apiResult && apiResult.result.success) {
+                    this.currentBook = apiResult.result.data;
+                    const content = JSON.parse(this.currentBook.content);
+                    this.currentBookPages = content.pages;
+                    this.currentPageIndex = 0;
+                    
+                    this.updateBookModal();
+                    document.getElementById('bookModal').classList.add('show');
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    this.showNotification('❌ 책을 불러올 수 없습니다.', 'error');
                 }
             }
 
@@ -1498,8 +1676,12 @@ class BookWebServer(
                 if (!this.currentBook || !this.currentBookPages) return;
 
                 document.getElementById('modalBookTitle').textContent = this.currentBook.title;
+                
+                // 플레이어 이름 표시 (있는 경우)
+                const authorText = this.currentBook.playerName ? this.currentBook.playerName : '작성자';
+                
                 document.getElementById('modalBookMeta').innerHTML = 
-                    '<span class="author">작성자</span>' +
+                    '<span class="author">' + authorText + '</span>' +
                     '<span class="divider">|</span>' +
                     '<span class="date">' + this.currentBook.createdAt.substring(0, 10) + '</span>' +
                     '<span class="divider">|</span>' +
@@ -1507,7 +1689,9 @@ class BookWebServer(
                 document.getElementById('pageIndicator').textContent = this.currentBookPages.length + '쪽 중 ' + (this.currentPageIndex + 1) + '쪽';
                 
                 const currentPage = this.currentBookPages[this.currentPageIndex];
-                document.getElementById('modalBookContent').innerHTML = '<p>' + currentPage.content + '</p>';
+                // 줄바꿈 처리 (\n을 <br>로 변환)
+                const formattedContent = currentPage.content.replace(/\n/g, '<br>');
+                document.getElementById('modalBookContent').innerHTML = '<p>' + formattedContent + '</p>';
                 
                 // 버튼 상태 업데이트
                 document.getElementById('prevBtn').disabled = this.currentPageIndex === 0;
@@ -1534,6 +1718,25 @@ class BookWebServer(
                 this.currentBook = null;
                 this.currentBookPages = [];
                 this.currentPageIndex = 0;
+            }
+
+            async toggleBookVisibility(bookId, makePublic) {
+                const endpoint = makePublic ? '/api/user/books/' + bookId + '/public' : '/api/user/books/' + bookId + '/private';
+                
+                const apiResult = await this.apiCall(endpoint, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.currentToken }
+                });
+
+                if (apiResult && apiResult.result.success) {
+                    this.showNotification(
+                        makePublic ? '📖 책이 공개되었습니다!' : '🔒 책이 비공개되었습니다!', 
+                        'success'
+                    );
+                    this.loadMyBooks(); // 목록 새로고침
+                } else {
+                    this.showNotification('❌ 설정 변경에 실패했습니다.', 'error');
+                }
             }
         }
 
