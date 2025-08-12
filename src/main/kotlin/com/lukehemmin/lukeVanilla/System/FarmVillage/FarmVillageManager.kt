@@ -29,6 +29,12 @@ class FarmVillageManager(
     private val debugManager: DebugManager,
     private val luckPerms: LuckPerms?
 ) {
+    companion object {
+        @Volatile
+        private var instanceRef: FarmVillageManager? = null
+
+        fun getInstance(): FarmVillageManager? = instanceRef
+    }
 
     private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
     private val seedMerchantGUI = SeedMerchantGUI(plugin, this)
@@ -56,6 +62,7 @@ class FarmVillageManager(
         farmVillageData.setPlugin(plugin)
         weeklyScrollRotationSystem.setFarmVillageData(farmVillageData)
         loadNPCMerchants()
+        instanceRef = this
     }
 
     private fun loadNPCMerchants() {
@@ -176,6 +183,20 @@ class FarmVillageManager(
         } else {
             null
         }
+    }
+
+    /**
+     * 주어진 청크가 농사마을로 설정된 청크라면 해당 농사마을 땅 번호를 반환합니다.
+     * 설정되지 않은 청크인 경우 null을 반환합니다.
+     */
+    fun getPlotNumberForChunk(chunk: org.bukkit.Chunk): Int? {
+        val parts = farmVillageData.getAllPlotParts()
+        for (part in parts) {
+            if (part.world == chunk.world.name && part.chunkX == chunk.x && part.chunkZ == chunk.z) {
+                return part.plotNumber
+            }
+        }
+        return null
     }
 
     // 주어진 위치(청크)가 농사마을 땅 중 하나인지 확인합니다.
@@ -329,6 +350,7 @@ class FarmVillageManager(
         // 이미 청크가 클레임되어 있는지 확인
         if (landManager.isChunkClaimed(chunk1) || landManager.isChunkClaimed(chunk2)) {
             debugManager.log("FarmVillage", "Assignment failed: Plot #$plotNumber is already claimed.")
+            plugin.logger.warning("[FarmVillage] ${plotNumber}번 땅 지급 실패: 이미 청크가 클레임되어 있습니다.")
             return AssignResult.PLOT_ALREADY_CLAIMED
         }
 
@@ -351,6 +373,7 @@ class FarmVillageManager(
             }
         } else {
             debugManager.log("FarmVillage", "Failed to claim first chunk for plot #$plotNumber. Result: $result1")
+            plugin.logger.warning("[FarmVillage] ${plotNumber}번 땅 지급 실패: 첫 번째 청크 클레임 실패 (결과: $result1)")
             return AssignResult.FAILURE
         }
     }

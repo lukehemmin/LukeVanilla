@@ -14,6 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.UUID
 import kotlin.math.ceil
 import org.bukkit.Bukkit
+import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager
 
 class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCompleter {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
@@ -143,6 +144,7 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
     private fun showClaimInfo(player: Player) {
         val chunk = player.location.chunk
         val claimInfo = landManager.getClaimInfo(chunk)
+        val plotNumber = FarmVillageManager.getInstance()?.getPlotNumberForChunk(chunk)
 
         if (claimInfo != null) {
             val ownerName = player.server.getOfflinePlayer(claimInfo.ownerUuid).name ?: "알 수 없음"
@@ -163,6 +165,14 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 .append(Component.text("$worldName ", NamedTextColor.WHITE))
                 .append(Component.text("(${chunk.x}, ${chunk.z})", NamedTextColor.WHITE))
                 .append(Component.newline())
+                .let { builder ->
+                    if (plotNumber != null) {
+                        builder
+                            .append(Component.text("   농사마을 땅: ", NamedTextColor.GRAY))
+                            .append(Component.text("${plotNumber}번", NamedTextColor.YELLOW))
+                            .append(Component.newline())
+                    } else builder
+                }
                 .append(Component.text("   소유 시작일: ", NamedTextColor.GRAY))
                 .append(Component.text(claimedDate, NamedTextColor.WHITE))
 
@@ -178,10 +188,31 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
 
             player.sendMessage(infoMessage.append(historyButton))
         } else {
-            if (landManager.isChunkInClaimableArea(chunk)) {
-                player.sendMessage(Component.text("이 청크는 주인이 없으며, 보호받지 않는 상태입니다.", NamedTextColor.GREEN))
+            if (plotNumber != null) {
+                // 농사마을 내부이지만 주인이 없는 경우에도 농사마을 땅 ID를 표시
+                val worldName = chunk.world.name
+                val infoMessage = Component.text()
+                    .append(Component.text(" "))
+                    .append(Component.text("■", NamedTextColor.GOLD))
+                    .append(Component.text(" 현재 청크 정보 ", NamedTextColor.WHITE, TextDecoration.BOLD))
+                    .append(Component.text("■", NamedTextColor.GOLD))
+                    .append(Component.newline())
+                    .append(Component.text("   소유자: ", NamedTextColor.GRAY))
+                    .append(Component.text("(없음)", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("   위치: ", NamedTextColor.GRAY))
+                    .append(Component.text("$worldName ", NamedTextColor.WHITE))
+                    .append(Component.text("(${chunk.x}, ${chunk.z})", NamedTextColor.WHITE))
+                    .append(Component.newline())
+                    .append(Component.text("   농사마을 땅: ", NamedTextColor.GRAY))
+                    .append(Component.text("${plotNumber}번", NamedTextColor.YELLOW))
+                player.sendMessage(infoMessage)
             } else {
-                player.sendMessage(Component.text("이 청크는 주인이 없으며, 보호받을 수 없는 지역입니다.", NamedTextColor.GRAY))
+                if (landManager.isChunkInClaimableArea(chunk)) {
+                    player.sendMessage(Component.text("이 청크는 주인이 없으며, 보호받지 않는 상태입니다.", NamedTextColor.GREEN))
+                } else {
+                    player.sendMessage(Component.text("이 청크는 주인이 없으며, 보호받을 수 없는 지역입니다.", NamedTextColor.GRAY))
+                }
             }
         }
     }
