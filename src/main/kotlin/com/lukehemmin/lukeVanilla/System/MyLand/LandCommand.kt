@@ -16,6 +16,13 @@ import kotlin.math.ceil
 import org.bukkit.Bukkit
 
 class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCompleter {
+    
+    // FarmVillageManager 참조를 위한 변수 (나중에 설정됨)
+    private var farmVillageManager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager? = null
+    
+    fun setFarmVillageManager(manager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager) {
+        this.farmVillageManager = manager
+    }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (sender !is Player) {
             sender.sendMessage("플레이어만 사용할 수 있는 명령어입니다.")
@@ -166,6 +173,16 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 .append(Component.text("   소유 시작일: ", NamedTextColor.GRAY))
                 .append(Component.text(claimedDate, NamedTextColor.WHITE))
 
+            // 농사마을 땅인지 확인하여 땅 번호 표시
+            farmVillageManager?.let { manager ->
+                val farmPlotNumber = getFarmPlotNumber(chunk, manager)
+                if (farmPlotNumber != null) {
+                    infoMessage.append(Component.newline())
+                        .append(Component.text("   농사마을 땅 번호: ", NamedTextColor.GRAY))
+                        .append(Component.text("${farmPlotNumber}번", NamedTextColor.YELLOW))
+                }
+            }
+
             val historyCommand = "/${"땅"} 기록 1"
             val historyButton = Component.text()
                 .append(Component.newline())
@@ -178,12 +195,42 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
 
             player.sendMessage(infoMessage.append(historyButton))
         } else {
+            // 주인이 없는 경우에도 농사마을 땅인지 확인
+            farmVillageManager?.let { manager ->
+                val farmPlotNumber = getFarmPlotNumber(chunk, manager)
+                if (farmPlotNumber != null) {
+                    player.sendMessage(Component.text("이 청크는 농사마을 ${farmPlotNumber}번 땅이지만, 아직 주인이 없습니다.", NamedTextColor.YELLOW))
+                    return
+                }
+            }
+
             if (landManager.isChunkInClaimableArea(chunk)) {
                 player.sendMessage(Component.text("이 청크는 주인이 없으며, 보호받지 않는 상태입니다.", NamedTextColor.GREEN))
             } else {
                 player.sendMessage(Component.text("이 청크는 주인이 없으며, 보호받을 수 없는 지역입니다.", NamedTextColor.GRAY))
             }
         }
+    }
+
+    private fun getFarmPlotNumber(chunk: org.bukkit.Chunk, farmVillageManager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager): Int? {
+        try {
+            // FarmVillageData에 접근하여 농사마을 땅 정보 확인
+            val farmVillageDataField = farmVillageManager::class.java.getDeclaredField("farmVillageData")
+            farmVillageDataField.isAccessible = true
+            val farmVillageData = farmVillageDataField.get(farmVillageManager) as com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageData
+            
+            val allPlotParts = farmVillageData.getAllPlotParts()
+            for (plotPart in allPlotParts) {
+                if (plotPart.world == chunk.world.name && 
+                    plotPart.chunkX == chunk.x && 
+                    plotPart.chunkZ == chunk.z) {
+                    return plotPart.plotNumber
+                }
+            }
+        } catch (e: Exception) {
+            // 리플렉션 실패 시 무시
+        }
+        return null
     }
 
     private fun showClaimHistory(player: Player, page: Int) {
