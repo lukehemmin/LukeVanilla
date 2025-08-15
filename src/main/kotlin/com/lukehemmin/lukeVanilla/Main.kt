@@ -61,6 +61,7 @@ class Main : JavaPlugin() {
     private lateinit var debugManager: DebugManager
     private var luckPerms: LuckPerms? = null
     private var multiServerUpdater: MultiServerUpdater? = null
+    private var bookSystem: com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -590,9 +591,14 @@ class Main : JavaPlugin() {
                 privateLandSystem?.enable()
 
                 // FarmVillage 시스템 초기화 (PrivateLandSystem에 의존)
-                privateLandSystem?.let {
-                    farmVillageSystem = FarmVillageSystem(this, database, it, debugManager, luckPerms)
+                privateLandSystem?.let { privateLand ->
+                    farmVillageSystem = FarmVillageSystem(this, database, privateLand, debugManager, luckPerms)
                     farmVillageSystem?.enable()
+                    
+                    // LandCommand에서 농사마을 땅 번호를 표시할 수 있도록 FarmVillageManager 참조 설정
+                    farmVillageSystem?.let { farmVillage ->
+                        privateLand.setFarmVillageManager(farmVillage.getFarmVillageManager())
+                    }
                 }
 
             } catch (e: Exception) {
@@ -601,6 +607,21 @@ class Main : JavaPlugin() {
             }
         } else {
             logger.info("[MyLand/FarmVillage] ${serviceType} 서버에서는 개인 땅 및 농장마을 시스템이 비활성화됩니다.")
+        }
+
+        // BookSystem 초기화 (야생 서버에서만 실행)
+        if (serviceType == "Vanilla") {
+            try {
+                bookSystem = com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem(this, database)
+                bookSystem?.enable()
+                logger.info("[BookSystem] 야생 서버에서 책 시스템이 성공적으로 초기화되었습니다.")
+            } catch (e: Exception) {
+                logger.severe("[BookSystem] 책 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+                // 책 시스템은 필수가 아니므로 플러그인 전체를 중단하지 않음
+            }
+        } else {
+            logger.info("[BookSystem] ${serviceType} 서버에서는 책 시스템이 비활성화됩니다.")
         }
     }
 
@@ -616,6 +637,15 @@ class Main : JavaPlugin() {
         
         // 멀티서버 동기화 시스템 중단
         multiServerUpdater?.stop()
+        
+        // BookSystem 종료
+        try {
+            bookSystem?.disable()
+            logger.info("[BookSystem] 책 시스템이 정상적으로 종료되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[BookSystem] 책 시스템 종료 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
         
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         try {

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마인크래프트 도서관 - 테스트</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        :root {
+            --mc-green: #4a7c59;
+            --mc-brown: #8b4513;
+            --mc-stone: #7f7f7f;
+            --mc-dark: #2d2d30;
+            --mc-light: #f5f5dc;
+            --mc-gold: #ffb000;
+            --mc-blue: #4169e1;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            background: linear-gradient(45deg, #4a7c59, #2d5016);
+            min-height: 100vh;
+            color: var(--mc-light);
+            line-height: 1.6;
+        }
+        
+        /* 마인크래프트 스타일 컨테이너 */
+        .minecraft-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* 헤더 */
+        .mc-header {
+            text-align: center;
+            padding: 30px 0;
+            background: rgba(0, 0, 0, 0.3);
+            border: 4px solid var(--mc-stone);
+            margin-bottom: 30px;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .mc-header h1 {
+            font-size: 16px;
+            color: var(--mc-gold);
+            text-shadow: 2px 2px 0px var(--mc-dark);
+            margin-bottom: 10px;
+        }
+        
+        .mc-header p {
+            font-size: 8px;
+            color: var(--mc-light);
+        }
+        
+        /* 내비게이션 */
+        .mc-nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .mc-button {
+            padding: 12px 20px;
+            background: linear-gradient(to bottom, #8b8b8b, #5a5a5a);
+            border: 2px solid #222;
+            color: white;
+            text-decoration: none;
+            transition: all 0.1s;
+            font-family: inherit;
+            font-size: 8px;
+            cursor: pointer;
+            box-shadow: inset 1px 1px 0px rgba(255,255,255,0.3);
+        }
+        
+        .mc-button:hover {
+            background: linear-gradient(to bottom, #9d9d9d, #6a6a6a);
+            transform: translateY(1px);
+        }
+        
+        .mc-button.active {
+            background: linear-gradient(to bottom, var(--mc-blue), #2654d4);
+            color: white;
+        }
+        
+        /* 통계 카드들 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .mc-stat-card {
+            background: rgba(139, 69, 19, 0.8);
+            border: 3px solid var(--mc-stone);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 
+                inset 1px 1px 0px rgba(255,255,255,0.2),
+                4px 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .mc-stat-card .icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: var(--mc-gold);
+        }
+        
+        .mc-stat-card .number {
+            font-size: 20px;
+            color: var(--mc-light);
+            margin-bottom: 5px;
+        }
+        
+        .mc-stat-card .label {
+            font-size: 8px;
+            color: #ccc;
+        }
+        
+        /* 알림 상자 */
+        .mc-alert {
+            background: rgba(65, 105, 225, 0.2);
+            border: 2px solid var(--mc-blue);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 0;
+        }
+        
+        .mc-alert .title {
+            color: var(--mc-gold);
+            margin-bottom: 8px;
+            font-size: 9px;
+        }
+        
+        .mc-alert .content {
+            font-size: 7px;
+            line-height: 1.4;
+        }
+        
+        /* 검색 바 */
+        .mc-search {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border: 2px solid var(--mc-stone);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .mc-search input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #333;
+            background: #2a2a2a;
+            color: white;
+            font-family: inherit;
+            font-size: 8px;
+        }
+        
+        .mc-search input::placeholder {
+            color: #888;
+        }
+        
+        /* 책 그리드 */
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .mc-book-card {
+            background: rgba(139, 69, 19, 0.9);
+            border: 3px solid var(--mc-stone);
+            padding: 15px;
+            transition: transform 0.2s;
+            box-shadow: 
+                inset 1px 1px 0px rgba(255,255,255,0.2),
+                2px 2px 8px rgba(0, 0, 0, 0.5);
+        }
+        
+        .mc-book-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                inset 1px 1px 0px rgba(255,255,255,0.2),
+                4px 4px 12px rgba(0, 0, 0, 0.6);
+        }
+        
+        .mc-book-card .title {
+            color: var(--mc-gold);
+            font-size: 10px;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 0px var(--mc-dark);
+        }
+        
+        .mc-book-card .meta {
+            font-size: 6px;
+            color: #ccc;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .mc-book-card .author {
+            color: var(--mc-light);
+        }
+        
+        .mc-book-card .preview {
+            font-size: 7px;
+            color: #ddd;
+            line-height: 1.4;
+            margin-bottom: 15px;
+            height: 60px;
+            overflow: hidden;
+        }
+        
+        .mc-book-card .tags {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .mc-tag {
+            background: var(--mc-green);
+            color: white;
+            padding: 3px 6px;
+            font-size: 6px;
+            border: 1px solid #2d5016;
+        }
+        
+        .mc-book-card .read-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(to bottom, #2d2d30, #1a1a1a);
+            border: 2px solid #444;
+            color: white;
+            font-family: inherit;
+            font-size: 8px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        .mc-book-card .read-btn:hover {
+            background: linear-gradient(to bottom, #3d3d40, #2a2a2a);
+        }
+        
+        /* 푸터 */
+        .mc-footer {
+            text-align: center;
+            padding: 30px 0;
+            margin-top: 50px;
+            border-top: 2px solid var(--mc-stone);
+            font-size: 7px;
+            color: #ccc;
+        }
+        
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .mc-nav {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .books-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="minecraft-container">
+        <!-- 헤더 -->
+        <header class="mc-header">
+            <h1>📚 마인크래프트 도서관</h1>
+            <p>플레이어들이 작성한 이야기를 모아보는 곳</p>
+        </header>
+        
+        <!-- 내비게이션 -->
+        <nav class="mc-nav">
+            <button class="mc-button active">🏠 홈</button>
+            <button class="mc-button">📖 공개 책</button>
+            <button class="mc-button">📚 공유</button>
+            <button class="mc-button">📊 아카이브</button>
+        </nav>
+        
+        <!-- 통계 -->
+        <section class="stats-grid">
+            <div class="mc-stat-card">
+                <div class="icon">📚</div>
+                <div class="number">5</div>
+                <div class="label">총 책 수</div>
+            </div>
+            <div class="mc-stat-card">
+                <div class="icon">👥</div>
+                <div class="number">5</div>
+                <div class="label">작성자 수</div>
+            </div>
+            <div class="mc-stat-card">
+                <div class="icon">📊</div>
+                <div class="number">2</div>
+                <div class="label">시즌 수</div>
+            </div>
+        </section>
+        
+        <!-- 알림 -->
+        <div class="mc-alert">
+            <div class="title">🔍 로그인하여 더 많은 기능을 이용하세요</div>
+            <div class="content">로그인하시면 책을 공개하거나 개인 책을 볼 수 있습니다.</div>
+        </div>
+        
+        <!-- 검색 -->
+        <div class="mc-search">
+            <input type="text" placeholder="책 제목, 내용, 작성자 검색...">
+            <button class="mc-button">🔍 검색</button>
+            <button class="mc-button">⚙️ 필터</button>
+        </div>
+        
+        <!-- 책 목록 -->
+        <section class="books-grid">
+            <div class="mc-book-card">
+                <div class="title">첫 번째 모험</div>
+                <div class="meta">
+                    <span class="author">👤 Steve Kim</span>
+                    <span>📅 2024년 1월 14일</span>
+                    <span>📄 시즌 1</span>
+                </div>
+                <div class="preview">
+                    오늘은 새로운 세계에 첫 발을 내딛었다. 나무를 베고 첫 집을 지으며...
+                </div>
+                <div class="tags">
+                    <span class="mc-tag">#모험</span>
+                    <span class="mc-tag">#첫날</span>
+                    <span class="mc-tag">#건축</span>
+                </div>
+                <button class="mc-book-card .read-btn">📖 책 읽기</button>
+            </div>
+            
+            <div class="mc-book-card">
+                <div class="title">다이아몬드를 찾아서</div>
+                <div class="meta">
+                    <span class="author">👤 Alex Park</span>
+                    <span>📅 2024년 2월 19일</span>
+                    <span>📄 시즌 2</span>
+                </div>
+                <div class="preview">
+                    깊은 지하로 내려가며 다이아몬드를 찾는 모험을 시작했다...
+                </div>
+                <div class="tags">
+                    <span class="mc-tag">#채굴</span>
+                    <span class="mc-tag">#다이아몬드</span>
+                    <span class="mc-tag">#지하</span>
+                </div>
+                <button class="mc-book-card .read-btn">📖 책 읽기</button>
+            </div>
+            
+            <div class="mc-book-card">
+                <div class="title">마법의 성 건설기</div>
+                <div class="meta">
+                    <span class="author">👤 Wizard Lee</span>
+                    <span>📅 2024년 3월 9일</span>
+                    <span>📄 시즌 1</span>
+                </div>
+                <div class="preview">
+                    하늘 높이 떠있는 마법의 성을 만들어가는 과정...
+                </div>
+                <div class="tags">
+                    <span class="mc-tag">#건축</span>
+                    <span class="mc-tag">#마법</span>
+                    <span class="mc-tag">#성</span>
+                </div>
+                <button class="mc-book-card .read-btn">📖 책 읽기</button>
+            </div>
+            
+            <div class="mc-book-card">
+                <div class="title">엔더 드래곤과의 대결</div>
+                <div class="meta">
+                    <span class="author">👤 DragonSlayer99</span>
+                    <span>📅 2024년 4월 4일</span>
+                    <span>📄 시즌 3</span>
+                </div>
+                <div class="preview">
+                    마침내 엔더 월드로 들어가 드래곤과 대결하는 순간...
+                </div>
+                <div class="tags">
+                    <span class="mc-tag">#보스전</span>
+                    <span class="mc-tag">#엔더드래곤</span>
+                    <span class="mc-tag">#엔드</span>
+                </div>
+                <button class="mc-book-card .read-btn">📖 책 읽기</button>
+            </div>
+            
+            <div class="mc-book-card">
+                <div class="title">우정의 마을</div>
+                <div class="meta">
+                    <span class="author">👤 Villager Friend</span>
+                    <span>📅 2024년 2월 27일</span>
+                    <span>📄 시즌 2</span>
+                </div>
+                <div class="preview">
+                    우민들과 친해지며 시작하는 마을 생활...
+                </div>
+                <div class="tags">
+                    <span class="mc-tag">#우민</span>
+                    <span class="mc-tag">#마을</span>
+                    <span class="mc-tag">#거래</span>
+                </div>
+                <button class="mc-book-card .read-btn">📖 책 읽기</button>
+            </div>
+        </section>
+        
+        <!-- 푸터 -->
+        <footer class="mc-footer">
+            © 2024 LukeVanilla 책 시스템 | Made with ❤️
+        </footer>
+    </div>
+    
+    <script>
+        // 간단한 인터랙션
+        document.querySelectorAll('.mc-button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.mc-button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+        
+        // 책 읽기 버튼
+        document.querySelectorAll('.read-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                alert('책 뷰어를 열겠습니다!');
+            });
+        });
+    </script>
+</body>
+</html>

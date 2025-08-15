@@ -54,6 +54,8 @@ object EmojiUtil {
             ":no:" -> "ꑫ" // karon_emoji
             ":yes:" -> "ꑬ" // nlris_emoji
             ":mahot:" -> "ꑭ" // dubu_emoji
+            ":mong:" -> "ꑳ" // mongle_emoji
+            ":meong:" -> "꒐" // meongbyeol_emoji
             else -> emoji
         }
     }

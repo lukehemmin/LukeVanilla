@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고서 - 첫 번째 모험</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@400;600&display=swap');
+        
+        :root {
+            --parchment: #f4f1e8;
+            --parchment-dark: #e8e1d0;
+            --ink-dark: #2c1810;
+            --ink-medium: #4a3426;
+            --ink-light: #6b4e37;
+            --gold: #b8860b;
+            --red-ink: #8b2635;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Crimson Text', serif;
+            background: 
+                radial-gradient(circle at 30% 20%, rgba(139, 69, 19, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(160, 82, 45, 0.1) 0%, transparent 50%),
+                linear-gradient(135deg, #2c1810, #4a3426);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        /* 책 전체 컨테이너 */
+        .book-container {
+            max-width: 900px;
+            width: 100%;
+            perspective: 1000px;
+        }
+        
+        /* 책 페이지 */
+        .book-page {
+            background: var(--parchment);
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            box-shadow: 
+                0 10px 30px rgba(44, 24, 16, 0.6),
+                inset 0 0 50px rgba(139, 69, 19, 0.1),
+                0 0 0 8px #8b4513,
+                0 0 0 12px #654321;
+            
+            /* 양피지 텍스처 효과 */
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(139, 69, 19, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 80% 20%, rgba(160, 82, 45, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 40% 40%, rgba(210, 180, 140, 0.1) 0%, transparent 30%);
+            
+            /* 찢어진 가장자리 효과 */
+            clip-path: polygon(
+                2% 0%, 98% 0%, 100% 5%, 99% 15%, 100% 25%, 98% 35%, 100% 45%, 99% 55%, 
+                100% 65%, 98% 75%, 100% 85%, 99% 95%, 98% 100%, 2% 100%, 0% 95%, 
+                1% 85%, 0% 75%, 2% 65%, 0% 55%, 1% 45%, 0% 35%, 2% 25%, 0% 15%, 1% 5%
+            );
+            
+            padding: 60px 80px 80px 100px;
+            min-height: 80vh;
+        }
+        
+        /* 왼쪽 구멍 효과 (바인더) */
+        .book-page::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 80px;
+            width: 8px;
+            height: calc(100% - 160px);
+            background: 
+                repeating-linear-gradient(
+                    to bottom,
+                    transparent 0px,
+                    transparent 25px,
+                    var(--red-ink) 25px,
+                    var(--red-ink) 35px,
+                    transparent 35px,
+                    transparent 60px
+                );
+            box-shadow: inset 2px 0 4px rgba(0,0,0,0.3);
+        }
+        
+        /* 책 제목 */
+        .book-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5em;
+            font-weight: 600;
+            color: var(--ink-dark);
+            text-align: center;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(139, 69, 19, 0.3);
+            position: relative;
+        }
+        
+        .book-title::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 3px;
+            background: linear-gradient(to right, transparent, var(--gold), transparent);
+        }
+        
+        /* 메타 정보 */
+        .book-meta {
+            text-align: center;
+            margin-bottom: 40px;
+            font-style: italic;
+            color: var(--ink-medium);
+            font-size: 1.1em;
+        }
+        
+        .book-meta .divider {
+            display: inline-block;
+            margin: 0 15px;
+            color: var(--gold);
+            font-size: 1.2em;
+        }
+        
+        /* 페이지 표시 */
+        .page-indicator {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.1em;
+            color: var(--ink-medium);
+            font-style: italic;
+        }
+        
+        /* 책 내용 */
+        .book-content {
+            font-size: 1.2em;
+            line-height: 1.8;
+            color: var(--ink-dark);
+            text-align: justify;
+            hyphens: auto;
+            text-indent: 2em;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        .book-content p {
+            margin-bottom: 1.5em;
+            text-indent: 2em;
+        }
+        
+        .book-content p:first-letter {
+            float: left;
+            font-family: 'Cinzel', serif;
+            font-size: 4em;
+            line-height: 0.8;
+            padding: 8px 8px 0 0;
+            margin: 4px 8px 0 0;
+            color: var(--red-ink);
+            font-weight: 600;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        /* 내비게이션 */
+        .book-nav {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+        
+        .nav-btn {
+            padding: 12px 24px;
+            background: linear-gradient(145deg, #8b4513, #654321);
+            border: 2px solid #2c1810;
+            border-radius: 0;
+            color: var(--parchment);
+            font-family: 'Cinzel', serif;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 
+                0 4px 8px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nav-btn:hover {
+            background: linear-gradient(145deg, #a0522d, #8b4513);
+            transform: translateY(-2px);
+            box-shadow: 
+                0 6px 12px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+        
+        .nav-btn:active {
+            transform: translateY(0);
+        }
+        
+        .nav-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .nav-btn:hover::before {
+            left: 100%;
+        }
+        
+        /* 닫기 버튼 */
+        .close-btn {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(145deg, #8b2635, #651e2a);
+            border: 2px solid #2c1810;
+            border-radius: 50%;
+            color: var(--parchment);
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 
+                0 4px 8px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        
+        .close-btn:hover {
+            background: linear-gradient(145deg, #a0293d, #8b2635);
+            transform: scale(1.1);
+        }
+        
+        /* 장식적 요소들 */
+        .book-ornament {
+            position: absolute;
+            color: var(--gold);
+            font-size: 2em;
+            opacity: 0.6;
+        }
+        
+        .ornament-tl {
+            top: 20px;
+            left: 40px;
+        }
+        
+        .ornament-tr {
+            top: 20px;
+            right: 40px;
+        }
+        
+        .ornament-bl {
+            bottom: 20px;
+            left: 40px;
+        }
+        
+        .ornament-br {
+            bottom: 20px;
+            right: 40px;
+        }
+        
+        /* 페이지 전환 애니메이션 */
+        .page-flip {
+            animation: flipPage 0.6s ease-in-out;
+        }
+        
+        @keyframes flipPage {
+            0% { transform: rotateY(0deg); }
+            50% { transform: rotateY(-90deg); }
+            100% { transform: rotateY(0deg); }
+        }
+        
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .book-page {
+                padding: 40px 30px 60px 60px;
+                min-height: 90vh;
+            }
+            
+            .book-title {
+                font-size: 2em;
+            }
+            
+            .book-content {
+                font-size: 1.1em;
+            }
+            
+            .nav-btn {
+                padding: 10px 16px;
+                font-size: 0.9em;
+            }
+        }
+        
+        /* 잉크 얼룩 효과 */
+        .ink-stain {
+            position: absolute;
+            background: radial-gradient(circle, rgba(44, 24, 16, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        
+        .stain-1 {
+            width: 30px;
+            height: 25px;
+            top: 150px;
+            right: 120px;
+            transform: rotate(15deg);
+        }
+        
+        .stain-2 {
+            width: 20px;
+            height: 18px;
+            bottom: 200px;
+            left: 150px;
+            transform: rotate(-25deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="book-container">
+        <div class="book-page" id="bookPage">
+            <!-- 장식 요소들 -->
+            <div class="book-ornament ornament-tl">❦</div>
+            <div class="book-ornament ornament-tr">❧</div>
+            <div class="book-ornament ornament-bl">❦</div>
+            <div class="book-ornament ornament-br">❧</div>
+            
+            <!-- 페이지 표시 -->
+            <div class="page-indicator">3쪽 중 1쪽</div>
+            
+            <!-- 잉크 얼룩들 -->
+            <div class="ink-stain stain-1"></div>
+            <div class="ink-stain stain-2"></div>
+            
+            <!-- 책 제목 -->
+            <h1 class="book-title">첫 번째 모험</h1>
+            
+            <!-- 메타 정보 -->
+            <div class="book-meta">
+                <span class="author">Steve Kim</span>
+                <span class="divider">❦</span>
+                <span class="date">2024년 1월 14일</span>
+                <span class="divider">❦</span>
+                <span class="season">시즌 1</span>
+            </div>
+            
+            <!-- 책 내용 -->
+            <div class="book-content" id="bookContent">
+                <p>
+                    오늘은 새로운 세계에 첫 발을 내딛는 날이었다. 끝없이 펼쳐진 초원과 멀리 보이는 산맥, 그리고 바스락거리는 나뭇잎 소리가 나를 반겼다. 이 모든 것이 내 것이 될 수 있다는 생각에 가슴이 뛰었다.
+                </p>
+                <p>
+                    첫 번째로 한 일은 나무를 베는 것이었다. 참나무 한 그루를 정성스럽게 베어 나무 판자를 만들고, 그것으로 작업대와 나무 도구들을 제작했다. 손에 쥔 나무 도끼는 조금 어설펐지만, 내가 만든 첫 번째 도구라는 점에서 특별했다.
+                </p>
+                <p>
+                    해가 서서히 지기 시작하자 어디선가 으스스한 소리가 들려왔다. 몬스터들이 나타나기 전에 피난처를 마련해야 한다는 것을 깨달았다. 근처 언덕을 파서 간단한 동굴집을 만들고, 입구를 흙으로 막았다.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 내비게이션 -->
+    <div class="book-nav">
+        <button class="nav-btn" id="prevBtn" onclick="prevPage()">◀ 이전 페이지</button>
+        <button class="nav-btn" id="nextBtn" onclick="nextPage()">다음 페이지 ▶</button>
+    </div>
+    
+    <!-- 닫기 버튼 -->
+    <button class="close-btn" onclick="closeBook()">✕</button>
+    
+    <script>
+        let currentPage = 1;
+        const totalPages = 3;
+        
+        const pages = [
+            {
+                content: `
+                    <p>
+                        오늘은 새로운 세계에 첫 발을 내딛는 날이었다. 끝없이 펼쳐진 초원과 멀리 보이는 산맥, 그리고 바스락거리는 나뭇잎 소리가 나를 반겼다. 이 모든 것이 내 것이 될 수 있다는 생각에 가슴이 뛰었다.
+                    </p>
+                    <p>
+                        첫 번째로 한 일은 나무를 베는 것이었다. 참나무 한 그루를 정성스럽게 베어 나무 판자를 만들고, 그것으로 작업대와 나무 도구들을 제작했다. 손에 쥔 나무 도끼는 조금 어설펐지만, 내가 만든 첫 번째 도구라는 점에서 특별했다.
+                    </p>
+                    <p>
+                        해가 서서히 지기 시작하자 어디선가 으스스한 소리가 들려왔다. 몬스터들이 나타나기 전에 피난처를 마련해야 한다는 것을 깨달았다. 근처 언덕을 파서 간단한 동굴집을 만들고, 입구를 흙으로 막았다.
+                    </p>
+                `
+            },
+            {
+                content: `
+                    <p>
+                        밤새 동굴 속에서 밖의 좀비와 스켈레톤 소리를 들으며 긴 시간을 보냈다. 무서웠지만 한편으로는 새로운 모험에 대한 설렘도 있었다. 아침이 되자마자 동굴을 나와 본격적인 집짓기에 착수했다.
+                    </p>
+                    <p>
+                        돌을 캐고 나무를 더 베어서 튼튼한 집을 지었다. 작지만 아늑한 집이 완성되자 뿌듯함이 밀려왔다. 침대를 만들어 놓고, 상자에는 그동안 모은 재료들을 정리해두었다.
+                    </p>
+                    <p>
+                        이제 농사를 지을 계획이다. 씨앗을 구해서 밭을 만들고, 동물들도 기르며 정착 생활을 해보려고 한다. 이 세계에서의 삶이 어떻게 펼쳐질지 기대된다.
+                    </p>
+                `
+            },
+            {
+                content: `
+                    <p>
+                        며칠이 지나 드디어 첫 수확을 했다. 밀밭에서 나온 황금빛 밀들을 보며 농부가 된 기분을 만끽했다. 빵을 구워먹으니 그 어떤 음식보다 맛있었다.
+                    </p>
+                    <p>
+                        오늘은 지하 탐험을 해보기로 했다. 곡괭이를 들고 땅 깊숙이 내려가니 석탄과 철광석이 보였다. 조심스럽게 캐내어 새로운 도구들을 만들었다.
+                    </p>
+                    <p>
+                        이 세계에서의 첫 주가 지나갔다. 매일이 새로운 발견과 모험의 연속이다. 앞으로 어떤 일들이 기다리고 있을지 모르지만, 하루하루가 소중하고 의미 있다.
+                    </p>
+                `
+            }
+        ];
+        
+        function updatePage() {
+            document.querySelector('.page-indicator').textContent = `3쪽 중 ${currentPage}쪽`;
+            document.getElementById('bookContent').innerHTML = pages[currentPage - 1].content;
+            
+            // 페이지 플립 애니메이션
+            document.getElementById('bookPage').classList.add('page-flip');
+            setTimeout(() => {
+                document.getElementById('bookPage').classList.remove('page-flip');
+            }, 600);
+            
+            // 버튼 상태 업데이트
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+        
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                updatePage();
+            }
+        }
+        
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                updatePage();
+            }
+        }
+        
+        function closeBook() {
+            if (confirm('책을 닫으시겠습니까?')) {
+                // 여기서는 단순히 알림을 표시하지만, 실제로는 이전 페이지로 돌아가는 기능
+                alert('메인 화면으로 돌아갑니다.');
+            }
+        }
+        
+        // 키보드 단축키
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowLeft') {
+                prevPage();
+            } else if (e.key === 'ArrowRight') {
+                nextPage();
+            } else if (e.key === 'Escape') {
+                closeBook();
+            }
+        });
+        
+        // 초기화
+        updatePage();
+    </script>
+</body>
+</html>
