@@ -106,6 +106,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
             "주차스크롤" -> handleWeeklyScrollCommands(sender, args)
             "땅뺏기" -> handleSystemConfiscatePlot(sender, args)
             "땅주기" -> handleSystemAssignPlot(sender, args)
+            "농사마을구역지정" -> handleFarmAreaSelection(sender, args)
             else -> sendSystemUsage(sender)
         }
     }
@@ -230,6 +231,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         sender.sendMessage(Component.text("/농사마을 시스템 장비상인지정", NamedTextColor.AQUA))
         sender.sendMessage(Component.text("/농사마을 시스템 토양받기상인지정", NamedTextColor.AQUA))
         sender.sendMessage(Component.text("/농사마을 시스템 주차스크롤", NamedTextColor.GRAY).append(Component.text(" - 주차별 스크롤 관리")))
+        sender.sendMessage(Component.text("/농사마을 시스템 농사마을구역지정", NamedTextColor.AQUA).append(Component.text(" - 농사마을 허용 구역 설정")))
     }
 
     private fun setNPCMerchant(player: Player, shopId: String, shopName: String) {
@@ -461,7 +463,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         if (args.size == 2) {
             when (args[0].lowercase()) {
                 "땅주기", "상점이용권한지급" -> return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
-                "시스템" -> return mutableListOf("땅설정", "땅뺏기", "땅주기", "입주패키지수정", "농사아이템교환상점위치지정", "씨앗상인지정", "교환상인지정", "장비상인지정", "토양받기상인지정", "주차스크롤").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
+                "시스템" -> return mutableListOf("땅설정", "땅뺏기", "땅주기", "입주패키지수정", "농사아이템교환상점위치지정", "씨앗상인지정", "교환상인지정", "장비상인지정", "토양받기상인지정", "주차스크롤", "농사마을구역지정").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
             }
         }
         
@@ -487,6 +489,11 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
                 args[0].lowercase() == "시스템" && args[1].lowercase() == "땅주기" -> {
                     // 온라인 플레이어 이름 자동완성
                     return Bukkit.getOnlinePlayers().map { it.name }.filter { 
+                        it.startsWith(args[2], ignoreCase = true) 
+                    }.toMutableList()
+                }
+                args[0].lowercase() == "시스템" && args[1].lowercase() == "농사마을구역지정" -> {
+                    return mutableListOf("시작", "취소").filter { 
                         it.startsWith(args[2], ignoreCase = true) 
                     }.toMutableList()
                 }
@@ -518,5 +525,29 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
         }
 
         return mutableListOf()
+    }
+
+    private fun handleFarmAreaSelection(sender: CommandSender, args: Array<out String>) {
+        if (sender !is Player) {
+            sender.sendMessage("플레이어만 사용할 수 있는 명령어입니다.")
+            return
+        }
+
+        if (args.size < 3) {
+            sender.sendMessage(Component.text("사용법: /농사마을 시스템 농사마을구역지정 <시작|취소>", NamedTextColor.YELLOW))
+            return
+        }
+
+        when (args[2].lowercase()) {
+            "시작" -> {
+                manager.startAreaSelection(sender)
+            }
+            "취소" -> {
+                manager.cancelAreaSelection(sender)
+            }
+            else -> {
+                sender.sendMessage(Component.text("사용법: /농사마을 시스템 농사마을구역지정 <시작|취소>", NamedTextColor.YELLOW))
+            }
+        }
     }
 } 

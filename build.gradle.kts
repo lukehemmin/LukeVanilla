@@ -44,16 +44,14 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.6-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.zaxxer:HikariCP:5.0.1")
-//    compileOnly("io.th0rgal:oraxen:1.186.0")
     compileOnly("com.nexomc:nexo:1.8.0")
     implementation("net.dv8tion:JDA:5.6.1")
     compileOnly("net.citizensnpcs:citizens-main:2.0.39-SNAPSHOT") {
         exclude(group = "*", module = "*")
     }
-    //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
     compileOnly("com.github.LoneDev6:API-ItemsAdder:3.6.3-beta-14")
     compileOnly("com.github.Gecolay.GSit:GSit:1.13.0") {
         exclude(group = "com.github.Gecolay")
@@ -77,6 +75,26 @@ dependencies {
     implementation("io.netty:netty-buffer:4.1.99.Final")
     annotationProcessor("com.velocitypowered:velocity-api:3.1.1")
     implementation("com.openai:openai-java:1.6.1")
+    
+    // BookSystem 웹서버를 위한 Ktor 종속성
+    implementation("io.ktor:ktor-server-core:2.3.7")
+    implementation("io.ktor:ktor-server-netty:2.3.7")
+    implementation("io.ktor:ktor-server-content-negotiation:2.3.7")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+    implementation("io.ktor:ktor-server-cors:2.3.7")
+    implementation("io.ktor:ktor-server-sessions:2.3.7")
+    implementation("io.ktor:ktor-server-auth:2.3.7")
+    implementation("io.ktor:ktor-server-status-pages:2.3.7")
+    implementation("io.ktor:ktor-server-default-headers:2.3.7")
+    implementation("io.ktor:ktor-server-call-logging:2.3.7")
+    implementation("io.ktor:ktor-server-resources:2.3.7")
+    
+    // JSON 직렬화
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+    
+    // 암호화 및 보안
+    implementation("org.springframework.security:spring-security-crypto:6.2.1")
+    implementation("org.bouncycastle:bcpkix-jdk15on:1.70")
 }
 
 val targetJavaVersion = 21
@@ -108,8 +126,8 @@ tasks.shadowJar {
     destinationDirectory.set(
         if (isCI) file("build/libs")
         else
-            file("/home/lukehemmin/LukeVanilla/run/plugins")
-            //file("E:/server")
+            //file("/home/lukehemmin/LukeVanilla/run/plugins")
+            file("/home/lukehemmin/LukeVanilla/jars")
     )
     manifest {
         attributes(mapOf("Main-Class" to "com.lukehemmin.lukeVanilla.Main"))

@@ -144,6 +144,14 @@ commands:
     usage: "/주차스크롤 [상태|다음주|이전주|해제|GUI]"
     permission: "lukevanilla.admin.weeklyscroll"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  책:
+    description: "마인크래프트에서 작성한 책을 관리합니다."
+    usage: "/책 [목록|공개|비공개|삭제|정보|웹사이트|토큰|통계] [인자]"
+    aliases: [ book ]
+  book:
+    description: "Manage books written in Minecraft."
+    usage: "/book [list|public|private|delete|info|website|token|stats] [args]"
+    aliases: [ 책 ]
   플레이타임:
     description: "플레이어의 플레이타임을 조회합니다."
     usage: "/플레이타임 [확인 <플레이어>|순위|통계]"
@@ -238,6 +246,17 @@ permissions:
   lukevanilla.admin.weeklyscroll:
     description: "주차별 스크롤 교환 시스템 관리 권한"
     default: op
+  lukevanilla.book.use:
+    description: "책 시스템 기본 사용 권한"
+    default: true
+  lukevanilla.book.manage:
+    description: "책 관리 (공개/비공개 설정) 권한"
+    default: true
+  lukevanilla.book.web:
+    description: "웹사이트 접속 및 토큰 생성 권한"
+    default: true
+  lukevanilla.book.admin:
+    description: "책 시스템 관리자 권한"
   playtime.admin:
     description: "플레이타임 관리 명령어 사용 권한"
     default: op

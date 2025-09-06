@@ -43,6 +43,14 @@ class DatabaseInitializer(private val database: Database) {
         createFarmVillagePackageItemsTable()
         createFarmVillageShopsTable()
 
+        // MultiServer 동기화 시스템 테이블들
+        createServerHeartbeatTable()
+        createServerOnlinePlayersTable()
+        createCrossServerCommandsTable()
+
+        // BookSystem 테이블들
+        createBooksTable()
+        createBookSessionsTable()
         // PlayTime 시스템 테이블 생성
         createPlayTimeTable()
 
@@ -692,7 +700,7 @@ class DatabaseInitializer(private val database: Database) {
             )
         }
     }
-
+    
     private fun createPlayTimeTable() {
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
@@ -705,6 +713,172 @@ class DatabaseInitializer(private val database: Database) {
                     `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+                """.trimIndent()
+            )
+        }
+    }
+
+    // ===== MultiServer 동기화 시스템 테이블들 =====
+    
+    /**
+     * 서버 상태 정보를 저장하는 테이블 생성
+     * - 각 서버(lobby, vanilla)의 실시간 상태 정보
+     * - TPS, MSPT, 플레이어 수, 마지막 업데이트 시간 등
+     */
+    private fun createServerHeartbeatTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS server_heartbeat (
+                    `server_name` VARCHAR(20) PRIMARY KEY,
+                    `tps` DECIMAL(5,2) DEFAULT 0.00,
+                    `mspt` DECIMAL(6,2) DEFAULT 0.00,
+                    `online_players` INT DEFAULT 0,
+                    `max_players` INT DEFAULT 0,
+                    `server_status` ENUM('online', 'offline', 'restarting') DEFAULT 'offline',
+                    `last_update` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_server_status` (`server_name`, `last_update`)
+                );
+                """.trimIndent()
+            )
+            
+            // 기본 서버 데이터 삽입
+            val insertStmt = connection.prepareStatement(
+                """
+                INSERT IGNORE INTO server_heartbeat (server_name, server_status) VALUES 
+                ('lobby', 'offline'),
+                ('vanilla', 'offline');
+                """.trimIndent()
+            )
+            insertStmt.executeUpdate()
+        }
+    }
+
+    /**
+     * 각 서버별 접속중인 플레이어 목록을 저장하는 테이블 생성
+     * - 플레이어가 어느 서버에 접속중인지 실시간 추적
+     * - AI 어시스턴트가 플레이어 상태를 정확히 파악 가능
+     */
+    private fun createServerOnlinePlayersTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS server_online_players (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `server_name` VARCHAR(20) NOT NULL,
+                    `player_uuid` VARCHAR(36) NOT NULL,
+                    `player_name` VARCHAR(16) NOT NULL,
+                    `player_displayname` VARCHAR(32),
+                    `location_world` VARCHAR(50),
+                    `location_x` DOUBLE DEFAULT 0,
+                    `location_y` DOUBLE DEFAULT 0,
+                    `location_z` DOUBLE DEFAULT 0,
+                    `join_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `last_update` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY `unique_player_server` (`server_name`, `player_uuid`),
+                    INDEX `idx_player_uuid` (`player_uuid`),
+                    INDEX `idx_server_name` (`server_name`),
+                    INDEX `idx_last_update` (`last_update`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 서버 간 명령어 전달을 위한 테이블 생성
+     * - 한 서버에서 실행된 명령어를 다른 서버에서도 실행
+     * - 경고 5회 초과 시 밴 처리 등의 교차 서버 작업 지원
+     */
+    private fun createCrossServerCommandsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS cross_server_commands (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `command_type` ENUM('ban', 'unban', 'kick', 'warning', 'custom') NOT NULL,
+                    `target_player_uuid` VARCHAR(36) NOT NULL,
+                    `target_player_name` VARCHAR(16) NOT NULL,
+                    `source_server` VARCHAR(20) NOT NULL,
+                    `target_server` VARCHAR(20) NOT NULL,
+                    `command_data` JSON NOT NULL,
+                    `command_reason` TEXT,
+                    `issued_by` VARCHAR(16) NOT NULL,
+                    `status` ENUM('pending', 'executed', 'failed', 'cancelled') DEFAULT 'pending',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `executed_at` TIMESTAMP NULL,
+                    `error_message` TEXT NULL,
+                    INDEX `idx_target_server_status` (`target_server`, `status`),
+                    INDEX `idx_player_uuid` (`target_player_uuid`),
+                    INDEX `idx_created_at` (`created_at`)
+                );
+                """.trimIndent()
+            )
+        }
+    }
+
+    // ================================
+    // BookSystem 테이블 생성 메소드들
+    // ================================
+
+    /**
+     * 책 정보를 저장하는 테이블
+     */
+    private fun createBooksTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS books (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `uuid` VARCHAR(36) NOT NULL COMMENT '작성자 UUID',
+                    `title` VARCHAR(255) NOT NULL COMMENT '책 제목',
+                    `content` LONGTEXT NOT NULL COMMENT '책 내용 (JSON 형태)',
+                    `page_count` INT NOT NULL DEFAULT 1 COMMENT '페이지 수',
+                    `is_signed` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '서명된 책인지 여부',
+                    `is_public` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '공개 여부',
+                    `is_archived` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '아카이브 여부',
+                    `season` VARCHAR(50) DEFAULT NULL COMMENT '시즌 정보',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성일시',
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+                    INDEX `idx_uuid` (`uuid`),
+                    INDEX `idx_public` (`is_public`),
+                    INDEX `idx_archived` (`is_archived`),
+                    INDEX `idx_season` (`season`),
+                    INDEX `idx_created_at` (`created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='책 정보 테이블';
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 웹 인증 세션을 관리하는 테이블
+     */
+    private fun createBookSessionsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS book_sessions (
+                    `session_id` VARCHAR(64) PRIMARY KEY COMMENT '세션 ID',
+                    `uuid` VARCHAR(36) NOT NULL COMMENT '플레이어 UUID',
+                    `token` VARCHAR(128) NOT NULL COMMENT '인증 토큰',
+                    `ip_address` VARCHAR(45) DEFAULT NULL COMMENT '접속 IP',
+                    `user_agent` TEXT DEFAULT NULL COMMENT '사용자 에이전트',
+                    `is_active` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '활성 상태',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성일시',
+                    `expires_at` TIMESTAMP NULL COMMENT '만료일시',
+                    `last_used_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '마지막 사용일시',
+                    INDEX `idx_uuid` (`uuid`),
+                    INDEX `idx_token` (`token`),
+                    INDEX `idx_expires_at` (`expires_at`),
+                    INDEX `idx_active` (`is_active`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='책 시스템 웹 인증 세션 테이블';
                 """.trimIndent()
             )
         }

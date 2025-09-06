@@ -27,6 +27,10 @@ class PrivateLandSystem(
         plugin.logger.info("[MyLand] 개인 땅 시스템이 활성화되었습니다.")
     }
 
+    fun setFarmVillageManager(farmVillageManager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager) {
+        landCommand.setFarmVillageManager(farmVillageManager)
+    }
+
     fun disable() {
         // Cleanup logic if needed
         plugin.logger.info("[MyLand] 개인 땅 시스템이 비활성화되었습니다.")

@@ -33,6 +33,9 @@ import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
+import com.lukehemmin.lukeVanilla.System.Discord.AIassistant.AdminAssistant
+import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader
+import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerUpdater
 import com.lukehemmin.lukeVanilla.System.PlayTime.PlayTimeSystem
 import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
@@ -59,6 +62,8 @@ class Main : JavaPlugin() {
     private var playTimeSystem: PlayTimeSystem? = null
     private lateinit var debugManager: DebugManager
     private var luckPerms: LuckPerms? = null
+    private var multiServerUpdater: MultiServerUpdater? = null
+    private var bookSystem: com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -326,22 +331,31 @@ class Main : JavaPlugin() {
                     // WarningService 인스턴스 생성
                     val warningService = WarningService(database, discordBot.jda)
                     
+                    // MultiServerReader 인스턴스 생성 (로비 서버에서 멀티서버 정보 조회용)
+                    val multiServerReader = MultiServerReader(this, database)
+                    
+                    // MultiServerUpdater 초기화 (로비 서버에서도 실행)
+                    multiServerUpdater = MultiServerUpdater(this, database)
+                    multiServerUpdater?.start()
+                    logger.info("[MultiServerUpdater] 로비 서버에서 멀티서버 동기화 시스템 초기화 완료.")
+                    
                     val adminAssistant = AdminAssistant(
                         dbConnectionProvider = ::provideDbConnection,
                         openAIApiKey = openAiApiKey, // API 키를 생성자에 전달
                         database = database,
-                        warningService = warningService
+                        warningService = warningService,
+                        multiServerReader = multiServerReader
                     )
                     discordBot.jda.addEventListener(adminAssistant)
                     logger.info("[AdminAssistant] 로비 서버에서 관리자 어시스턴트 초기화 완료.")
                 } else {
-                    logger.warning("[AdminAssistant] OpenAI API 키를 찾을 수 없어 관리자 어시스턴트를 초기화할 수 없습니다. 데이터베이스 'Settings' 테이블에서 'OpenAI_ApiKey' 값을 확인해주세요.")
+                    logger.warning("[AdminAssistant] OpenAI API 키를 찾을 수 없어 관리자 어시스턴트를 초기화할 수 없습니다. 데이터베이스 'Settings' 테이블에서 'OpenAI_API_Token' 값을 확인해주세요.")
                 }
             }
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다. Discord 봇 관련 기능이 제한됩니다.")
             if (openAiApiKey == null) { 
-                logger.warning("[AdminAssistant] OpenAI API 키도 찾을 수 없습니다. 관리자 어시스턴트 기능이 비활성화됩니다.")
+                logger.warning("[AdminAssistant] OpenAI API 키도 찾을 수 없습니다. (데이터베이스 'Settings' 테이블의 'OpenAI_API_Token' 값 확인 필요) 관리자 어시스턴트 기능이 비활성화됩니다.")
             }
         }
 
@@ -488,6 +502,11 @@ class Main : JavaPlugin() {
         if (serviceType == "Vanilla") {
             server.pluginManager.registerEvents(SafeZoneManager(this), this)
             logger.info("[SafeZoneManager] 야생 서버에서 안전 구역 관리자 초기화 완료.")
+            
+            // MultiServerUpdater 초기화 (야생 서버에서만 실행)
+            multiServerUpdater = MultiServerUpdater(this, database)
+            multiServerUpdater?.start()
+            logger.info("[MultiServerUpdater] 야생 서버에서 멀티서버 동기화 시스템 초기화 완료.")
         }
 
         // StatsSystem 초기화
@@ -583,9 +602,14 @@ class Main : JavaPlugin() {
                 privateLandSystem?.enable()
 
                 // FarmVillage 시스템 초기화 (PrivateLandSystem에 의존)
-                privateLandSystem?.let {
-                    farmVillageSystem = FarmVillageSystem(this, database, it, debugManager, luckPerms)
+                privateLandSystem?.let { privateLand ->
+                    farmVillageSystem = FarmVillageSystem(this, database, privateLand, debugManager, luckPerms)
                     farmVillageSystem?.enable()
+                    
+                    // LandCommand에서 농사마을 땅 번호를 표시할 수 있도록 FarmVillageManager 참조 설정
+                    farmVillageSystem?.let { farmVillage ->
+                        privateLand.setFarmVillageManager(farmVillage.getFarmVillageManager())
+                    }
                 }
 
             } catch (e: Exception) {
@@ -594,6 +618,21 @@ class Main : JavaPlugin() {
             }
         } else {
             logger.info("[MyLand/FarmVillage] ${serviceType} 서버에서는 개인 땅 및 농장마을 시스템이 비활성화됩니다.")
+        }
+
+        // BookSystem 초기화 (야생 서버에서만 실행)
+        if (serviceType == "Vanilla") {
+            try {
+                bookSystem = com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem(this, database)
+                bookSystem?.enable()
+                logger.info("[BookSystem] 야생 서버에서 책 시스템이 성공적으로 초기화되었습니다.")
+            } catch (e: Exception) {
+                logger.severe("[BookSystem] 책 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+                // 책 시스템은 필수가 아니므로 플러그인 전체를 중단하지 않음
+            }
+        } else {
+            logger.info("[BookSystem] ${serviceType} 서버에서는 책 시스템이 비활성화됩니다.")
         }
     }
 
@@ -609,6 +648,18 @@ class Main : JavaPlugin() {
         
         // 옷장 위치 시스템 정리
         wardrobeLocationSystem?.cleanup()
+        
+        // 멀티서버 동기화 시스템 중단
+        multiServerUpdater?.stop()
+        
+        // BookSystem 종료
+        try {
+            bookSystem?.disable()
+            logger.info("[BookSystem] 책 시스템이 정상적으로 종료되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[BookSystem] 책 시스템 종료 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
         
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         try {
