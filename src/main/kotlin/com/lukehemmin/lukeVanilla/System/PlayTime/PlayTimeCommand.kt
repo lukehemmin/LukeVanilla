@@ -14,7 +14,11 @@ import java.util.UUID
 /**
  * 플레이타임 관련 명령어를 처리하는 클래스
  */
-class PlayTimeCommand(private val playTimeManager: PlayTimeManager) : CommandExecutor, TabCompleter {
+class PlayTimeCommand(
+    private val playTimeManager: PlayTimeManager
+) : CommandExecutor, TabCompleter {
+    
+    private val plugin = playTimeManager.plugin
     
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (args.isEmpty()) {
@@ -35,12 +39,19 @@ class PlayTimeCommand(private val playTimeManager: PlayTimeManager) : CommandExe
                         sender.sendMessage("사용법: /플레이타임 확인 <플레이어>")
                     }
                 } else {
-                    val targetPlayer = Bukkit.getPlayer(args[1]) ?: Bukkit.getOfflinePlayer(args[1])
-                    if (targetPlayer.hasPlayedBefore() || targetPlayer.isOnline) {
-                        showPlayerPlayTime(sender, targetPlayer as? Player ?: targetPlayer)
-                    } else {
-                        sender.sendMessage(Component.text("${args[1]} 플레이어를 찾을 수 없습니다.", NamedTextColor.RED))
-                    }
+                    // 오프라인 플레이어 조회를 비동기로 처리
+                    plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+                        val targetPlayer = Bukkit.getPlayer(args[1]) ?: Bukkit.getOfflinePlayer(args[1])
+                        if (targetPlayer.hasPlayedBefore() || targetPlayer.isOnline) {
+                            plugin.server.scheduler.runTask(plugin, Runnable {
+                                showPlayerPlayTime(sender, targetPlayer as? Player ?: targetPlayer)
+                            })
+                        } else {
+                            plugin.server.scheduler.runTask(plugin, Runnable {
+                                sender.sendMessage(Component.text("${args[1]} 플레이어를 찾을 수 없습니다.", NamedTextColor.RED))
+                            })
+                        }
+                    })
                 }
             }
             
@@ -49,7 +60,20 @@ class PlayTimeCommand(private val playTimeManager: PlayTimeManager) : CommandExe
                     sender.sendMessage(Component.text("권한이 없습니다.", NamedTextColor.RED))
                     return true
                 }
-                showTopPlayTimes(sender)
+                // 순위 조회를 비동기로 처리
+                sender.sendMessage(Component.text("플레이타임 순위를 조회하는 중...", NamedTextColor.YELLOW))
+                plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+                    try {
+                        val topPlayers = playTimeManager.getTopPlayTimeInfo(10)
+                        plugin.server.scheduler.runTask(plugin, Runnable {
+                            showTopPlayTimesAsync(sender, topPlayers)
+                        })
+                    } catch (e: Exception) {
+                        plugin.server.scheduler.runTask(plugin, Runnable {
+                            sender.sendMessage(Component.text("순위 조회 중 오류가 발생했습니다.", NamedTextColor.RED))
+                        })
+                    }
+                })
             }
             
             
@@ -58,7 +82,23 @@ class PlayTimeCommand(private val playTimeManager: PlayTimeManager) : CommandExe
                     sender.sendMessage(Component.text("권한이 없습니다.", NamedTextColor.RED))
                     return true
                 }
-                showStats(sender)
+                // 통계 조회를 비동기로 처리
+                sender.sendMessage(Component.text("플레이타임 통계를 조회하는 중...", NamedTextColor.YELLOW))
+                plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+                    try {
+                        val newPlayerCount = playTimeManager.getPlayerCountAboveDays(0) - playTimeManager.getPlayerCountAboveDays(7)
+                        val veteranPlayerCount = playTimeManager.getPlayerCountAboveDays(7)
+                        val totalPlayerCount = playTimeManager.getPlayerCountAboveDays(0)
+                        
+                        plugin.server.scheduler.runTask(plugin, Runnable {
+                            showStatsAsync(sender, totalPlayerCount, newPlayerCount, veteranPlayerCount)
+                        })
+                    } catch (e: Exception) {
+                        plugin.server.scheduler.runTask(plugin, Runnable {
+                            sender.sendMessage(Component.text("통계 조회 중 오류가 발생했습니다.", NamedTextColor.RED))
+                        })
+                    }
+                })
             }
             
             else -> {
@@ -151,12 +191,53 @@ class PlayTimeCommand(private val playTimeManager: PlayTimeManager) : CommandExe
         }
     }
     
+    private fun showTopPlayTimesAsync(sender: CommandSender, topPlayers: List<PlayTimeInfo>) {
+        val message = Component.text()
+            .append(Component.text("===== ", NamedTextColor.GOLD))
+            .append(Component.text("플레이타임 순위", NamedTextColor.WHITE, TextDecoration.BOLD))
+            .append(Component.text(" =====", NamedTextColor.GOLD))
+        
+        sender.sendMessage(message)
+        
+        topPlayers.forEachIndexed { index, playTimeInfo ->
+            val playerName = Bukkit.getOfflinePlayer(playTimeInfo.playerUuid).name ?: "알 수 없음"
+            val rankMessage = Component.text()
+                .append(Component.text("${index + 1}. ", NamedTextColor.GOLD))
+                .append(Component.text(playerName, NamedTextColor.AQUA))
+                .append(Component.text(" - ", NamedTextColor.GRAY))
+                .append(Component.text(playTimeManager.formatPlayTime(playTimeInfo.totalPlaytimeSeconds), NamedTextColor.WHITE))
+            
+            sender.sendMessage(rankMessage)
+        }
+    }
+    
     
     private fun showStats(sender: CommandSender) {
         val newPlayerCount = playTimeManager.getPlayerCountAboveDays(0) - playTimeManager.getPlayerCountAboveDays(7)
         val veteranPlayerCount = playTimeManager.getPlayerCountAboveDays(7)
         val totalPlayerCount = playTimeManager.getPlayerCountAboveDays(0)
         
+        val message = Component.text()
+            .append(Component.text("===== ", NamedTextColor.GOLD))
+            .append(Component.text("플레이타임 통계", NamedTextColor.WHITE, TextDecoration.BOLD))
+            .append(Component.text(" =====", NamedTextColor.GOLD))
+            .append(Component.newline())
+            .append(Component.text("총 플레이어 수: ", NamedTextColor.GRAY))
+            .append(Component.text("$totalPlayerCount", NamedTextColor.AQUA))
+            .append(Component.text("명", NamedTextColor.GRAY))
+            .append(Component.newline())
+            .append(Component.text("신규 플레이어 (7일 미만): ", NamedTextColor.GRAY))
+            .append(Component.text("$newPlayerCount", NamedTextColor.YELLOW))
+            .append(Component.text("명", NamedTextColor.GRAY))
+            .append(Component.newline())
+            .append(Component.text("베테랑 플레이어 (7일 이상): ", NamedTextColor.GRAY))
+            .append(Component.text("$veteranPlayerCount", NamedTextColor.GREEN))
+            .append(Component.text("명", NamedTextColor.GRAY))
+        
+        sender.sendMessage(message)
+    }
+    
+    private fun showStatsAsync(sender: CommandSender, totalPlayerCount: Int, newPlayerCount: Int, veteranPlayerCount: Int) {
         val message = Component.text()
             .append(Component.text("===== ", NamedTextColor.GOLD))
             .append(Component.text("플레이타임 통계", NamedTextColor.WHITE, TextDecoration.BOLD))

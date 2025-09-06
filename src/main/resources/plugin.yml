@@ -144,6 +144,10 @@ commands:
     usage: "/주차스크롤 [상태|다음주|이전주|해제|GUI]"
     permission: "lukevanilla.admin.weeklyscroll"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  플레이타임:
+    description: "플레이어의 플레이타임을 조회합니다."
+    usage: "/플레이타임 [확인 <플레이어>|순위|통계]"
+    aliases: [playtime, pt]
 
 permissions:
   lukevanilla.nametag:
@@ -233,4 +237,13 @@ permissions:
     default: true
   lukevanilla.admin.weeklyscroll:
     description: "주차별 스크롤 교환 시스템 관리 권한"
+    default: op
+  playtime.admin:
+    description: "플레이타임 관리 명령어 사용 권한"
+    default: op
+  playtime.admin.ranking:
+    description: "플레이타임 순위 확인 권한"
+    default: op
+  playtime.admin.stats:
+    description: "플레이타임 통계 확인 권한"
     default: op

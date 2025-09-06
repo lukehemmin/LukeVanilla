@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
  * PlayTime 시스템의 비즈니스 로직을 담당하는 매니저 클래스
  */
 class PlayTimeManager(
-    private val plugin: Main,
+    val plugin: Main,
     private val playTimeData: PlayTimeData,
     private val debugManager: DebugManager
 ) {
@@ -31,13 +31,20 @@ class PlayTimeManager(
      * @param player 접속한 플레이어
      */
     fun onPlayerJoin(player: Player) {
-        val currentTime = System.currentTimeMillis()
+        val currentTime = getCurrentTimeMillis()
         sessionStartTimes[player.uniqueId] = currentTime
         
-        // 데이터베이스에도 세션 시작 시간 저장
-        playTimeData.setSessionStartTime(player.uniqueId, currentTime)
+        // 데이터베이스 세션 시작 시간 저장을 비동기로 처리
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            try {
+                playTimeData.setSessionStartTime(player.uniqueId, currentTime)
+                debugManager.log("PlayTime", "[ASYNC] ${player.name} 세션 시작 시간 DB 저장 완료")
+            } catch (e: Exception) {
+                plugin.logger.warning("[PlayTime] ${player.name} 세션 시작 시간 저장 실패: ${e.message}")
+            }
+        })
         
-        debugManager.log("PlayTime", "${player.name} 플레이어가 접속했습니다. 세션 시작 시간: $currentTime")
+        debugManager.log("PlayTime", "${player.name} 플레이어가 접속했습니다. 세션 시작: ${formatTimestamp(currentTime)}")
     }
     
     /**
@@ -47,18 +54,34 @@ class PlayTimeManager(
     fun onPlayerQuit(player: Player) {
         val sessionStartTime = sessionStartTimes.remove(player.uniqueId)
         if (sessionStartTime != null) {
-            val currentTime = System.currentTimeMillis()
-            val sessionDuration = (currentTime - sessionStartTime) / 1000 // 초 단위로 변환
+            val currentTime = getCurrentTimeMillis()
+            val sessionDurationMs = currentTime - sessionStartTime
+            val sessionDurationSeconds = millisToSeconds(sessionDurationMs)
             
-            // 현재 세션 동안만의 시간을 더함 (자동 저장으로 이미 저장된 부분 제외)
-            val previousPlayTime = playTimeData.getTotalPlayTime(player.uniqueId)
-            val newTotalPlayTime = previousPlayTime + sessionDuration
+            debugManager.log("PlayTime", "${player.name} 플레이어가 나갔습니다. 마지막 세션: ${formatDuration(sessionDurationMs)}")
             
-            // 데이터베이스 업데이트 (세션 시작 시간은 null로 설정)
-            playTimeData.updatePlayTimeInfo(player.uniqueId, newTotalPlayTime, null)
-            
-            debugManager.log("PlayTime", 
-                "${player.name} 플레이어가 나갔습니다. 마지막 세션 시간: ${sessionDuration}초, 총 플레이타임: ${newTotalPlayTime}초")
+            // DB 업데이트를 비동기로 처리 (메인 스레드 블로킹 방지)
+            plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+                try {
+                    // 현재 세션 동안만의 시간을 더함 (자동 저장으로 이미 저장된 부분 제외)
+                    val previousPlayTime = playTimeData.getTotalPlayTime(player.uniqueId)
+                    val newTotalPlayTime = previousPlayTime + sessionDurationSeconds
+                    
+                    // 데이터베이스 업데이트 (세션 시작 시간은 null로 설정)
+                    val success = playTimeData.updatePlayTimeInfo(player.uniqueId, newTotalPlayTime, null)
+                    
+                    if (success) {
+                        debugManager.log("PlayTime", "[ASYNC] ${player.name} 최종 플레이타임 저장 완료: ${formatDuration(newTotalPlayTime * 1000)}")
+                    } else {
+                        plugin.logger.warning("[PlayTime] ${player.name} 최종 플레이타임 저장 실패")
+                    }
+                } catch (e: Exception) {
+                    plugin.logger.severe("[PlayTime] ${player.name} 퇴장 처리 중 오류: ${e.message}")
+                    e.printStackTrace()
+                }
+            })
+        } else {
+            debugManager.log("PlayTime", "${player.name} 플레이어 퇴장 - 세션 정보 없음 (이미 처리됨 또는 오류)")
         }
     }
     
@@ -72,8 +95,9 @@ class PlayTimeManager(
         val sessionStartTime = sessionStartTimes[player.uniqueId]
         
         return if (sessionStartTime != null) {
-            val currentSessionTime = (System.currentTimeMillis() - sessionStartTime) / 1000
-            savedPlayTime + currentSessionTime
+            val currentSessionTimeMs = getCurrentTimeMillis() - sessionStartTime
+            val currentSessionTimeSeconds = millisToSeconds(currentSessionTimeMs)
+            savedPlayTime + currentSessionTimeSeconds
         } else {
             savedPlayTime
         }
@@ -96,7 +120,8 @@ class PlayTimeManager(
     fun getCurrentSessionTime(player: Player): Long {
         val sessionStartTime = sessionStartTimes[player.uniqueId]
         return if (sessionStartTime != null) {
-            (System.currentTimeMillis() - sessionStartTime) / 1000
+            val sessionDurationMs = getCurrentTimeMillis() - sessionStartTime
+            millisToSeconds(sessionDurationMs)
         } else {
             0L
         }
@@ -199,25 +224,66 @@ class PlayTimeManager(
      */
     private fun autoSavePlayTime() {
         if (sessionStartTimes.isEmpty()) {
+            debugManager.log("PlayTime", "자동 저장 - 온라인 플레이어 없음")
             return
         }
         
-        var savedCount = 0
-        val currentTime = System.currentTimeMillis()
+        val currentTime = getCurrentTimeMillis()
+        val sessionsToUpdate = sessionStartTimes.toMap() // 복사본 생성하여 동시 수정 방지
+        val totalPlayers = sessionsToUpdate.size
         
-        sessionStartTimes.forEach { (playerUuid, sessionStartTime) ->
-            val sessionDuration = (currentTime - sessionStartTime) / 1000
-            val previousPlayTime = playTimeData.getTotalPlayTime(playerUuid)
-            val newTotalPlayTime = previousPlayTime + sessionDuration
+        debugManager.log("PlayTime", "자동 저장 시작: ${totalPlayers}명의 플레이타임 저장 중...")
+        
+        // DB 작업을 비동기로 처리
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            var successCount = 0
+            var errorCount = 0
             
-            // 플레이타임 업데이트하고 세션 시작 시간도 현재 시간으로 리셋
-            if (playTimeData.updatePlayTimeInfo(playerUuid, newTotalPlayTime, currentTime)) {
-                sessionStartTimes[playerUuid] = currentTime // 세션 시작 시간 리셋
-                savedCount++
+            try {
+                sessionsToUpdate.forEach { (playerUuid, sessionStartTime) ->
+                    try {
+                        val sessionDurationSeconds = millisToSeconds(currentTime - sessionStartTime)
+                        val previousPlayTime = playTimeData.getTotalPlayTime(playerUuid)
+                        val newTotalPlayTime = previousPlayTime + sessionDurationSeconds
+                        
+                        // 플레이타임 업데이트하고 세션 시작 시간도 현재 시간으로 리셋
+                        if (playTimeData.updatePlayTimeInfo(playerUuid, newTotalPlayTime, currentTime)) {
+                            // 메인 스레드에서 세션 시작 시간 리셋 (플레이어가 여전히 온라인인 경우만)
+                            plugin.server.scheduler.runTask(plugin, Runnable {
+                                // 플레이어가 여전히 온라인이고 세션이 존재하는 경우만 업데이트
+                                if (sessionStartTimes.containsKey(playerUuid) && plugin.server.getPlayer(playerUuid) != null) {
+                                    sessionStartTimes[playerUuid] = currentTime
+                                }
+                            })
+                            successCount++
+                            
+                            val playerName = plugin.server.getPlayer(playerUuid)?.name ?: "Unknown"
+                            debugManager.log("PlayTime", "[AUTO-SAVE] $playerName: +${formatDuration(sessionDurationSeconds * 1000)} (총 ${formatDuration(newTotalPlayTime * 1000)})")
+                        } else {
+                            errorCount++
+                            val playerName = plugin.server.getPlayer(playerUuid)?.name ?: "Unknown($playerUuid)"
+                            plugin.logger.warning("[PlayTime] 자동 저장 실패: $playerName")
+                        }
+                    } catch (e: Exception) {
+                        errorCount++
+                        val playerName = plugin.server.getPlayer(playerUuid)?.name ?: "Unknown($playerUuid)"
+                        plugin.logger.warning("[PlayTime] $playerName 자동 저장 중 오류: ${e.message}")
+                    }
+                }
+                
+                // 자동 저장 완료 로그
+                val logMessage = "[ASYNC] 자동 저장 완료: 성공 ${successCount}명, 실패 ${errorCount}명 / 총 ${totalPlayers}명"
+                if (errorCount > 0) {
+                    plugin.logger.warning(logMessage)
+                } else {
+                    debugManager.log("PlayTime", logMessage)
+                }
+                
+            } catch (e: Exception) {
+                plugin.logger.severe("[PlayTime] 자동 저장 중 심각한 오류: ${e.message}")
+                e.printStackTrace()
             }
-        }
-        
-        debugManager.log("PlayTime", "자동 저장 완료: ${savedCount}명의 플레이타임을 저장했습니다.")
+        })
     }
     
     /**
@@ -228,11 +294,11 @@ class PlayTimeManager(
         
         var savedCount = 0
         sessionStartTimes.forEach { (playerUuid, sessionStartTime) ->
-            val currentTime = System.currentTimeMillis()
-            val sessionDuration = (currentTime - sessionStartTime) / 1000
+            val currentTime = getCurrentTimeMillis()
+            val sessionDurationSeconds = millisToSeconds(currentTime - sessionStartTime)
             
             val previousPlayTime = playTimeData.getTotalPlayTime(playerUuid)
-            val newTotalPlayTime = previousPlayTime + sessionDuration
+            val newTotalPlayTime = previousPlayTime + sessionDurationSeconds
             
             if (playTimeData.updatePlayTimeInfo(playerUuid, newTotalPlayTime, null)) {
                 savedCount++
@@ -262,6 +328,15 @@ class PlayTimeManager(
     }
     
     /**
+     * 상위 N명의 플레이타임 정보를 가져옵니다 (최적화된 쿼리 사용)
+     * @param limit 조회할 상위 플레이어 수
+     * @return 상위 플레이타임 정보 리스트
+     */
+    fun getTopPlayTimeInfo(limit: Int): List<PlayTimeInfo> {
+        return playTimeData.getTopPlayTimeInfo(limit)
+    }
+    
+    /**
      * 특정 플레이타임 이상인 플레이어 수를 조회합니다
      * @param requiredDays 필요한 일수
      * @return 플레이어 수
@@ -270,4 +345,45 @@ class PlayTimeManager(
         val requiredSeconds = TimeUnit.DAYS.toSeconds(requiredDays.toLong())
         return playTimeData.getPlayerCountAbovePlayTime(requiredSeconds)
     }
+    
+    /**
+     * 밀리초를 사용자 친화적인 형태로 포맷팅합니다
+     * @param millis 밀리초
+     * @return 포맷된 문자열
+     */
+    private fun formatDuration(millis: Long): String {
+        val seconds = millis / 1000
+        return formatPlayTime(seconds)
+    }
+    
+    /**
+     * 타임스탬프를 사용자 친화적인 형태로 포맷팅합니다
+     * @param timestamp 타임스탬프 (밀리초)
+     * @return 포맷된 문자열
+     */
+    private fun formatTimestamp(timestamp: Long): String {
+        val date = java.util.Date(timestamp)
+        val formatter = java.text.SimpleDateFormat("MM-dd HH:mm:ss")
+        return formatter.format(date)
+    }
+    
+    /**
+     * 현재 시간을 밀리초로 반환합니다 (시간 단위 통일)
+     * @return 현재 시간 (밀리초)
+     */
+    private fun getCurrentTimeMillis(): Long = System.currentTimeMillis()
+    
+    /**
+     * 밀리초를 초로 변환합니다 (시간 단위 통일)
+     * @param millis 밀리초
+     * @return 초
+     */
+    private fun millisToSeconds(millis: Long): Long = millis / 1000
+    
+    /**
+     * 초를 밀리초로 변환합니다 (시간 단위 통일)
+     * @param seconds 초
+     * @return 밀리초
+     */
+    private fun secondsToMillis(seconds: Long): Long = seconds * 1000
 }

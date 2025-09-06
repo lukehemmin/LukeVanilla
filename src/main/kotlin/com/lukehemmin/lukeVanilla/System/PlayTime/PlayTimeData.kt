@@ -222,6 +222,43 @@ class PlayTimeData(private val database: Database) {
     }
     
     /**
+     * 상위 N명의 플레이타임 정보를 조회합니다. (최적화된 쿼리)
+     * @param limit 조회할 상위 플레이어 수
+     * @return 상위 플레이타임 정보 리스트
+     */
+    fun getTopPlayTimeInfo(limit: Int): List<PlayTimeInfo> {
+        val playTimeList = mutableListOf<PlayTimeInfo>()
+        val query = """
+            SELECT player_uuid, total_playtime_seconds, session_start_time,
+                   UNIX_TIMESTAMP(last_updated) as last_updated,
+                   UNIX_TIMESTAMP(created_at) as created_at
+            FROM playtime_data 
+            ORDER BY total_playtime_seconds DESC
+            LIMIT ?
+        """.trimIndent()
+        
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setInt(1, limit)
+                statement.executeQuery().use { resultSet ->
+                    while (resultSet.next()) {
+                        playTimeList.add(
+                            PlayTimeInfo(
+                                playerUuid = UUID.fromString(resultSet.getString("player_uuid")),
+                                totalPlaytimeSeconds = resultSet.getLong("total_playtime_seconds"),
+                                sessionStartTime = resultSet.getLong("session_start_time").takeIf { !resultSet.wasNull() },
+                                lastUpdated = resultSet.getLong("last_updated"),
+                                createdAt = resultSet.getLong("created_at")
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return playTimeList
+    }
+    
+    /**
      * 특정 플레이타임 이상인 플레이어 수를 조회합니다.
      * @param minimumSeconds 최소 플레이타임(초)
      * @return 플레이어 수

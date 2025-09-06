@@ -33,6 +33,7 @@ import com.lukehemmin.lukeVanilla.System.WardrobeLocationSystem
 import com.lukehemmin.lukeVanilla.System.MyLand.PrivateLandSystem
 import com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageSystem
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
+import com.lukehemmin.lukeVanilla.System.PlayTime.PlayTimeSystem
 import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
@@ -55,6 +56,7 @@ class Main : JavaPlugin() {
     // private var nexoLuckPermsGranter: NexoLuckPermsGranter? = null
     private var privateLandSystem: PrivateLandSystem? = null
     private var farmVillageSystem: FarmVillageSystem? = null
+    private var playTimeSystem: PlayTimeSystem? = null
     private lateinit var debugManager: DebugManager
     private var luckPerms: LuckPerms? = null
 
@@ -565,6 +567,15 @@ class Main : JavaPlugin() {
             e.printStackTrace()
         }
 
+        // PlayTime 시스템 초기화 (모든 서버에서 실행)
+        try {
+            playTimeSystem = PlayTimeSystem(this, database, debugManager)
+            playTimeSystem?.enable()
+        } catch (e: Exception) {
+            logger.severe("[PlayTime] 플레이타임 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
+
         // 개인 땅 시스템 초기화 (야생서버에서만 실행)
         if (serviceType == "Vanilla") {
             try {
@@ -587,6 +598,9 @@ class Main : JavaPlugin() {
     }
 
     override fun onDisable() {
+        // PlayTime 시스템 비활성화
+        playTimeSystem?.disable()
+        
         // 농장마을 시스템 비활성화
         farmVillageSystem?.disable()
         
