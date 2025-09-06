@@ -51,6 +51,8 @@ class DatabaseInitializer(private val database: Database) {
         // BookSystem 테이블들
         createBooksTable()
         createBookSessionsTable()
+        // PlayTime 시스템 테이블 생성
+        createPlayTimeTable()
 
         // 다른 테이블 생성 코드 추가 가능
     }
@@ -693,6 +695,23 @@ class DatabaseInitializer(private val database: Database) {
                     `item_type` VARCHAR(50) NOT NULL,
                     `item_identifier` TEXT NOT NULL,
                     `item_data` JSON
+                );
+                """.trimIndent()
+            )
+        }
+    }
+    
+    private fun createPlayTimeTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS playtime_data (
+                    `player_uuid` VARCHAR(36) PRIMARY KEY,
+                    `total_playtime_seconds` BIGINT NOT NULL DEFAULT 0,
+                    `session_start_time` BIGINT NULL,
+                    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 """.trimIndent()
             )
