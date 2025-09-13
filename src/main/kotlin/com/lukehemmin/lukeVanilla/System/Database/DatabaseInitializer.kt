@@ -54,6 +54,13 @@ class DatabaseInitializer(private val database: Database) {
         // PlayTime 시스템 테이블 생성
         createPlayTimeTable()
 
+        // AdvancedLandClaiming 시스템 테이블 생성
+        createAdvancedClaimsTable()
+        createAdvancedClaimHistoryTable()
+        createVillagesTable()
+        createVillageMembersTable()
+        createVillagePermissionsTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -879,6 +886,159 @@ class DatabaseInitializer(private val database: Database) {
                     INDEX `idx_expires_at` (`expires_at`),
                     INDEX `idx_active` (`is_active`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='책 시스템 웹 인증 세션 테이블';
+                """.trimIndent()
+            )
+        }
+    }
+
+    // ===== AdvancedLandClaiming 시스템 테이블들 =====
+    
+    /**
+     * 고급 토지 클레이밍 정보 테이블 생성
+     * - PlayTime 연동 및 자원 비용 기반 클레이밍 지원
+     * - 개인/마을 클레이밍 구분
+     */
+    private fun createAdvancedClaimsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS `advanced_claims` (
+                    `world` VARCHAR(255) NOT NULL,
+                    `chunk_x` INT NOT NULL,
+                    `chunk_z` INT NOT NULL,
+                    `owner_uuid` VARCHAR(36) NOT NULL,
+                    `owner_name` VARCHAR(50) NOT NULL,
+                    `claim_type` ENUM('PERSONAL', 'VILLAGE') NOT NULL DEFAULT 'PERSONAL',
+                    `resource_type` ENUM('FREE', 'IRON_INGOT', 'DIAMOND', 'NETHERITE_INGOT') NOT NULL DEFAULT 'FREE',
+                    `resource_amount` INT NOT NULL DEFAULT 0,
+                    `used_free_slots` INT NOT NULL DEFAULT 0,
+                    `village_id` INT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`world`, `chunk_x`, `chunk_z`),
+                    INDEX `idx_owner` (`owner_uuid`),
+                    INDEX `idx_claim_type` (`claim_type`),
+                    INDEX `idx_village` (`village_id`),
+                    INDEX `idx_created` (`created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='고급 토지 클레이밍 정보';
+                """.trimIndent()
+            )
+        }
+    }
+    
+    /**
+     * 고급 토지 클레이밍 히스토리 테이블 생성
+     * - 클레이밍 해제/변경 이력 추적
+     */
+    private fun createAdvancedClaimHistoryTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS `advanced_claim_history` (
+                    `history_id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `world` VARCHAR(255) NOT NULL,
+                    `chunk_x` INT NOT NULL,
+                    `chunk_z` INT NOT NULL,
+                    `previous_owner_uuid` VARCHAR(36) NOT NULL,
+                    `previous_owner_name` VARCHAR(50) NOT NULL,
+                    `actor_uuid` VARCHAR(36) NULL,
+                    `actor_name` VARCHAR(50) NULL,
+                    `action_type` ENUM('UNCLAIMED', 'TRANSFERRED', 'CONVERTED_TO_VILLAGE') NOT NULL,
+                    `reason` VARCHAR(255) NOT NULL,
+                    `unclaimed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_chunk` (`world`, `chunk_x`, `chunk_z`),
+                    INDEX `idx_previous_owner` (`previous_owner_uuid`),
+                    INDEX `idx_actor` (`actor_uuid`),
+                    INDEX `idx_date` (`unclaimed_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='고급 토지 클레이밍 히스토리';
+                """.trimIndent()
+            )
+        }
+    }
+    
+    /**
+     * 마을 정보 테이블 생성
+     * - 마을 기본 정보 및 이장 관리
+     */
+    private fun createVillagesTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS `villages` (
+                    `village_id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `village_name` VARCHAR(100) NOT NULL,
+                    `mayor_uuid` VARCHAR(36) NOT NULL,
+                    `mayor_name` VARCHAR(50) NOT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+                    UNIQUE KEY `unique_name_active` (`village_name`, `is_active`),
+                    INDEX `idx_mayor` (`mayor_uuid`),
+                    INDEX `idx_active` (`is_active`),
+                    INDEX `idx_created` (`created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='마을 정보';
+                """.trimIndent()
+            )
+        }
+    }
+    
+    /**
+     * 마을 구성원 테이블 생성
+     * - 마을 구성원 및 역할 관리
+     */
+    private fun createVillageMembersTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS `village_members` (
+                    `village_id` INT NOT NULL,
+                    `member_uuid` VARCHAR(36) NOT NULL,
+                    `member_name` VARCHAR(50) NOT NULL,
+                    `role` ENUM('MAYOR', 'DEPUTY_MAYOR', 'MEMBER') NOT NULL DEFAULT 'MEMBER',
+                    `joined_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `last_seen` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+                    PRIMARY KEY (`village_id`, `member_uuid`),
+                    INDEX `idx_member` (`member_uuid`),
+                    INDEX `idx_role` (`role`),
+                    INDEX `idx_active` (`is_active`),
+                    INDEX `idx_joined` (`joined_at`),
+                    FOREIGN KEY (`village_id`) REFERENCES `villages`(`village_id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='마을 구성원';
+                """.trimIndent()
+            )
+        }
+    }
+    
+    /**
+     * 마을 권한 테이블 생성
+     * - 구성원별 세부 권한 관리
+     */
+    private fun createVillagePermissionsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS `village_permissions` (
+                    `village_id` INT NOT NULL,
+                    `member_uuid` VARCHAR(36) NOT NULL,
+                    `permission_type` VARCHAR(50) NOT NULL,
+                    `granted_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `granted_by_uuid` VARCHAR(36) NOT NULL,
+                    `granted_by_name` VARCHAR(50) NOT NULL,
+                    `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+                    PRIMARY KEY (`village_id`, `member_uuid`, `permission_type`),
+                    INDEX `idx_member` (`member_uuid`),
+                    INDEX `idx_permission` (`permission_type`),
+                    INDEX `idx_granted_by` (`granted_by_uuid`),
+                    INDEX `idx_active` (`is_active`),
+                    FOREIGN KEY (`village_id`) REFERENCES `villages`(`village_id`) ON DELETE CASCADE,
+                    FOREIGN KEY (`village_id`, `member_uuid`) REFERENCES `village_members`(`village_id`, `member_uuid`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='마을 구성원 권한';
                 """.trimIndent()
             )
         }

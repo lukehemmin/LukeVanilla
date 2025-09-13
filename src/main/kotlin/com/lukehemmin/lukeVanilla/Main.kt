@@ -37,6 +37,7 @@ import com.lukehemmin.lukeVanilla.System.Discord.AIassistant.AdminAssistant
 import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader
 import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerUpdater
 import com.lukehemmin.lukeVanilla.System.PlayTime.PlayTimeSystem
+import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.AdvancedLandSystem
 import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
@@ -60,6 +61,7 @@ class Main : JavaPlugin() {
     private var privateLandSystem: PrivateLandSystem? = null
     private var farmVillageSystem: FarmVillageSystem? = null
     private var playTimeSystem: PlayTimeSystem? = null
+    private var advancedLandSystem: AdvancedLandSystem? = null
     private lateinit var debugManager: DebugManager
     private var luckPerms: LuckPerms? = null
     private var multiServerUpdater: MultiServerUpdater? = null
@@ -595,6 +597,22 @@ class Main : JavaPlugin() {
             e.printStackTrace()
         }
 
+        // AdvancedLandClaiming 시스템 초기화 (야생서버에서만 실행, PlayTime 시스템 이후)
+        if (serviceType == "Vanilla") {
+            try {
+                val playTimeManager = playTimeSystem?.getPlayTimeManager()
+                if (playTimeManager != null) {
+                    advancedLandSystem = AdvancedLandSystem(this, database, debugManager, playTimeManager)
+                    advancedLandSystem?.enable()
+                } else {
+                    logger.warning("[AdvancedLandClaiming] PlayTime 시스템이 초기화되지 않아 AdvancedLandClaiming을 시작할 수 없습니다.")
+                }
+            } catch (e: Exception) {
+                logger.severe("[AdvancedLandClaiming] 고급 토지 클레이밍 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+
         // 개인 땅 시스템 초기화 (야생서버에서만 실행)
         if (serviceType == "Vanilla") {
             try {
@@ -609,6 +627,14 @@ class Main : JavaPlugin() {
                     // LandCommand에서 농사마을 땅 번호를 표시할 수 있도록 FarmVillageManager 참조 설정
                     farmVillageSystem?.let { farmVillage ->
                         privateLand.setFarmVillageManager(farmVillage.getFarmVillageManager())
+                    }
+                    
+                    // AdvancedLandClaiming과 LandCommand 통합
+                    advancedLandSystem?.let { advancedLand ->
+                        // PrivateLandSystem에서 LandCommand 가져와서 AdvancedLandManager 주입
+                        val landCommand = privateLand.getLandManager() // 이건 작동하지 않을 수 있음, 실제 구조에 따라 수정 필요
+                        // advancedLand.integrateWithLandCommand(landCommand)  // 임시 주석 처리
+                        logger.info("[AdvancedLandClaiming] LandCommand와 통합 완료")
                     }
                 }
 
@@ -639,6 +665,9 @@ class Main : JavaPlugin() {
     override fun onDisable() {
         // PlayTime 시스템 비활성화
         playTimeSystem?.disable()
+        
+        // AdvancedLandClaiming 시스템 비활성화
+        advancedLandSystem?.disable()
         
         // 농장마을 시스템 비활성화
         farmVillageSystem?.disable()

@@ -20,8 +20,15 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
     // FarmVillageManager 참조를 위한 변수 (나중에 설정됨)
     private var farmVillageManager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager? = null
     
+    // AdvancedLandManager 참조를 위한 변수 (나중에 설정됨)
+    private var advancedLandManager: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.AdvancedLandManager? = null
+    
     fun setFarmVillageManager(manager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager) {
         this.farmVillageManager = manager
+    }
+    
+    fun setAdvancedLandManager(manager: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.AdvancedLandManager) {
+        this.advancedLandManager = manager
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (sender !is Player) {
@@ -31,11 +38,27 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
 
         if (args.isNotEmpty()) {
             when (args[0].lowercase()) {
+                // 기존 MyLand 명령어들
                 "정보" -> showClaimInfo(sender)
                 "기록" -> showClaimHistory(sender, args.getOrNull(1)?.toIntOrNull() ?: 1)
                 "친구추가" -> handleAddMember(sender, args)
                 "친구삭제" -> handleRemoveMember(sender, args)
                 "친구목록" -> handleListMembers(sender)
+                
+                // 새로운 AdvancedLandClaiming 명령어들
+                "클레임" -> handleAdvancedClaim(sender, args)
+                "포기" -> handleAdvancedUnclaim(sender)
+                "목록" -> handleAdvancedList(sender)
+                "비용" -> handleAdvancedCost(sender)
+                "요약" -> handleAdvancedSummary(sender)
+                
+                // 마을 관련 명령어들 (추후 구현)
+                "마을생성" -> handleVillageCreate(sender, args)
+                "마을초대" -> handleVillageInvite(sender, args)
+                "마을추방" -> handleVillageKick(sender, args)
+                "마을정보" -> handleVillageInfo(sender)
+                "마을권한" -> handleVillagePermissions(sender, args)
+                
                 else -> sendUsage(sender)
             }
         } else {
@@ -82,6 +105,57 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 .hoverEvent(HoverEvent.showText(Component.text("현재 청크의 이전 기록을 봅니다.")))
                 .append(Component.text(" - 현재 청크의 이전 소유 기록을 봅니다.", NamedTextColor.GRAY))
         )
+        
+        // AdvancedLandClaiming 명령어들
+        sender.sendMessage(Component.text("", NamedTextColor.WHITE))
+        sender.sendMessage(
+            Component.text()
+                .append(Component.text("--- ", NamedTextColor.GOLD))
+                .append(Component.text("고급 토지 클레이밍", NamedTextColor.WHITE))
+                .append(Component.text(" ---", NamedTextColor.GOLD))
+        )
+        sender.sendMessage(
+            Component.text("/땅 클레임 [자원타입]", NamedTextColor.GREEN)
+                .clickEvent(ClickEvent.suggestCommand("/땅 클레임 "))
+                .hoverEvent(HoverEvent.showText(Component.text("현재 청크를 클레이밍합니다.")))
+                .append(Component.text(" - 현재 청크를 클레이밍합니다.", NamedTextColor.GRAY))
+        )
+        sender.sendMessage(
+            Component.text("/땅 포기", NamedTextColor.GREEN)
+                .clickEvent(ClickEvent.suggestCommand("/땅 포기"))
+                .hoverEvent(HoverEvent.showText(Component.text("현재 청크의 클레이밍을 포기합니다.")))
+                .append(Component.text(" - 현재 청크의 클레이밍을 포기합니다.", NamedTextColor.GRAY))
+        )
+        sender.sendMessage(
+            Component.text("/땅 목록", NamedTextColor.GREEN)
+                .clickEvent(ClickEvent.suggestCommand("/땅 목록"))
+                .hoverEvent(HoverEvent.showText(Component.text("내가 소유한 토지 목록을 봅니다.")))
+                .append(Component.text(" - 내가 소유한 토지 목록을 봅니다.", NamedTextColor.GRAY))
+        )
+        sender.sendMessage(
+            Component.text("/땅 비용", NamedTextColor.GREEN)
+                .clickEvent(ClickEvent.suggestCommand("/땅 비용"))
+                .hoverEvent(HoverEvent.showText(Component.text("토지 클레이밍 비용을 확인합니다.")))
+                .append(Component.text(" - 토지 클레이밍 비용을 확인합니다.", NamedTextColor.GRAY))
+        )
+        sender.sendMessage(
+            Component.text("/땅 요약", NamedTextColor.GREEN)
+                .clickEvent(ClickEvent.suggestCommand("/땅 요약"))
+                .hoverEvent(HoverEvent.showText(Component.text("내 토지 정보 요약을 봅니다.")))
+                .append(Component.text(" - 내 토지 정보 요약을 봅니다.", NamedTextColor.GRAY))
+        )
+        
+        // 마을 시스템 명령어들 (추후 구현)
+        sender.sendMessage(Component.text("", NamedTextColor.WHITE))
+        sender.sendMessage(
+            Component.text()
+                .append(Component.text("--- ", NamedTextColor.GOLD))
+                .append(Component.text("마을 시스템 (개발 중)", NamedTextColor.YELLOW))
+                .append(Component.text(" ---", NamedTextColor.GOLD))
+        )
+        sender.sendMessage(Component.text("/땅 마을생성 <이름> - 마을을 생성합니다.", NamedTextColor.YELLOW))
+        sender.sendMessage(Component.text("/땅 마을초대 <플레이어> - 마을에 플레이어를 초대합니다.", NamedTextColor.YELLOW))
+        sender.sendMessage(Component.text("/땅 마을정보 - 마을 정보를 확인합니다.", NamedTextColor.YELLOW))
     }
 
     private fun handleAddMember(player: Player, args: Array<out String>) {
@@ -295,6 +369,131 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         player.sendMessage(pageInfo)
     }
 
+    // ===== AdvancedLandClaiming 명령어 핸들러들 =====
+    
+    private fun handleAdvancedClaim(player: Player, args: Array<out String>) {
+        val advancedManager = advancedLandManager
+        if (advancedManager == null) {
+            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        val chunk = player.location.chunk
+        val resourceType = if (args.size > 1) {
+            when (args[1].lowercase()) {
+                "철", "iron" -> com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimResourceType.IRON_INGOT
+                "다이아", "diamond" -> com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimResourceType.DIAMOND
+                "네더라이트", "netherite" -> com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimResourceType.NETHERITE_INGOT
+                else -> null
+            }
+        } else null
+        
+        val result = advancedManager.claimChunk(player, chunk, resourceType)
+        
+        if (result.success) {
+            player.sendMessage(Component.text(result.message, NamedTextColor.GREEN))
+        } else {
+            player.sendMessage(Component.text(result.message, NamedTextColor.RED))
+        }
+    }
+    
+    private fun handleAdvancedUnclaim(player: Player) {
+        val advancedManager = advancedLandManager
+        if (advancedManager == null) {
+            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        val chunk = player.location.chunk
+        val result = advancedManager.unclaimChunk(player, chunk)
+        
+        if (result.success) {
+            player.sendMessage(Component.text(result.message, NamedTextColor.GREEN))
+        } else {
+            player.sendMessage(Component.text(result.message, NamedTextColor.RED))
+        }
+    }
+    
+    private fun handleAdvancedList(player: Player) {
+        val advancedManager = advancedLandManager
+        if (advancedManager == null) {
+            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        val claimCount = advancedManager.getPlayerClaimCount(player.uniqueId)
+        if (claimCount == 0) {
+            player.sendMessage(Component.text("소유한 청크가 없습니다.", NamedTextColor.YELLOW))
+            return
+        }
+        
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("--- ", NamedTextColor.GOLD))
+                .append(Component.text("내 토지 목록", NamedTextColor.WHITE))
+                .append(Component.text(" ---", NamedTextColor.GOLD))
+        )
+        
+        player.sendMessage(Component.text("총 ${claimCount}개의 청크를 소유하고 있습니다.", NamedTextColor.GRAY))
+        // 추후 상세 목록 구현 예정
+    }
+    
+    private fun handleAdvancedCost(player: Player) {
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("--- ", NamedTextColor.GOLD))
+                .append(Component.text("토지 클레이밍 비용", NamedTextColor.WHITE))
+                .append(Component.text(" ---", NamedTextColor.GOLD))
+        )
+        
+        player.sendMessage(Component.text("무료 슬롯: 4개 (최초 4개 청크)", NamedTextColor.GREEN))
+        player.sendMessage(Component.text("철괴: 64개 (스택 1개)", NamedTextColor.GRAY))
+        player.sendMessage(Component.text("다이아몬드: 8개", NamedTextColor.AQUA))
+        player.sendMessage(Component.text("네더라이트 주괴: 2개", NamedTextColor.DARK_PURPLE))
+        
+        player.sendMessage(Component.text("사용법: /땅 클레임 [자원타입]", NamedTextColor.YELLOW))
+        player.sendMessage(Component.text("예시: /땅 클레임 철, /땅 클레임 다이아", NamedTextColor.YELLOW))
+    }
+    
+    private fun handleAdvancedSummary(player: Player) {
+        val advancedManager = advancedLandManager
+        if (advancedManager == null) {
+            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        val summary = advancedManager.getPlayerClaimSummary(player.uniqueId)
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("--- ", NamedTextColor.GOLD))
+                .append(Component.text("토지 요약", NamedTextColor.WHITE))
+                .append(Component.text(" ---", NamedTextColor.GOLD))
+        )
+        player.sendMessage(Component.text(summary, NamedTextColor.GRAY))
+    }
+    
+    // ===== 마을 관련 핸들러들 (추후 구현) =====
+    
+    private fun handleVillageCreate(player: Player, args: Array<out String>) {
+        player.sendMessage(Component.text("마을 시스템은 아직 구현 중입니다.", NamedTextColor.YELLOW))
+    }
+    
+    private fun handleVillageInvite(player: Player, args: Array<out String>) {
+        player.sendMessage(Component.text("마을 시스템은 아직 구현 중입니다.", NamedTextColor.YELLOW))
+    }
+    
+    private fun handleVillageKick(player: Player, args: Array<out String>) {
+        player.sendMessage(Component.text("마을 시스템은 아직 구현 중입니다.", NamedTextColor.YELLOW))
+    }
+    
+    private fun handleVillageInfo(player: Player) {
+        player.sendMessage(Component.text("마을 시스템은 아직 구현 중입니다.", NamedTextColor.YELLOW))
+    }
+    
+    private fun handleVillagePermissions(player: Player, args: Array<out String>) {
+        player.sendMessage(Component.text("마을 시스템은 아직 구현 중입니다.", NamedTextColor.YELLOW))
+    }
+
     override fun onTabComplete(
         sender: CommandSender,
         command: Command,
@@ -302,10 +501,21 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         args: Array<out String>
     ): MutableList<String> {
         if (args.size == 1) {
-            return mutableListOf("정보", "기록", "친구추가", "친구삭제", "친구목록").filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
+            return mutableListOf(
+                "정보", "기록", "친구추가", "친구삭제", "친구목록", // 기존 명령어
+                "클레임", "포기", "목록", "비용", "요약", // 새로운 명령어
+                "마을생성", "마을초대", "마을추방", "마을정보", "마을권한" // 마을 명령어
+            ).filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
         }
-        if (args.size == 2 && (args[0].lowercase() == "친구추가" || args[0].lowercase() == "친구삭제")) {
-             return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
+        if (args.size == 2) {
+            when (args[0].lowercase()) {
+                "친구추가", "친구삭제" -> {
+                    return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
+                }
+                "클레임" -> {
+                    return mutableListOf("철", "다이아", "네더라이트").filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
+                }
+            }
         }
         return mutableListOf()
     }
