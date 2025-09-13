@@ -30,6 +30,14 @@ class PrivateLandSystem(
     fun setFarmVillageManager(farmVillageManager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager) {
         landCommand.setFarmVillageManager(farmVillageManager)
     }
+    
+    fun setAdvancedLandManager(advancedLandManager: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.AdvancedLandManager) {
+        landCommand.setAdvancedLandManager(advancedLandManager)
+    }
+    
+    fun getLandCommand(): LandCommand {
+        return landCommand
+    }
 
     fun disable() {
         // Cleanup logic if needed

@@ -631,10 +631,26 @@ class Main : JavaPlugin() {
                     
                     // AdvancedLandClaiming과 LandCommand 통합
                     advancedLandSystem?.let { advancedLand ->
-                        // PrivateLandSystem에서 LandCommand 가져와서 AdvancedLandManager 주입
-                        val landCommand = privateLand.getLandManager() // 이건 작동하지 않을 수 있음, 실제 구조에 따라 수정 필요
-                        // advancedLand.integrateWithLandCommand(landCommand)  // 임시 주석 처리
-                        logger.info("[AdvancedLandClaiming] LandCommand와 통합 완료")
+                        val advancedLandManager = advancedLand.getAdvancedLandManager()
+                        if (advancedLandManager != null) {
+                            privateLand.setAdvancedLandManager(advancedLandManager)
+                            logger.info("[AdvancedLandClaiming] LandCommand와 통합 완료")
+                        } else {
+                            logger.warning("[AdvancedLandClaiming] AdvancedLandManager가 null입니다. 통합을 건너뜁니다.")
+                        }
+                    }
+                    
+                    // 마을 관련 독립 명령어 등록
+                    val landCommand = privateLand.getLandCommand()
+                    if (landCommand != null) {
+                        val villageInviteCommand = com.lukehemmin.lukeVanilla.System.MyLand.VillageInviteCommand(landCommand)
+                        getCommand("마을초대")?.setExecutor(villageInviteCommand)
+                        getCommand("마을초대")?.tabCompleter = villageInviteCommand
+                        getCommand("마을")?.setExecutor(landCommand)
+                        getCommand("마을")?.tabCompleter = landCommand
+                        logger.info("[마을 명령어] 마을 관련 독립 명령어 등록 완료")
+                    } else {
+                        logger.warning("[마을 명령어] LandCommand를 가져올 수 없어 마을 명령어 등록을 건너뜁니다.")
                     }
                 }
 

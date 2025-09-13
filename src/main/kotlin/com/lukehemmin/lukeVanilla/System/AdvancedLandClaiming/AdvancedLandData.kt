@@ -7,6 +7,59 @@ import java.util.*
 
 class AdvancedLandData(private val database: Database) {
 
+    // ===== 공통 쿼리 상수 =====
+    companion object {
+        private const val TABLE_NAME = "myland_claims"
+        private const val ADVANCED_FILTER = "resource_type IS NOT NULL"
+        private const val PERSONAL_CLAIMS_FILTER = "$ADVANCED_FILTER AND claim_type = 'PERSONAL'"
+        
+        // 공통 쿼리 베이스
+        private const val SELECT_BASE = "SELECT * FROM $TABLE_NAME WHERE $ADVANCED_FILTER"
+        private const val SELECT_PERSONAL_BASE = "SELECT * FROM $TABLE_NAME WHERE $PERSONAL_CLAIMS_FILTER"
+        private const val DELETE_BASE = "DELETE FROM $TABLE_NAME WHERE $ADVANCED_FILTER"
+        private const val COUNT_BASE = "SELECT COUNT(*) as count FROM $TABLE_NAME WHERE $PERSONAL_CLAIMS_FILTER"
+    }
+
+    // ===== 공통 데이터베이스 유틸리티 메서드 =====
+    
+    /**
+     * 단일 결과를 반환하는 쿼리 실행
+     */
+    private fun <T> executeQuerySingle(query: String, params: List<Any> = emptyList(), mapper: (java.sql.ResultSet) -> T): T? {
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    params.forEachIndexed { index, param ->
+                        statement.setObject(index + 1, param)
+                    }
+                    statement.executeQuery().use { resultSet ->
+                        if (resultSet.next()) mapper(resultSet) else null
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    /**
+     * 업데이트/삭제 쿼리 실행
+     */
+    private fun executeUpdate(query: String, params: List<Any> = emptyList()): Boolean {
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    params.forEachIndexed { index, param ->
+                        statement.setObject(index + 1, param)
+                    }
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     // ===== 클레이밍 관련 메서드 =====
     
     /**
@@ -18,9 +71,10 @@ class AdvancedLandData(private val database: Database) {
         val query = """
             SELECT world, chunk_x, chunk_z, owner_uuid, owner_name, claim_type, 
                    resource_type, resource_amount, used_free_slots, village_id,
-                   UNIX_TIMESTAMP(created_at) as created_at,
+                   UNIX_TIMESTAMP(claimed_at) as claimed_at,
                    UNIX_TIMESTAMP(last_updated) as last_updated
-            FROM advanced_claims
+            FROM $TABLE_NAME 
+            WHERE $ADVANCED_FILTER
         """.trimIndent()
         
         database.getConnection().use { connection ->
@@ -37,7 +91,7 @@ class AdvancedLandData(private val database: Database) {
                         val resourceAmount = resultSet.getInt("resource_amount")
                         val usedFreeSlots = resultSet.getInt("used_free_slots")
                         val villageId = resultSet.getObject("village_id") as? Int
-                        val createdAt = resultSet.getLong("created_at") * 1000
+                        val createdAt = resultSet.getLong("claimed_at") * 1000
                         val lastUpdated = resultSet.getLong("last_updated") * 1000
                         
                         val claimCost = if (resourceType != ClaimResourceType.FREE) {
@@ -62,7 +116,7 @@ class AdvancedLandData(private val database: Database) {
      */
     fun saveClaim(claimInfo: AdvancedClaimInfo): Boolean {
         val query = """
-            INSERT INTO advanced_claims 
+            INSERT INTO myland_claims 
             (world, chunk_x, chunk_z, owner_uuid, owner_name, claim_type, 
              resource_type, resource_amount, used_free_slots, village_id) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -120,9 +174,8 @@ class AdvancedLandData(private val database: Database) {
                 connection.autoCommit = false
                 
                 // 기존 클레이밍 정보 조회
-                val selectQuery = "SELECT owner_uuid, owner_name FROM advanced_claims WHERE world = ? AND chunk_x = ? AND chunk_z = ?"
+                val selectQuery = "SELECT owner_uuid FROM $TABLE_NAME WHERE $ADVANCED_FILTER AND world = ? AND chunk_x = ? AND chunk_z = ?"
                 var previousOwnerUuid: UUID? = null
-                var previousOwnerName: String? = null
                 
                 connection.prepareStatement(selectQuery).use { statement ->
                     statement.setString(1, worldName)
@@ -131,18 +184,16 @@ class AdvancedLandData(private val database: Database) {
                     statement.executeQuery().use { resultSet ->
                         if (resultSet.next()) {
                             previousOwnerUuid = UUID.fromString(resultSet.getString("owner_uuid"))
-                            previousOwnerName = resultSet.getString("owner_name")
                         }
                     }
                 }
                 
-                if (previousOwnerUuid != null && previousOwnerName != null) {
+                if (previousOwnerUuid != null) {
                     // 히스토리에 기록
                     val historyQuery = """
-                        INSERT INTO advanced_claim_history 
-                        (world, chunk_x, chunk_z, previous_owner_uuid, previous_owner_name, 
-                         actor_uuid, actor_name, action_type, reason) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 'UNCLAIMED', ?)
+                        INSERT INTO myland_claim_history 
+                        (world, chunk_x, chunk_z, previous_owner_uuid, actor_uuid, reason) 
+                        VALUES (?, ?, ?, ?, ?, ?)
                     """.trimIndent()
                     
                     connection.prepareStatement(historyQuery).use { statement ->
@@ -150,15 +201,13 @@ class AdvancedLandData(private val database: Database) {
                         statement.setInt(2, chunkX)
                         statement.setInt(3, chunkZ)
                         statement.setString(4, previousOwnerUuid.toString())
-                        statement.setString(5, previousOwnerName)
-                        statement.setString(6, actorUuid?.toString())
-                        statement.setString(7, actorName)
-                        statement.setString(8, reason)
+                        statement.setString(5, actorUuid?.toString())
+                        statement.setString(6, reason)
                         statement.executeUpdate()
                     }
                     
                     // 클레이밍 삭제
-                    val deleteQuery = "DELETE FROM advanced_claims WHERE world = ? AND chunk_x = ? AND chunk_z = ?"
+                    val deleteQuery = "$DELETE_BASE AND world = ? AND chunk_x = ? AND chunk_z = ?"
                     connection.prepareStatement(deleteQuery).use { statement ->
                         statement.setString(1, worldName)
                         statement.setInt(2, chunkX)
@@ -183,43 +232,27 @@ class AdvancedLandData(private val database: Database) {
      * 특정 플레이어가 소유한 클레이밍 수를 조회합니다.
      */
     fun getPlayerClaimCount(playerUuid: UUID): Int {
-        val query = "SELECT COUNT(*) as count FROM advanced_claims WHERE owner_uuid = ? AND claim_type = 'PERSONAL'"
-        database.getConnection().use { connection ->
-            connection.prepareStatement(query).use { statement ->
-                statement.setString(1, playerUuid.toString())
-                statement.executeQuery().use { resultSet ->
-                    if (resultSet.next()) {
-                        return resultSet.getInt("count")
-                    }
-                }
-            }
-        }
-        return 0
+        val query = "$COUNT_BASE AND owner_uuid = ?"
+        return executeQuerySingle(query, listOf(playerUuid.toString())) { resultSet ->
+            resultSet.getInt("count")
+        } ?: 0
     }
     
     /**
      * 특정 플레이어가 사용한 무료 슬롯 수를 조회합니다.
      */
     fun getPlayerUsedFreeSlots(playerUuid: UUID): Int {
-        val query = "SELECT COALESCE(MAX(used_free_slots), 0) as max_free_slots FROM advanced_claims WHERE owner_uuid = ?"
-        database.getConnection().use { connection ->
-            connection.prepareStatement(query).use { statement ->
-                statement.setString(1, playerUuid.toString())
-                statement.executeQuery().use { resultSet ->
-                    if (resultSet.next()) {
-                        return resultSet.getInt("max_free_slots")
-                    }
-                }
-            }
-        }
-        return 0
+        val query = "SELECT COALESCE(MAX(used_free_slots), 0) as max_free_slots FROM $TABLE_NAME WHERE $ADVANCED_FILTER AND owner_uuid = ?"
+        return executeQuerySingle(query, listOf(playerUuid.toString())) { resultSet ->
+            resultSet.getInt("max_free_slots")
+        } ?: 0
     }
     
     /**
      * 특정 플레이어의 연결된 청크 그룹을 조회합니다.
      */
     fun getPlayerConnectedChunks(playerUuid: UUID): List<ConnectedChunks> {
-        val query = "SELECT world, chunk_x, chunk_z FROM advanced_claims WHERE owner_uuid = ? AND claim_type = 'PERSONAL'"
+        val query = "SELECT world, chunk_x, chunk_z FROM $TABLE_NAME WHERE $PERSONAL_CLAIMS_FILTER AND owner_uuid = ?"
         val chunks = mutableListOf<ChunkCoordinate>()
         
         database.getConnection().use { connection ->
@@ -287,37 +320,6 @@ class AdvancedLandData(private val database: Database) {
     // ===== 마을 관련 메서드 (추후 구현) =====
     
     /**
-     * 새로운 마을을 생성합니다.
-     */
-    fun createVillage(villageName: String, mayorUuid: UUID, mayorName: String): Int? {
-        val query = """
-            INSERT INTO villages (village_name, mayor_uuid, mayor_name) 
-            VALUES (?, ?, ?)
-        """.trimIndent()
-        
-        return try {
-            database.getConnection().use { connection ->
-                connection.prepareStatement(query, 1).use { statement -> // 1 = RETURN_GENERATED_KEYS
-                    statement.setString(1, villageName)
-                    statement.setString(2, mayorUuid.toString())
-                    statement.setString(3, mayorName)
-                    
-                    if (statement.executeUpdate() > 0) {
-                        statement.generatedKeys.use { keys ->
-                            if (keys.next()) {
-                                keys.getInt(1)
-                            } else null
-                        }
-                    } else null
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-    
-    /**
      * 마을 정보를 조회합니다.
      */
     fun getVillageInfo(villageId: Int): VillageInfo? {
@@ -349,5 +351,253 @@ class AdvancedLandData(private val database: Database) {
             }
         }
         return null
+    }
+    
+    // ===== 마을 관련 메서드들 =====
+    
+    /**
+     * 마을 이름 중복 확인
+     */
+    fun isVillageNameExists(villageName: String): Boolean {
+        val query = "SELECT COUNT(*) as count FROM villages WHERE village_name = ? AND is_active = TRUE"
+        return executeQuerySingle(query, listOf(villageName)) { resultSet ->
+            resultSet.getInt("count") > 0
+        } ?: false
+    }
+    
+    /**
+     * 새로운 마을을 생성하고 마을 ID를 반환합니다.
+     */
+    fun createVillage(villageName: String, mayorUuid: UUID, mayorName: String): Int? {
+        val query = """
+            INSERT INTO villages (village_name, mayor_uuid, mayor_name, is_active) 
+            VALUES (?, ?, ?, TRUE)
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query, java.sql.Statement.RETURN_GENERATED_KEYS).use { statement ->
+                    statement.setString(1, villageName)
+                    statement.setString(2, mayorUuid.toString())
+                    statement.setString(3, mayorName)
+                    
+                    val affectedRows = statement.executeUpdate()
+                    if (affectedRows > 0) {
+                        statement.generatedKeys.use { generatedKeys ->
+                            if (generatedKeys.next()) {
+                                generatedKeys.getInt(1)
+                            } else null
+                        }
+                    } else null
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
+     * 마을에 멤버를 추가합니다.
+     */
+    fun addVillageMember(villageId: Int, memberUuid: UUID, memberName: String, role: VillageRole): Boolean {
+        val query = """
+            INSERT INTO village_members (village_id, member_uuid, member_name, role, is_active) 
+            VALUES (?, ?, ?, ?, TRUE)
+            ON DUPLICATE KEY UPDATE 
+            member_name = ?, role = ?, is_active = TRUE, last_seen = CURRENT_TIMESTAMP
+        """.trimIndent()
+        
+        return executeUpdate(query, listOf(
+            villageId, memberUuid.toString(), memberName, role.name,
+            memberName, role.name
+        ))
+    }
+    
+    /**
+     * 클레이밍 정보를 마을 토지로 업데이트합니다.
+     */
+    fun updateClaimToVillage(claimInfo: AdvancedClaimInfo): Boolean {
+        val query = """
+            UPDATE $TABLE_NAME 
+            SET claim_type = ?, village_id = ?, last_updated = CURRENT_TIMESTAMP
+            WHERE world = ? AND chunk_x = ? AND chunk_z = ? AND $ADVANCED_FILTER
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, claimInfo.claimType.name)
+                    if (claimInfo.villageId != null) {
+                        statement.setInt(2, claimInfo.villageId)
+                    } else {
+                        statement.setNull(2, java.sql.Types.INTEGER)
+                    }
+                    statement.setString(3, claimInfo.worldName)
+                    statement.setInt(4, claimInfo.chunkX)
+                    statement.setInt(5, claimInfo.chunkZ)
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+    
+    /**
+     * 마을의 모든 멤버를 조회합니다.
+     */
+    fun getVillageMembers(villageId: Int): List<VillageMember> {
+        val members = mutableListOf<VillageMember>()
+        val query = """
+            SELECT village_id, member_uuid, member_name, role, 
+                   UNIX_TIMESTAMP(joined_at) as joined_at,
+                   UNIX_TIMESTAMP(last_seen) as last_seen, is_active
+            FROM village_members 
+            WHERE village_id = ? AND is_active = TRUE
+        """.trimIndent()
+        
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setInt(1, villageId)
+                statement.executeQuery().use { resultSet ->
+                    while (resultSet.next()) {
+                        members.add(
+                            VillageMember(
+                                resultSet.getInt("village_id"),
+                                UUID.fromString(resultSet.getString("member_uuid")),
+                                resultSet.getString("member_name"),
+                                VillageRole.valueOf(resultSet.getString("role")),
+                                resultSet.getLong("joined_at") * 1000,
+                                resultSet.getLong("last_seen") * 1000,
+                                resultSet.getBoolean("is_active")
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return members
+    }
+    
+    /**
+     * 마을을 비활성화합니다.
+     */
+    fun deactivateVillage(villageId: Int): Boolean {
+        val query = "UPDATE villages SET is_active = FALSE WHERE village_id = ?"
+        return executeUpdate(query, listOf(villageId))
+    }
+    
+    /**
+     * 마을 멤버의 역할을 변경합니다.
+     */
+    fun updateVillageMemberRole(villageId: Int, memberUuid: UUID, newRole: VillageRole): Boolean {
+        val query = """
+            UPDATE village_members 
+            SET role = ?, last_seen = CURRENT_TIMESTAMP
+            WHERE village_id = ? AND member_uuid = ? AND is_active = TRUE
+        """.trimIndent()
+        
+        return executeUpdate(query, listOf(
+            newRole.name,
+            villageId,
+            memberUuid.toString()
+        ))
+    }
+    
+    /**
+     * 마을 구성원을 추방합니다 (비활성화).
+     */
+    fun removeVillageMember(villageId: Int, memberUuid: UUID): Boolean {
+        val query = """
+            UPDATE village_members 
+            SET is_active = FALSE, last_seen = CURRENT_TIMESTAMP
+            WHERE village_id = ? AND member_uuid = ? AND is_active = TRUE
+        """.trimIndent()
+        
+        return executeUpdate(query, listOf(
+            villageId,
+            memberUuid.toString()
+        ))
+    }
+    
+    /**
+     * 플레이어가 속한 마을 정보를 조회합니다.
+     * @param playerUuid 플레이어 UUID
+     * @return 마을 구성원 정보, 없으면 null
+     */
+    fun getPlayerVillageMembership(playerUuid: UUID): VillageMember? {
+        val query = """
+            SELECT vm.village_id, vm.member_uuid, vm.member_name, vm.role, 
+                   UNIX_TIMESTAMP(vm.joined_at) as joined_at,
+                   UNIX_TIMESTAMP(vm.last_seen) as last_seen, vm.is_active
+            FROM village_members vm
+            INNER JOIN villages v ON vm.village_id = v.village_id
+            WHERE vm.member_uuid = ? AND vm.is_active = TRUE AND v.is_active = TRUE
+            LIMIT 1
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, playerUuid.toString())
+                    statement.executeQuery().use { resultSet ->
+                        if (resultSet.next()) {
+                            VillageMember(
+                                resultSet.getInt("village_id"),
+                                UUID.fromString(resultSet.getString("member_uuid")),
+                                resultSet.getString("member_name"),
+                                VillageRole.valueOf(resultSet.getString("role")),
+                                resultSet.getLong("joined_at") * 1000, // 초 → 밀리초
+                                resultSet.getLong("last_seen") * 1000,   // 초 → 밀리초
+                                resultSet.getBoolean("is_active")
+                            )
+                        } else null
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in getPlayerVillageMembership: ${e.message}")
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
+     * 플레이어가 특정 마을에서 특정 권한을 가지고 있는지 확인합니다.
+     * @param playerUuid 플레이어 UUID
+     * @param villageId 마을 ID
+     * @param permissionType 확인할 권한 타입
+     * @return 권한이 있으면 true
+     */
+    fun hasVillagePermission(playerUuid: UUID, villageId: Int, permissionType: VillagePermissionType): Boolean {
+        val query = """
+            SELECT COUNT(*) as count
+            FROM village_permissions vp
+            INNER JOIN village_members vm ON vp.village_id = vm.village_id AND vp.member_uuid = vm.member_uuid
+            INNER JOIN villages v ON vp.village_id = v.village_id
+            WHERE vp.member_uuid = ? AND vp.village_id = ? AND vp.permission_type = ? 
+              AND vp.is_active = TRUE AND vm.is_active = TRUE AND v.is_active = TRUE
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, playerUuid.toString())
+                    statement.setInt(2, villageId)
+                    statement.setString(3, permissionType.name)
+                    statement.executeQuery().use { resultSet ->
+                        if (resultSet.next()) {
+                            resultSet.getInt("count") > 0
+                        } else false
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in hasVillagePermission: ${e.message}")
+            e.printStackTrace()
+            false
+        }
     }
 }

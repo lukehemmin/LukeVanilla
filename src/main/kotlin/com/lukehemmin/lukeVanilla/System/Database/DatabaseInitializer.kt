@@ -37,6 +37,11 @@ class DatabaseInitializer(private val database: Database) {
         createMyLandClaimsTable()
         createMyLandMembersTable()
         createMyLandClaimHistoryTable()
+        
+        // 마을 시스템 테이블 추가
+        createVillagesTable()
+        createVillageMembersTable()
+        createVillagePermissionsTable()
 
         // FarmVillage에서 관리 (농사마을 토지 시스템)
         createFarmVillagePlotsTable()
@@ -53,13 +58,6 @@ class DatabaseInitializer(private val database: Database) {
         createBookSessionsTable()
         // PlayTime 시스템 테이블 생성
         createPlayTimeTable()
-
-        // AdvancedLandClaiming 시스템 테이블 생성
-        createAdvancedClaimsTable()
-        createAdvancedClaimHistoryTable()
-        createVillagesTable()
-        createVillageMembersTable()
-        createVillagePermissionsTable()
 
         // 다른 테이블 생성 코드 추가 가능
     }
@@ -608,12 +606,57 @@ class DatabaseInitializer(private val database: Database) {
                     `chunk_x` INT NOT NULL,
                     `chunk_z` INT NOT NULL,
                     `owner_uuid` VARCHAR(36) NOT NULL,
+                    `owner_name` VARCHAR(50) NOT NULL DEFAULT 'Unknown',
                     `claim_type` VARCHAR(50) NOT NULL DEFAULT 'GENERAL',
+                    `resource_type` ENUM('FREE', 'IRON_INGOT', 'DIAMOND', 'NETHERITE_INGOT') NULL,
+                    `resource_amount` INT NOT NULL DEFAULT 0,
+                    `used_free_slots` INT NOT NULL DEFAULT 0,
+                    `playtime_days` INT NOT NULL DEFAULT 0,
+                    `village_id` INT NULL,
                     `claimed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (`world`, `chunk_x`, `chunk_z`)
+                    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`world`, `chunk_x`, `chunk_z`),
+                    INDEX `idx_owner` (`owner_uuid`),
+                    INDEX `idx_claim_type` (`claim_type`),
+                    INDEX `idx_village` (`village_id`),
+                    INDEX `idx_resource_type` (`resource_type`)
                 );
                 """.trimIndent()
             )
+            
+            // 기존 테이블에 새 컬럼 추가 (이미 테이블이 존재할 경우)
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `owner_name` VARCHAR(50) NOT NULL DEFAULT 'Unknown'")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `resource_type` ENUM('FREE', 'IRON_INGOT', 'DIAMOND', 'NETHERITE_INGOT') NULL")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            // 기존 컬럼의 기본값 제거 (NOT NULL -> NULL로 변경)
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims MODIFY COLUMN `resource_type` ENUM('FREE', 'IRON_INGOT', 'DIAMOND', 'NETHERITE_INGOT') NULL")
+            } catch (e: Exception) { /* 이미 변경됨 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `resource_amount` INT NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `used_free_slots` INT NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `playtime_days` INT NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `village_id` INT NULL")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
         }
     }
 
@@ -891,72 +934,6 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
-    // ===== AdvancedLandClaiming 시스템 테이블들 =====
-    
-    /**
-     * 고급 토지 클레이밍 정보 테이블 생성
-     * - PlayTime 연동 및 자원 비용 기반 클레이밍 지원
-     * - 개인/마을 클레이밍 구분
-     */
-    private fun createAdvancedClaimsTable() {
-        database.getConnection().use { connection ->
-            val statement = connection.createStatement()
-            statement.executeUpdate(
-                """
-                CREATE TABLE IF NOT EXISTS `advanced_claims` (
-                    `world` VARCHAR(255) NOT NULL,
-                    `chunk_x` INT NOT NULL,
-                    `chunk_z` INT NOT NULL,
-                    `owner_uuid` VARCHAR(36) NOT NULL,
-                    `owner_name` VARCHAR(50) NOT NULL,
-                    `claim_type` ENUM('PERSONAL', 'VILLAGE') NOT NULL DEFAULT 'PERSONAL',
-                    `resource_type` ENUM('FREE', 'IRON_INGOT', 'DIAMOND', 'NETHERITE_INGOT') NOT NULL DEFAULT 'FREE',
-                    `resource_amount` INT NOT NULL DEFAULT 0,
-                    `used_free_slots` INT NOT NULL DEFAULT 0,
-                    `village_id` INT NULL,
-                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    PRIMARY KEY (`world`, `chunk_x`, `chunk_z`),
-                    INDEX `idx_owner` (`owner_uuid`),
-                    INDEX `idx_claim_type` (`claim_type`),
-                    INDEX `idx_village` (`village_id`),
-                    INDEX `idx_created` (`created_at`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='고급 토지 클레이밍 정보';
-                """.trimIndent()
-            )
-        }
-    }
-    
-    /**
-     * 고급 토지 클레이밍 히스토리 테이블 생성
-     * - 클레이밍 해제/변경 이력 추적
-     */
-    private fun createAdvancedClaimHistoryTable() {
-        database.getConnection().use { connection ->
-            val statement = connection.createStatement()
-            statement.executeUpdate(
-                """
-                CREATE TABLE IF NOT EXISTS `advanced_claim_history` (
-                    `history_id` INT PRIMARY KEY AUTO_INCREMENT,
-                    `world` VARCHAR(255) NOT NULL,
-                    `chunk_x` INT NOT NULL,
-                    `chunk_z` INT NOT NULL,
-                    `previous_owner_uuid` VARCHAR(36) NOT NULL,
-                    `previous_owner_name` VARCHAR(50) NOT NULL,
-                    `actor_uuid` VARCHAR(36) NULL,
-                    `actor_name` VARCHAR(50) NULL,
-                    `action_type` ENUM('UNCLAIMED', 'TRANSFERRED', 'CONVERTED_TO_VILLAGE') NOT NULL,
-                    `reason` VARCHAR(255) NOT NULL,
-                    `unclaimed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX `idx_chunk` (`world`, `chunk_x`, `chunk_z`),
-                    INDEX `idx_previous_owner` (`previous_owner_uuid`),
-                    INDEX `idx_actor` (`actor_uuid`),
-                    INDEX `idx_date` (`unclaimed_at`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='고급 토지 클레이밍 히스토리';
-                """.trimIndent()
-            )
-        }
-    }
     
     /**
      * 마을 정보 테이블 생성

@@ -106,6 +106,20 @@ class LandManager(private val plugin: Main, private val database: Database, priv
         return landData.removeMember(chunk.world.name, chunk.x, chunk.z, member.uniqueId)
     }
 
+    /**
+     * 소유자 체크 없이 멤버를 추가합니다. (마을 시스템 등에서 사용)
+     */
+    fun addMemberBypass(chunk: Chunk, member: OfflinePlayer): Boolean {
+        return landData.addMember(chunk.world.name, chunk.x, chunk.z, member.uniqueId)
+    }
+
+    /**
+     * 소유자 체크 없이 멤버를 삭제합니다. (마을 시스템 등에서 사용)
+     */
+    fun removeMemberBypass(chunk: Chunk, member: OfflinePlayer): Boolean {
+        return landData.removeMember(chunk.world.name, chunk.x, chunk.z, member.uniqueId)
+    }
+
     fun isMember(chunk: Chunk, player: Player): Boolean {
         return getMembers(chunk).contains(player.uniqueId)
     }

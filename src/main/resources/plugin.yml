@@ -116,14 +116,16 @@ commands:
     usage: "/serverconnection <status|test|clear|reset>"
     permission: "lukevanilla.admin"
     permission-message: "You do not have permission to use this command."
-  blockprot:
-    description: "블록 보호 시스템 명령어"
-    usage: "/blockprot <help|settings|info|permissions|stats|reload>"
-    aliases: [ 블록보호 ]
   땅:
     description: 개인 땅 정보를 확인합니다.
     usage: /<command> 정보
     aliases: [land, myland]
+  마을초대:
+    description: 마을 초대 관련 명령어입니다.
+    usage: /<command> [수락|거절]
+  마을:
+    description: 마을 관리 명령어입니다.
+    usage: /<command> [생성|정보|초대|멤버|탈퇴|해체]
   블록위치:
     description: 블록 위치 확인 모드를 활성화/비활성화합니다.
     usage: /블록위치
@@ -156,7 +158,7 @@ commands:
     description: "Manage books written in Minecraft."
     usage: "/book [list|public|private|delete|info|website|token|stats] [args]"
     aliases: [ 책 ]
-
+  
 permissions:
   lukevanilla.nametag:
     description: "Allows the use of the /nametag command"

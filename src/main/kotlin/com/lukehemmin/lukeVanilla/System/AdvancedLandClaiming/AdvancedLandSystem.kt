@@ -39,13 +39,18 @@ class AdvancedLandSystem(
     }
 
     /**
-     * 기존 LandCommand에 AdvancedLandManager를 주입합니다.
+     * 기존 LandCommand에 AdvancedLandManager를 주입하고 상호 연동을 설정합니다.
      * 이 메서드는 MyLand 시스템이 초기화된 후에 호출되어야 합니다.
      */
-    fun integrateWithLandCommand(landCommand: LandCommand) {
+    fun integrateWithLandCommand(landCommand: LandCommand, landManager: com.lukehemmin.lukeVanilla.System.MyLand.LandManager) {
         if (::advancedLandManager.isInitialized) {
+            // AdvancedLandManager → LandCommand 연결
             landCommand.setAdvancedLandManager(advancedLandManager)
-            debugManager.log("AdvancedLandClaiming", "LandCommand와 통합 완료")
+            
+            // AdvancedLandManager → LandManager 연결 (연결된 청크 그룹 시스템을 위해)
+            advancedLandManager.setLandManager(landManager)
+            
+            debugManager.log("AdvancedLandClaiming", "LandCommand 및 LandManager와 통합 완료")
         } else {
             plugin.logger.warning("[AdvancedLandClaiming] AdvancedLandManager가 초기화되지 않았습니다. integrateWithLandCommand 호출을 연기하세요.")
         }

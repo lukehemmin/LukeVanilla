@@ -35,10 +35,32 @@ class AdvancedLandProtectionListener(private val advancedLandManager: AdvancedLa
             return // 소유자는 자유롭게 행동 가능
         }
         
+        // 개인 토지인 경우 친구 권한 체크
+        if (claimInfo.claimType == ClaimType.PERSONAL) {
+            val representativeChunk = advancedLandManager.getRepresentativeChunk(claimInfo.ownerUuid, chunk)
+            val landManager = advancedLandManager.getLandManager()
+            
+            if (representativeChunk != null && landManager != null) {
+                if (landManager.isMember(representativeChunk, player)) {
+                    return // 친구로 등록되어 있음
+                }
+            }
+        }
+        
         // 마을 청크인 경우 권한 체크
         if (claimInfo.claimType == ClaimType.VILLAGE && claimInfo.villageId != null) {
             if (hasVillagePermission(player.uniqueId, claimInfo.villageId!!, VillagePermissionType.BREAK_BLOCKS)) {
                 return // 마을 구성원이고 블록 파괴 권한이 있음
+            }
+            
+            // 마을 멤버 권한 체크 (대표 청크 기반)
+            val representativeChunk = advancedLandManager.getRepresentativeChunk(claimInfo.ownerUuid, chunk)
+            val landManager = advancedLandManager.getLandManager()
+            
+            if (representativeChunk != null && landManager != null) {
+                if (landManager.isMember(representativeChunk, player)) {
+                    return // 마을 멤버로 등록되어 있음
+                }
             }
         }
         
@@ -75,10 +97,32 @@ class AdvancedLandProtectionListener(private val advancedLandManager: AdvancedLa
             return // 소유자는 자유롭게 행동 가능
         }
         
+        // 개인 토지인 경우 친구 권한 체크
+        if (claimInfo.claimType == ClaimType.PERSONAL) {
+            val representativeChunk = advancedLandManager.getRepresentativeChunk(claimInfo.ownerUuid, chunk)
+            val landManager = advancedLandManager.getLandManager()
+            
+            if (representativeChunk != null && landManager != null) {
+                if (landManager.isMember(representativeChunk, player)) {
+                    return // 친구로 등록되어 있음
+                }
+            }
+        }
+        
         // 마을 청크인 경우 권한 체크
         if (claimInfo.claimType == ClaimType.VILLAGE && claimInfo.villageId != null) {
             if (hasVillagePermission(player.uniqueId, claimInfo.villageId!!, VillagePermissionType.BUILD)) {
                 return // 마을 구성원이고 건설 권한이 있음
+            }
+            
+            // 마을 멤버 권한 체크 (대표 청크 기반)
+            val representativeChunk = advancedLandManager.getRepresentativeChunk(claimInfo.ownerUuid, chunk)
+            val landManager = advancedLandManager.getLandManager()
+            
+            if (representativeChunk != null && landManager != null) {
+                if (landManager.isMember(representativeChunk, player)) {
+                    return // 마을 멤버로 등록되어 있음
+                }
             }
         }
         
@@ -125,6 +169,18 @@ class AdvancedLandProtectionListener(private val advancedLandManager: AdvancedLa
             return // 소유자는 자유롭게 행동 가능
         }
         
+        // 개인 토지인 경우 친구 권한 체크
+        if (claimInfo.claimType == ClaimType.PERSONAL) {
+            val representativeChunk = advancedLandManager.getRepresentativeChunk(claimInfo.ownerUuid, chunk)
+            val landManager = advancedLandManager.getLandManager()
+            
+            if (representativeChunk != null && landManager != null) {
+                if (landManager.isMember(representativeChunk, player)) {
+                    return // 친구로 등록되어 있음
+                }
+            }
+        }
+        
         // 마을 청크인 경우 권한 체크
         if (claimInfo.claimType == ClaimType.VILLAGE && claimInfo.villageId != null) {
             val requiredPermission = when {
@@ -135,6 +191,16 @@ class AdvancedLandProtectionListener(private val advancedLandManager: AdvancedLa
             
             if (hasVillagePermission(player.uniqueId, claimInfo.villageId!!, requiredPermission)) {
                 return // 권한이 있음
+            }
+            
+            // 마을 멤버 권한 체크 (대표 청크 기반)
+            val representativeChunk = advancedLandManager.getRepresentativeChunk(claimInfo.ownerUuid, chunk)
+            val landManager = advancedLandManager.getLandManager()
+            
+            if (representativeChunk != null && landManager != null) {
+                if (landManager.isMember(representativeChunk, player)) {
+                    return // 마을 멤버로 등록되어 있음
+                }
             }
         }
         
