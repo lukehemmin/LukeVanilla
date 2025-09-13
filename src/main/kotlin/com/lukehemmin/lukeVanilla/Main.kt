@@ -631,12 +631,14 @@ class Main : JavaPlugin() {
                     
                     // AdvancedLandClaiming과 LandCommand 통합
                     advancedLandSystem?.let { advancedLand ->
-                        val advancedLandManager = advancedLand.getAdvancedLandManager()
-                        if (advancedLandManager != null) {
-                            privateLand.setAdvancedLandManager(advancedLandManager)
-                            logger.info("[AdvancedLandClaiming] LandCommand와 통합 완료")
+                        val landCommand = privateLand.getLandCommand()
+                        val landManager = privateLand.getLandManager()
+                        if (landCommand != null && landManager != null) {
+                            // AdvancedLandSystem의 통합 메서드 호출 (VillageSettingsGUI 포함)
+                            advancedLand.integrateWithLandCommand(landCommand, landManager)
+                            logger.info("[AdvancedLandClaiming] LandCommand와 완전 통합 완료 (VillageSettingsGUI 포함)")
                         } else {
-                            logger.warning("[AdvancedLandClaiming] AdvancedLandManager가 null입니다. 통합을 건너뜁니다.")
+                            logger.warning("[AdvancedLandClaiming] LandCommand 또는 LandManager가 null입니다. 통합을 건너뜁니다.")
                         }
                     }
                     

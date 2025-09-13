@@ -5,6 +5,8 @@ import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.*
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
 import com.lukehemmin.lukeVanilla.System.PlayTime.PlayTimeManager
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Chunk
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -248,11 +250,17 @@ class AdvancedLandManager(
             return ClaimResult(false, "본인의 청크만 포기할 수 있습니다.")
         }
         
+        // 환불 아이템 계산 (데이터베이스 제거 전에 미리 계산)
+        val refundItems = calculateRefundItems(claimInfo.claimCost)
+        
         // 데이터베이스에서 제거
         if (landData.removeClaim(worldName, chunk.x, chunk.z, player.uniqueId, player.name, "자발적 포기")) {
             // 캐시에서 제거
             claimedChunks[worldName]?.remove(chunkCoord)
             playerClaims[player.uniqueId]?.removeAll { it.chunkX == chunk.x && it.chunkZ == chunk.z && it.worldName == worldName }
+            
+            // 환불 지급 (50% 환불)
+            giveRefundItemsSafely(player, refundItems)
             
             debugManager.log("AdvancedLandClaiming", "[UNCLAIM] ${player.name}: 청크 (${chunk.x}, ${chunk.z}) 포기")
             return ClaimResult(true, "청크 클레이밍을 성공적으로 포기했습니다.")
@@ -670,16 +678,12 @@ class AdvancedLandManager(
         val worldName = chunk.world.name
         val targetCoord = ChunkCoordinate(chunk.x, chunk.z, worldName)
         
-        // 주변 8개 청크 확인 (상하좌우 + 대각선)
+        // 주변 4개 청크만 확인 (상하좌우, 대각선 제외)
         val directions = listOf(
             Pair(0, 1),   // 북쪽
             Pair(0, -1),  // 남쪽
             Pair(1, 0),   // 동쪽
-            Pair(-1, 0),  // 서쪽
-            Pair(1, 1),   // 북동쪽
-            Pair(1, -1),  // 남동쪽
-            Pair(-1, 1),  // 북서쪽
-            Pair(-1, -1)  // 남서쪽
+            Pair(-1, 0)   // 서쪽
         )
         
         for ((dx, dz) in directions) {
@@ -788,6 +792,453 @@ class AdvancedLandManager(
             return ClaimResult(true, "마을 '${villageInfo.villageName}'의 토지가 성공적으로 확장되었습니다! ($costMessage)", claimInfo)
         } else {
             return ClaimResult(false, "데이터베이스 저장 중 오류가 발생했습니다.")
+        }
+    }
+    
+    // ===== 환불 시스템 (새로운 기능 - 기존 코드에 영향 없음) =====
+    
+    /**
+     * 50% 환불 계산 (새로운 기능)
+     * 기존 시스템에 영향을 주지 않는 독립적인 메서드
+     */
+    fun calculateRefundItems(claimCost: ClaimCost?): List<ItemStack> {
+        if (claimCost == null || claimCost.resourceType == ClaimResourceType.FREE) {
+            return emptyList()
+        }
+        
+        val refundAmount = (claimCost.amount * 0.5).toInt()
+        if (refundAmount <= 0) return emptyList()
+        
+        val material = when (claimCost.resourceType) {
+            ClaimResourceType.IRON_INGOT -> Material.IRON_INGOT
+            ClaimResourceType.DIAMOND -> Material.DIAMOND
+            ClaimResourceType.NETHERITE_INGOT -> Material.NETHERITE_INGOT
+            ClaimResourceType.FREE -> return emptyList()
+        }
+        
+        return listOf(ItemStack(material, refundAmount))
+    }
+    
+    /**
+     * 환불 아이템 안전 지급 (새로운 기능)
+     * 인벤토리 부족 시 드롭 + 알림
+     */
+    fun giveRefundItemsSafely(player: Player, refundItems: List<ItemStack>) {
+        if (refundItems.isEmpty()) return
+        
+        val failedItems = player.inventory.addItem(*refundItems.toTypedArray())
+        
+        if (failedItems.isNotEmpty()) {
+            // 플레이어 바로 아래에 드롭
+            failedItems.values.forEach { item ->
+                player.world.dropItemNaturally(player.location, item)
+            }
+            
+            // 드롭 알림
+            player.sendMessage(Component.text(
+                "인벤토리 공간이 부족하여 환불 아이템이 드롭되었습니다.", 
+                NamedTextColor.YELLOW
+            ))
+        }
+        
+        // 환불 완료 메시지
+        val totalAmount = refundItems.sumOf { it.amount }
+        val itemName = when (refundItems.firstOrNull()?.type) {
+            Material.IRON_INGOT -> "철괴"
+            Material.DIAMOND -> "다이아몬드"
+            Material.NETHERITE_INGOT -> "네더라이트 주괴"
+            else -> "아이템"
+        }
+        
+        player.sendMessage(Component.text(
+            "${itemName} ${totalAmount}개가 50% 환불되었습니다.", 
+            NamedTextColor.GREEN
+        ))
+    }
+    
+    /**
+     * LandData 접근 메서드 (권한 시스템용 - 새로운 기능)
+     */
+    fun getLandData(): AdvancedLandData {
+        return landData
+    }
+    
+    // ===== 마을 해체 및 이장 양도 시스템 =====
+    
+    /**
+     * 마을을 해체하고 모든 마을 토지를 개인 토지로 변환합니다.
+     * @param mayorPlayer 마을장 플레이어
+     * @param villageId 해체할 마을 ID
+     * @return 해체 결과
+     */
+    fun disbandVillage(mayorPlayer: Player, villageId: Int): ClaimResult {
+        try {
+            // 1. 마을 정보 조회
+            val villageInfo = getVillageInfo(villageId)
+            if (villageInfo == null) {
+                return ClaimResult(false, "마을 정보를 찾을 수 없습니다.")
+            }
+            
+            // 2. 마을장 권한 확인
+            if (villageInfo.mayorUuid != mayorPlayer.uniqueId) {
+                return ClaimResult(false, "마을장만 마을을 해체할 수 있습니다.")
+            }
+            
+            // 3. 마을의 모든 청크 조회
+            val villageChunks = claimedChunks.values.flatMap { worldChunks ->
+                worldChunks.filter { (_, claimInfo) -> 
+                    claimInfo.claimType == ClaimType.VILLAGE && claimInfo.villageId == villageId 
+                }.map { (chunkCoord, claimInfo) ->
+                    Triple(claimInfo.worldName, chunkCoord.first, chunkCoord.second)
+                }
+            }
+            
+            debugManager.log("AdvancedLandClaiming", "[DISBAND] 마을 '${villageInfo.villageName}' 해체 시작 - ${villageChunks.size}개 청크")
+            
+            // 4. 각 청크를 개인 토지로 변환
+            villageChunks.forEach { (worldName, chunkX, chunkZ) ->
+                val claimInfo = claimedChunks[worldName]?.get(chunkX to chunkZ)
+                if (claimInfo != null) {
+                    // 청크를 개인 토지로 변환
+                    val personalClaimInfo = claimInfo.copy(
+                        claimType = ClaimType.PERSONAL,
+                        villageId = null,
+                        ownerUuid = villageInfo.mayorUuid,
+                        ownerName = villageInfo.mayorName
+                    )
+                    
+                    // 캐시 업데이트
+                    claimedChunks[worldName]?.set(chunkX to chunkZ, personalClaimInfo)
+                    
+                    // 데이터베이스 업데이트
+                    landData.updateClaimToPersonal(worldName, chunkX, chunkZ, villageInfo.mayorUuid, villageInfo.mayorName)
+                }
+            }
+            
+            // 5. 모든 마을 멤버 제거
+            val members = getVillageMembers(villageId)
+            members.forEach { member ->
+                landData.removeVillageMember(villageId, member.memberUuid)
+            }
+            
+            // 6. 마을 비활성화
+            landData.deactivateVillage(villageId)
+            
+            // 7. 캐시에서 플레이어 클레임 리스트 업데이트
+            playerClaims[villageInfo.mayorUuid]?.clear()
+            claimedChunks.values.forEach { worldChunks ->
+                worldChunks.values.filter { it.ownerUuid == villageInfo.mayorUuid }.forEach { claimInfo ->
+                    playerClaims.computeIfAbsent(villageInfo.mayorUuid) { mutableListOf() }.add(claimInfo)
+                }
+            }
+            
+            debugManager.log("AdvancedLandClaiming", "[DISBAND] 마을 '${villageInfo.villageName}' 해체 완료")
+            
+            // 8. 온라인 멤버들에게 알림
+            members.forEach { member ->
+                val onlinePlayer = org.bukkit.Bukkit.getPlayer(member.memberUuid)
+                if (onlinePlayer != null && member.memberUuid != mayorPlayer.uniqueId) {
+                    onlinePlayer.sendMessage(
+                        Component.text()
+                            .append(Component.text("📢 ", NamedTextColor.RED))
+                            .append(Component.text("마을 '", NamedTextColor.WHITE))
+                            .append(Component.text(villageInfo.villageName, NamedTextColor.YELLOW))
+                            .append(Component.text("'이 해체되었습니다.", NamedTextColor.WHITE))
+                    )
+                }
+            }
+            
+            return ClaimResult(true, "마을 '${villageInfo.villageName}'이 성공적으로 해체되었습니다. 모든 마을 토지가 개인 토지로 변환되었습니다.")
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return ClaimResult(false, "마을 해체 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+    
+    /**
+     * 마을장을 다른 플레이어에게 양도합니다.
+     * @param currentMayor 현재 마을장
+     * @param villageId 마을 ID
+     * @param newMayorUuid 새로운 마을장의 UUID
+     * @param newMayorName 새로운 마을장의 이름
+     * @return 양도 결과
+     */
+    fun transferVillageMayorship(currentMayor: Player, villageId: Int, newMayorUuid: UUID, newMayorName: String): ClaimResult {
+        try {
+            // 1. 마을 정보 조회
+            val villageInfo = getVillageInfo(villageId)
+            if (villageInfo == null) {
+                return ClaimResult(false, "마을 정보를 찾을 수 없습니다.")
+            }
+            
+            // 2. 현재 마을장 권한 확인
+            if (villageInfo.mayorUuid != currentMayor.uniqueId) {
+                return ClaimResult(false, "마을장만 이장을 양도할 수 있습니다.")
+            }
+            
+            // 3. 새로운 마을장이 마을 멤버인지 확인
+            val members = getVillageMembers(villageId)
+            val newMayorMember = members.find { it.memberUuid == newMayorUuid }
+            if (newMayorMember == null) {
+                return ClaimResult(false, "마을 구성원만 이장으로 양도할 수 있습니다.")
+            }
+            
+            // 4. 자기 자신에게 양도하는 경우 확인
+            if (newMayorUuid == currentMayor.uniqueId) {
+                return ClaimResult(false, "자기 자신에게는 이장을 양도할 수 없습니다.")
+            }
+            
+            debugManager.log("AdvancedLandClaiming", "[MAYOR_TRANSFER] 마을 '${villageInfo.villageName}' 이장 양도: ${currentMayor.name} → ${newMayorName}")
+            
+            // 5. 데이터베이스에서 마을장 정보 업데이트
+            if (!landData.updateVillageMayor(villageId, newMayorUuid, newMayorName)) {
+                return ClaimResult(false, "데이터베이스 업데이트 중 오류가 발생했습니다.")
+            }
+            
+            // 6. 새로운 마을장의 역할을 MAYOR로 변경
+            if (!changeVillageMemberRole(villageId, newMayorUuid, VillageRole.MAYOR)) {
+                return ClaimResult(false, "새로운 마을장의 역할 변경 중 오류가 발생했습니다.")
+            }
+            
+            // 7. 기존 마을장을 일반 멤버로 변경
+            if (!changeVillageMemberRole(villageId, currentMayor.uniqueId, VillageRole.MEMBER)) {
+                return ClaimResult(false, "기존 마을장의 역할 변경 중 오류가 발생했습니다.")
+            }
+            
+            // 8. 모든 마을 토지의 소유권을 새로운 마을장으로 변경
+            val villageChunks = claimedChunks.values.flatMap { worldChunks ->
+                worldChunks.filter { (_, claimInfo) -> 
+                    claimInfo.claimType == ClaimType.VILLAGE && claimInfo.villageId == villageId 
+                }.map { (chunkCoord, claimInfo) ->
+                    Triple(claimInfo.worldName, chunkCoord.first, chunkCoord.second)
+                }
+            }
+            
+            villageChunks.forEach { (worldName, chunkX, chunkZ) ->
+                val claimInfo = claimedChunks[worldName]?.get(chunkX to chunkZ)
+                if (claimInfo != null) {
+                    val updatedClaimInfo = claimInfo.copy(
+                        ownerUuid = newMayorUuid,
+                        ownerName = "${villageInfo.villageName} (마을)"
+                    )
+                    claimedChunks[worldName]?.set(chunkX to chunkZ, updatedClaimInfo)
+                    landData.updateClaimOwner(worldName, chunkX, chunkZ, newMayorUuid, "${villageInfo.villageName} (마을)")
+                }
+            }
+            
+            // 9. 플레이어 클레임 캐시 업데이트
+            // 기존 마을장에서 마을 청크들 제거
+            playerClaims[currentMayor.uniqueId]?.removeAll { claim ->
+                claim.claimType == ClaimType.VILLAGE && claim.villageId == villageId
+            }
+            
+            // 새로운 마을장에게 마을 청크들 추가
+            villageChunks.forEach { (worldName, chunkX, chunkZ) ->
+                val claimInfo = claimedChunks[worldName]?.get(chunkX to chunkZ)
+                if (claimInfo != null) {
+                    playerClaims.computeIfAbsent(newMayorUuid) { mutableListOf() }.add(claimInfo)
+                }
+            }
+            
+            debugManager.log("AdvancedLandClaiming", "[MAYOR_TRANSFER] 마을 '${villageInfo.villageName}' 이장 양도 완료")
+            
+            // 10. 마을 멤버들에게 알림
+            members.forEach { member ->
+                val onlinePlayer = org.bukkit.Bukkit.getPlayer(member.memberUuid)
+                if (onlinePlayer != null) {
+                    when (member.memberUuid) {
+                        currentMayor.uniqueId -> {
+                            onlinePlayer.sendMessage(
+                                Component.text()
+                                    .append(Component.text("👑 ", NamedTextColor.GOLD))
+                                    .append(Component.text("마을 '", NamedTextColor.WHITE))
+                                    .append(Component.text(villageInfo.villageName, NamedTextColor.YELLOW))
+                                    .append(Component.text("'의 이장을 ", NamedTextColor.WHITE))
+                                    .append(Component.text(newMayorName, NamedTextColor.AQUA))
+                                    .append(Component.text("님께 양도했습니다.", NamedTextColor.WHITE))
+                            )
+                        }
+                        newMayorUuid -> {
+                            onlinePlayer.sendMessage(
+                                Component.text()
+                                    .append(Component.text("🎉 ", NamedTextColor.GOLD))
+                                    .append(Component.text("마을 '", NamedTextColor.WHITE))
+                                    .append(Component.text(villageInfo.villageName, NamedTextColor.YELLOW))
+                                    .append(Component.text("'의 새로운 이장이 되었습니다!", NamedTextColor.WHITE))
+                            )
+                        }
+                        else -> {
+                            onlinePlayer.sendMessage(
+                                Component.text()
+                                    .append(Component.text("📢 ", NamedTextColor.BLUE))
+                                    .append(Component.text("마을 '", NamedTextColor.WHITE))
+                                    .append(Component.text(villageInfo.villageName, NamedTextColor.YELLOW))
+                                    .append(Component.text("'의 이장이 ", NamedTextColor.WHITE))
+                                    .append(Component.text(newMayorName, NamedTextColor.AQUA))
+                                    .append(Component.text("님으로 변경되었습니다.", NamedTextColor.WHITE))
+                            )
+                        }
+                    }
+                }
+            }
+            
+            return ClaimResult(true, "마을 '${villageInfo.villageName}'의 이장을 ${newMayorName}님께 성공적으로 양도했습니다.")
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return ClaimResult(false, "이장 양도 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+
+    // ===== 마을 권한 관리 시스템 =====
+
+    /**
+     * 마을 구성원에게 권한을 부여합니다.
+     */
+    fun grantMemberPermission(
+        grantedBy: Player,
+        villageId: Int,
+        memberUuid: UUID,
+        permissionType: VillagePermissionType
+    ): ClaimResult {
+        try {
+            // 1. 권한 부여자가 권한 관리 권한이 있는지 확인
+            val grantedByMembership = getPlayerVillageMembership(grantedBy.uniqueId)
+            if (grantedByMembership?.villageId != villageId) {
+                return ClaimResult(false, "이 마을의 구성원이 아닙니다.")
+            }
+
+            val canManagePermissions = when (grantedByMembership.role) {
+                VillageRole.MAYOR -> true
+                VillageRole.DEPUTY_MAYOR -> hasVillagePermission(grantedBy.uniqueId, villageId, VillagePermissionType.MANAGE_PERMISSIONS)
+                VillageRole.MEMBER -> false
+            }
+
+            if (!canManagePermissions) {
+                return ClaimResult(false, "권한을 관리할 수 있는 권한이 없습니다.")
+            }
+
+            // 2. 대상 멤버가 마을 구성원인지 확인
+            val targetMembership = getPlayerVillageMembership(memberUuid)
+            if (targetMembership?.villageId != villageId) {
+                return ClaimResult(false, "대상자가 이 마을의 구성원이 아닙니다.")
+            }
+
+            // 3. 권한 부여
+            val success = landData.grantVillagePermission(villageId, memberUuid, permissionType, grantedBy.uniqueId, grantedBy.name)
+
+            if (success) {
+                val targetPlayer = org.bukkit.Bukkit.getPlayer(memberUuid)
+                if (targetPlayer != null) {
+                    targetPlayer.sendMessage(
+                        Component.text()
+                            .append(Component.text("✅ ", NamedTextColor.GREEN))
+                            .append(Component.text("마을에서 새로운 권한이 부여되었습니다: ", NamedTextColor.WHITE))
+                            .append(Component.text(getPermissionDisplayName(permissionType), NamedTextColor.YELLOW))
+                    )
+                }
+
+                return ClaimResult(true, "${targetMembership.memberName}님에게 '${getPermissionDisplayName(permissionType)}' 권한을 부여했습니다.")
+            } else {
+                return ClaimResult(false, "권한 부여 중 오류가 발생했습니다.")
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return ClaimResult(false, "권한 부여 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+
+    /**
+     * 마을 구성원의 권한을 해제합니다.
+     */
+    fun revokeMemberPermission(
+        revokedBy: Player,
+        villageId: Int,
+        memberUuid: UUID,
+        permissionType: VillagePermissionType
+    ): ClaimResult {
+        try {
+            // 1. 권한 해제자가 권한 관리 권한이 있는지 확인
+            val revokedByMembership = getPlayerVillageMembership(revokedBy.uniqueId)
+            if (revokedByMembership?.villageId != villageId) {
+                return ClaimResult(false, "이 마을의 구성원이 아닙니다.")
+            }
+
+            val canManagePermissions = when (revokedByMembership.role) {
+                VillageRole.MAYOR -> true
+                VillageRole.DEPUTY_MAYOR -> hasVillagePermission(revokedBy.uniqueId, villageId, VillagePermissionType.MANAGE_PERMISSIONS)
+                VillageRole.MEMBER -> false
+            }
+
+            if (!canManagePermissions) {
+                return ClaimResult(false, "권한을 관리할 수 있는 권한이 없습니다.")
+            }
+
+            // 2. 대상 멤버가 마을 구성원인지 확인
+            val targetMembership = getPlayerVillageMembership(memberUuid)
+            if (targetMembership?.villageId != villageId) {
+                return ClaimResult(false, "대상자가 이 마을의 구성원이 아닙니다.")
+            }
+
+            // 3. 권한 해제
+            val success = landData.revokeVillagePermission(villageId, memberUuid, permissionType)
+
+            if (success) {
+                val targetPlayer = org.bukkit.Bukkit.getPlayer(memberUuid)
+                if (targetPlayer != null) {
+                    targetPlayer.sendMessage(
+                        Component.text()
+                            .append(Component.text("❌ ", NamedTextColor.RED))
+                            .append(Component.text("마을에서 권한이 해제되었습니다: ", NamedTextColor.WHITE))
+                            .append(Component.text(getPermissionDisplayName(permissionType), NamedTextColor.YELLOW))
+                    )
+                }
+
+                return ClaimResult(true, "${targetMembership.memberName}님의 '${getPermissionDisplayName(permissionType)}' 권한을 해제했습니다.")
+            } else {
+                return ClaimResult(false, "권한 해제 중 오류가 발생했습니다.")
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return ClaimResult(false, "권한 해제 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+
+    /**
+     * 마을 구성원의 권한 목록을 가져옵니다.
+     */
+    fun getMemberPermissions(villageId: Int, memberUuid: UUID): Set<VillagePermissionType> {
+        return landData.getMemberPermissions(villageId, memberUuid)
+    }
+
+    /**
+     * 마을의 모든 구성원 권한을 가져옵니다.
+     */
+    fun getAllMemberPermissions(villageId: Int): Map<UUID, Set<VillagePermissionType>> {
+        return landData.getAllMemberPermissions(villageId)
+    }
+
+    /**
+     * 권한의 표시명을 반환합니다.
+     */
+    fun getPermissionDisplayName(permission: VillagePermissionType): String {
+        return when (permission) {
+            VillagePermissionType.INVITE_MEMBERS -> "멤버 초대"
+            VillagePermissionType.KICK_MEMBERS -> "멤버 추방"
+            VillagePermissionType.MANAGE_ROLES -> "역할 관리"
+            VillagePermissionType.EXPAND_LAND -> "토지 확장"
+            VillagePermissionType.REDUCE_LAND -> "토지 축소"
+            VillagePermissionType.MANAGE_LAND -> "토지 관리"
+            VillagePermissionType.BUILD -> "건설"
+            VillagePermissionType.BREAK_BLOCKS -> "블록 파괴"
+            VillagePermissionType.USE_CONTAINERS -> "컨테이너 사용"
+            VillagePermissionType.USE_REDSTONE -> "레드스톤 사용"
+            VillagePermissionType.MANAGE_PERMISSIONS -> "권한 관리"
+            VillagePermissionType.DISSOLVE_VILLAGE -> "마을 해체"
+            VillagePermissionType.RENAME_VILLAGE -> "마을 이름 변경"
         }
     }
 }

@@ -600,4 +600,233 @@ class AdvancedLandData(private val database: Database) {
             false
         }
     }
+    
+    // ===== 마을 해체 및 이장 양도 관련 메서드들 =====
+    
+    /**
+     * 청크를 개인 토지로 변환합니다.
+     */
+    fun updateClaimToPersonal(worldName: String, chunkX: Int, chunkZ: Int, ownerUuid: UUID, ownerName: String): Boolean {
+        val query = """
+            UPDATE advanced_claimed_chunks 
+            SET claim_type = 'PERSONAL', village_id = NULL, owner_uuid = ?, owner_name = ?
+            WHERE world_name = ? AND chunk_x = ? AND chunk_z = ?
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, ownerUuid.toString())
+                    statement.setString(2, ownerName)
+                    statement.setString(3, worldName)
+                    statement.setInt(4, chunkX)
+                    statement.setInt(5, chunkZ)
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in updateClaimToPersonal: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+    
+    /**
+     * 마을장 정보를 업데이트합니다.
+     */
+    fun updateVillageMayor(villageId: Int, newMayorUuid: UUID, newMayorName: String): Boolean {
+        val query = """
+            UPDATE villages 
+            SET mayor_uuid = ?, mayor_name = ?, last_updated = NOW()
+            WHERE village_id = ? AND is_active = TRUE
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, newMayorUuid.toString())
+                    statement.setString(2, newMayorName)
+                    statement.setInt(3, villageId)
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in updateVillageMayor: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+    
+    /**
+     * 청크의 소유자 정보를 업데이트합니다.
+     */
+    fun updateClaimOwner(worldName: String, chunkX: Int, chunkZ: Int, ownerUuid: UUID, ownerName: String): Boolean {
+        val query = """
+            UPDATE advanced_claimed_chunks 
+            SET owner_uuid = ?, owner_name = ?
+            WHERE world_name = ? AND chunk_x = ? AND chunk_z = ?
+        """.trimIndent()
+        
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, ownerUuid.toString())
+                    statement.setString(2, ownerName)
+                    statement.setString(3, worldName)
+                    statement.setInt(4, chunkX)
+                    statement.setInt(5, chunkZ)
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in updateClaimOwner: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    // ===== 마을 권한 관리 시스템 =====
+
+    /**
+     * 마을 구성원에게 권한을 부여합니다.
+     */
+    fun grantVillagePermission(
+        villageId: Int,
+        memberUuid: UUID,
+        permissionType: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillagePermissionType,
+        grantedByUuid: UUID,
+        grantedByName: String
+    ): Boolean {
+        val query = """
+            INSERT INTO village_permissions
+            (village_id, member_uuid, permission_type, granted_by_uuid, granted_by_name, is_active)
+            VALUES (?, ?, ?, ?, ?, TRUE)
+            ON DUPLICATE KEY UPDATE
+            is_active = TRUE, granted_at = CURRENT_TIMESTAMP, granted_by_uuid = ?, granted_by_name = ?
+        """.trimIndent()
+
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setInt(1, villageId)
+                    statement.setString(2, memberUuid.toString())
+                    statement.setString(3, permissionType.name)
+                    statement.setString(4, grantedByUuid.toString())
+                    statement.setString(5, grantedByName)
+                    statement.setString(6, grantedByUuid.toString())
+                    statement.setString(7, grantedByName)
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in grantVillagePermission: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * 마을 구성원의 권한을 해제합니다.
+     */
+    fun revokeVillagePermission(
+        villageId: Int,
+        memberUuid: UUID,
+        permissionType: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillagePermissionType
+    ): Boolean {
+        val query = """
+            UPDATE village_permissions
+            SET is_active = FALSE
+            WHERE village_id = ? AND member_uuid = ? AND permission_type = ?
+        """.trimIndent()
+
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setInt(1, villageId)
+                    statement.setString(2, memberUuid.toString())
+                    statement.setString(3, permissionType.name)
+                    statement.executeUpdate() > 0
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in revokeVillagePermission: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * 마을 구성원의 모든 권한 목록을 가져옵니다.
+     */
+    fun getMemberPermissions(villageId: Int, memberUuid: UUID): Set<com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillagePermissionType> {
+        val query = """
+            SELECT permission_type
+            FROM village_permissions
+            WHERE village_id = ? AND member_uuid = ? AND is_active = TRUE
+        """.trimIndent()
+
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setInt(1, villageId)
+                    statement.setString(2, memberUuid.toString())
+                    statement.executeQuery().use { resultSet ->
+                        val permissions = mutableSetOf<com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillagePermissionType>()
+                        while (resultSet.next()) {
+                            try {
+                                val permissionType = com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillagePermissionType.valueOf(resultSet.getString("permission_type"))
+                                permissions.add(permissionType)
+                            } catch (e: IllegalArgumentException) {
+                                // 잘못된 권한 타입은 무시
+                                System.err.println("[AdvancedLandData] Invalid permission type: ${resultSet.getString("permission_type")}")
+                            }
+                        }
+                        permissions
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in getMemberPermissions: ${e.message}")
+            e.printStackTrace()
+            emptySet()
+        }
+    }
+
+    /**
+     * 마을의 모든 구성원과 그들의 권한 목록을 가져옵니다.
+     */
+    fun getAllMemberPermissions(villageId: Int): Map<UUID, Set<com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillagePermissionType>> {
+        val query = """
+            SELECT member_uuid, permission_type
+            FROM village_permissions
+            WHERE village_id = ? AND is_active = TRUE
+        """.trimIndent()
+
+        return try {
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setInt(1, villageId)
+                    statement.executeQuery().use { resultSet ->
+                        val memberPermissions = mutableMapOf<UUID, MutableSet<com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillagePermissionType>>()
+                        while (resultSet.next()) {
+                            try {
+                                val memberUuid = UUID.fromString(resultSet.getString("member_uuid"))
+                                val permissionType = com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillagePermissionType.valueOf(resultSet.getString("permission_type"))
+
+                                memberPermissions.computeIfAbsent(memberUuid) { mutableSetOf() }.add(permissionType)
+                            } catch (e: Exception) {
+                                // 잘못된 UUID나 권한 타입은 무시
+                                System.err.println("[AdvancedLandData] Invalid member or permission: ${e.message}")
+                            }
+                        }
+                        memberPermissions
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("[AdvancedLandData] ERROR in getAllMemberPermissions: ${e.message}")
+            e.printStackTrace()
+            emptyMap()
+        }
+    }
 }

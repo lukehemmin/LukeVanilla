@@ -5,6 +5,7 @@ import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import com.lukehemmin.lukeVanilla.System.Utils.CoordinateDisplayUtils
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
@@ -82,7 +83,9 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 "반환" -> handleAdvancedReturn(sender)
                 "목록" -> handleAdvancedList(sender)
                 "비용" -> handleAdvancedCost(sender)
-                "현황" -> handleAdvancedSummary(sender)
+                "환불정보" -> handleRefundInfo(sender)
+                "환불내역" -> handleRefundHistory(sender)
+                "상태" -> handleAdvancedSummary(sender)
                 
                 // 마을 관련 명령어들
                 "마을생성" -> handleVillageCreate(sender, args)
@@ -93,6 +96,8 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 "마을반환" -> handleVillageReturn(sender)
                 "마을설정" -> handleVillageSettings(sender)
                 "마을클레임" -> handleVillageClaim(sender, args)
+                "마을해체확정" -> handleVillageDisbandConfirm(sender)
+                "이장양도" -> handleMayorTransfer(sender, args)
                 
                 else -> sendUsage(sender)
             }
@@ -158,8 +163,8 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         sender.sendMessage(
             Component.text("/땅 반환", NamedTextColor.GREEN)
                 .clickEvent(ClickEvent.suggestCommand("/땅 반환"))
-                .hoverEvent(HoverEvent.showText(Component.text("현재 청크의 클레이밍을 반환합니다.")))
-                .append(Component.text(" - 현재 청크의 클레이밍을 반환합니다.", NamedTextColor.GRAY))
+                .hoverEvent(HoverEvent.showText(Component.text("현재 청크의 클레이밍을 반환합니다. (고급 토지는 50% 환불)")))
+                .append(Component.text(" - 현재 청크의 클레이밍을 반환합니다. (고급 토지는 50% 환불)", NamedTextColor.GRAY))
         )
         sender.sendMessage(
             Component.text("/땅 목록", NamedTextColor.GREEN)
@@ -174,10 +179,10 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 .append(Component.text(" - 토지 클레이밍 비용을 확인합니다.", NamedTextColor.GRAY))
         )
         sender.sendMessage(
-            Component.text("/땅 요약", NamedTextColor.GREEN)
-                .clickEvent(ClickEvent.suggestCommand("/땅 요약"))
-                .hoverEvent(HoverEvent.showText(Component.text("내 토지 정보 요약을 봅니다.")))
-                .append(Component.text(" - 내 토지 정보 요약을 봅니다.", NamedTextColor.GRAY))
+            Component.text("/땅 상태", NamedTextColor.GREEN)
+                .clickEvent(ClickEvent.suggestCommand("/땅 상태"))
+                .hoverEvent(HoverEvent.showText(Component.text("내 토지 정보 상태를 봅니다.")))
+                .append(Component.text(" - 내 토지 정보 상태를 봅니다.", NamedTextColor.GRAY))
         )
         
         // 마을 시스템 명령어들 (추후 구현)
@@ -421,8 +426,7 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 .append(Component.text(ownerName, NamedTextColor.AQUA))
                 .append(Component.newline())
                 .append(Component.text("   위치: ", NamedTextColor.GRAY))
-                .append(Component.text("$worldName ", NamedTextColor.WHITE))
-                .append(Component.text("(${chunk.x}, ${chunk.z})", NamedTextColor.WHITE))
+                .append(CoordinateDisplayUtils.formatClickableCoordinates(chunk, includeWorld = true))
                 .append(Component.newline())
                 .append(Component.text("   소유 시작일: ", NamedTextColor.GRAY))
                 .append(Component.text(claimedDate, NamedTextColor.WHITE))
@@ -508,7 +512,9 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
 
         val header = Component.text()
             .append(Component.text("---", NamedTextColor.GOLD))
-            .append(Component.text(" 청크(${chunk.x}, ${chunk.z}) 소유권 기록 ", NamedTextColor.WHITE))
+            .append(Component.text(" 📜 ", NamedTextColor.YELLOW))
+            .append(CoordinateDisplayUtils.formatCompactCoordinates(chunk))
+            .append(Component.text(" 소유권 기록 ", NamedTextColor.WHITE))
             .append(Component.text("($currentPage/$maxPage) ", NamedTextColor.GRAY))
             .append(Component.text("---", NamedTextColor.GOLD))
         player.sendMessage(header)
@@ -582,8 +588,7 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             .append(Component.text(ownerName, NamedTextColor.AQUA))
             .append(Component.newline())
             .append(Component.text("   위치: ", NamedTextColor.GRAY))
-            .append(Component.text("$worldName ", NamedTextColor.WHITE))
-            .append(Component.text("(${chunk.x}, ${chunk.z})", NamedTextColor.WHITE))
+            .append(CoordinateDisplayUtils.formatClickableCoordinates(chunk, includeWorld = true))
             .append(Component.newline())
             .append(Component.text("   유형: ", NamedTextColor.GRAY))
             .append(Component.text(claimTypeText, NamedTextColor.GREEN))
@@ -626,45 +631,116 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
     }
     
     /**
-     * 토지 반환 처리 (확장 가능한 환불 시스템 포함)
+     * 토지 반환 처리 - MyLand 및 AdvancedLandClaiming 통합 지원
+     * AdvancedLandClaiming: 50% 환불 시스템
+     * MyLand: 기본 반환 (비용 없는 시스템)
      */
     private fun handleAdvancedReturn(player: Player) {
+        val chunk = player.location.chunk
+        val worldName = chunk.world.name
+        val chunkX = chunk.x
+        val chunkZ = chunk.z
+        
+        // 1. AdvancedLandClaiming 청크 확인 및 처리
         val advancedManager = advancedLandManager
-        if (advancedManager == null) {
-            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+        if (advancedManager != null) {
+            val advancedClaimInfo = advancedManager.getClaimOwner(worldName, chunkX, chunkZ)
+            if (advancedClaimInfo != null) {
+                // AdvancedLandClaiming 시스템으로 처리 (50% 환불 포함)
+                val result = advancedManager.unclaimChunk(player, chunk)
+                if (result.success) {
+                    player.sendMessage(Component.text(result.message, NamedTextColor.GREEN))
+                } else {
+                    player.sendMessage(Component.text(result.message, NamedTextColor.RED))
+                }
+                return
+            }
+        }
+        
+        // 2. MyLand 청크 확인 및 처리
+        val mylandOwner = landManager.getOwnerOfChunk(chunk)
+        if (mylandOwner != null) {
+            // 소유자 확인
+            if (mylandOwner != player.uniqueId && !player.hasPermission("myland.admin.unclaim")) {
+                player.sendMessage(Component.text("본인의 토지만 반환할 수 있습니다.", NamedTextColor.RED))
+                return
+            }
+            
+            // MyLand 반환 처리
+            val result = landManager.unclaimChunk(chunk, player, "자발적 반환")
+            when (result) {
+                com.lukehemmin.lukeVanilla.System.MyLand.UnclaimResult.SUCCESS -> {
+                    player.sendMessage(
+                        Component.text()
+                            .append(Component.text("청크 ", NamedTextColor.GREEN))
+                            .append(Component.text("($chunkX, $chunkZ)", NamedTextColor.YELLOW))
+                            .append(Component.text("을 성공적으로 반환했습니다.", NamedTextColor.GREEN))
+                    )
+                }
+                com.lukehemmin.lukeVanilla.System.MyLand.UnclaimResult.NOT_CLAIMED -> {
+                    player.sendMessage(Component.text("이 청크는 클레이밍되지 않았습니다.", NamedTextColor.RED))
+                }
+                com.lukehemmin.lukeVanilla.System.MyLand.UnclaimResult.NO_PERMISSION -> {
+                    player.sendMessage(Component.text("이 청크를 반환할 권한이 없습니다.", NamedTextColor.RED))
+                }
+            }
             return
         }
         
-        val chunk = player.location.chunk
-        
-        // TODO: 환불 시스템 - 향후 확장 가능한 구조
-        // 1. 반환할 토지의 클레이밍 비용 정보 조회
-        // 2. 환불 정책에 따른 환불 아이템 계산 (예: 50% 환불, 특정 자원만 환불 등)
-        // 3. 환불 아이템을 플레이어 인벤토리에 지급
-        // 예시 구조:
-        // val refundItems = calculateRefund(claimInfo)
-        // if (refundItems.isNotEmpty()) {
-        //     giveRefundItems(player, refundItems)
-        //     player.sendMessage("환불 아이템: ${refundItems.joinToString()}")
-        // }
-        
-        val result = advancedManager.unclaimChunk(player, chunk)
-        
-        if (result.success) {
-            player.sendMessage(Component.text(result.message, NamedTextColor.GREEN))
-            
-            // TODO: 환불 완료 메시지 (향후 구현)
-            // if (refundItems.isNotEmpty()) {
-            //     player.sendMessage(Component.text("환불된 아이템이 인벤토리에 지급되었습니다.", NamedTextColor.YELLOW))
-            // }
-        } else {
-            player.sendMessage(Component.text(result.message, NamedTextColor.RED))
-        }
+        // 3. 클레이밍되지 않은 청크
+        player.sendMessage(Component.text("이 청크는 클레이밍되지 않았습니다.", NamedTextColor.RED))
     }
     
-    // TODO: 향후 환불 시스템을 위한 확장 메서드들
-    // private fun calculateRefund(claimInfo: AdvancedClaimInfo): List<ItemStack> { ... }
-    // private fun giveRefundItems(player: Player, items: List<ItemStack>) { ... }
+    // ===== 환불 시스템 확장 =====
+
+    /**
+     * 개별 청크 환불 계산 (고급 토지 시스템용)
+     */
+    private fun calculateRefund(claimInfo: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.AdvancedClaimInfo): List<org.bukkit.inventory.ItemStack> {
+        val advancedManager = advancedLandManager ?: return emptyList()
+        return advancedManager.calculateRefundItems(claimInfo.claimCost)
+    }
+
+    /**
+     * 환불 아이템 지급
+     */
+    private fun giveRefundItems(player: Player, items: List<org.bukkit.inventory.ItemStack>) {
+        val advancedManager = advancedLandManager ?: return
+        advancedManager.giveRefundItemsSafely(player, items)
+    }
+
+    /**
+     * 환불 정책 열거형
+     */
+    enum class RefundPolicy(
+        val displayName: String,
+        val refundRate: Double,
+        val description: String
+    ) {
+        FULL("100% 환불", 1.0, "처음 24시간 내 반환 시"),
+        HALF("50% 환불", 0.5, "일반적인 경우"),
+        QUARTER("25% 환불", 0.25, "장기간 사용 후 반환"),
+        NONE("환불 없음", 0.0, "특수 상황 또는 무료 토지")
+    }
+
+    /**
+     * 환불 정책 결정
+     */
+    private fun determineRefundPolicy(
+        claimInfo: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.AdvancedClaimInfo,
+        currentTime: Long
+    ): RefundPolicy {
+        val claimDuration = currentTime - claimInfo.claimedAt
+        val oneDayInMillis = 24 * 60 * 60 * 1000L
+        val oneWeekInMillis = 7 * oneDayInMillis
+
+        return when {
+            claimInfo.claimCost?.resourceType == com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimResourceType.FREE -> RefundPolicy.NONE
+            claimDuration < oneDayInMillis -> RefundPolicy.FULL
+            claimDuration < oneWeekInMillis -> RefundPolicy.HALF
+            else -> RefundPolicy.QUARTER
+        }
+    }
     
     private fun handleAdvancedList(player: Player) {
         val advancedManager = advancedLandManager
@@ -698,24 +774,27 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                     { it.worldName }.thenBy { it.x }.thenBy { it.z }
             )
             
-            player.sendMessage(
-                Component.text()
-                    .append(Component.text("📍 그룹 ${groupIndex + 1} ", NamedTextColor.AQUA))
-                    .append(Component.text("(${group.size}개 청크)", NamedTextColor.GRAY))
-            )
-            
-            chunks.forEach { chunk ->
-                val worldCoordX = chunk.x * 16
-                val worldCoordZ = chunk.z * 16
-                
+            // 청크 리스트를 실제 Chunk 객체로 변환
+            val actualChunks = chunks.mapNotNull { chunkData ->
+                player.server.getWorld(chunkData.worldName)?.getChunkAt(chunkData.x, chunkData.z)
+            }
+
+            if (actualChunks.isNotEmpty()) {
                 player.sendMessage(
                     Component.text()
-                        .append(Component.text("  📋 ", NamedTextColor.YELLOW))
-                        .append(Component.text("${chunk.worldName} ", NamedTextColor.WHITE))
-                        .append(Component.text("[청크: ${chunk.x}, ${chunk.z}] ", NamedTextColor.GRAY))
-                        .append(Component.text("[좌표: ${worldCoordX}, ${worldCoordZ}]", NamedTextColor.GREEN))
+                        .append(Component.text("📍 그룹 ${groupIndex + 1} ", NamedTextColor.AQUA))
+                        .append(Component.newline())
+                        .append(CoordinateDisplayUtils.formatAreaCoordinates(actualChunks))
+                )
+            } else {
+                player.sendMessage(
+                    Component.text()
+                        .append(Component.text("📍 그룹 ${groupIndex + 1} ", NamedTextColor.AQUA))
+                        .append(Component.text("(${group.size}개 청크 - 월드 로드 실패)", NamedTextColor.RED))
                 )
             }
+
+            // 상세 청크 목록은 영역 표시로 대체됨
             
             if (groupIndex < connectedGroups.size - 1) {
                 player.sendMessage(Component.text(""))
@@ -724,6 +803,8 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
     }
     
     private fun handleAdvancedCost(player: Player) {
+        val advancedManager = advancedLandManager
+        
         player.sendMessage(
             Component.text()
                 .append(Component.text("--- ", NamedTextColor.GOLD))
@@ -731,6 +812,26 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 .append(Component.text(" ---", NamedTextColor.GOLD))
         )
         
+        // AdvancedLand가 활성화된 경우 개인별 정보 표시
+        if (advancedManager != null) {
+            val isVeteran = advancedManager.isVeteranPlayer(player.uniqueId)
+            val currentClaims = advancedManager.getPlayerClaimCount(player.uniqueId)
+            
+            player.sendMessage(Component.text("=== 개인 정보 ===", NamedTextColor.YELLOW))
+            player.sendMessage(Component.text("현재 클레이밍: ${currentClaims}개", NamedTextColor.WHITE))
+            
+            if (!isVeteran) {
+                val maxClaims = 9  // NEWBIE_MAX_CLAIMS
+                player.sendMessage(Component.text("최대 클레이밍: ${maxClaims}개 (신규 플레이어)", NamedTextColor.GRAY))
+            } else {
+                player.sendMessage(Component.text("최대 클레이밍: 무제한 (베테랑 플레이어)", NamedTextColor.GREEN))
+            }
+            
+            // 무료 슬롯 정보는 AdvancedLand에서만 확인 가능
+            // MyLand에는 해당 기능이 없으므로 기본 정보만 표시
+        }
+        
+        player.sendMessage(Component.text("=== 비용 정보 ===", NamedTextColor.YELLOW))
         player.sendMessage(Component.text("무료 슬롯: 4개 (최초 4개 청크)", NamedTextColor.GREEN))
         player.sendMessage(Component.text("철괴: 64개 (스택 1개)", NamedTextColor.GRAY))
         player.sendMessage(Component.text("다이아몬드: 8개", NamedTextColor.AQUA))
@@ -1485,16 +1586,16 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             return
         }
         
-        // TODO: 환불 시스템 - 향후 확장 가능한 구조
-        // 1. 반환할 마을 토지들의 클레이밍 비용 정보 수집
-        // 2. 환불 정책에 따른 환불 아이템 계산 (예: 마을 토지는 50% 환불 등)
-        // 3. 환불 아이템을 이장에게 지급
-        // 예시 구조:
-        // val refundItems = calculateVillageRefund(connectedChunks, villageInfo)
-        // if (refundItems.isNotEmpty()) {
-        //     giveRefundItems(player, refundItems)
-        //     player.sendMessage("환불 아이템: ${refundItems.joinToString()}")
-        // }
+        // 환불 시스템 처리
+        val chunkSet = connectedChunks.mapNotNull { chunkCoord ->
+            val world = org.bukkit.Bukkit.getWorld(chunkCoord.worldName)
+            world?.getChunkAt(chunkCoord.x, chunkCoord.z)
+        }.toSet()
+
+        val refundResult = calculateVillageRefund(chunkSet, villageInfo)
+
+        // 환불 상세 정보 표시
+        showRefundDetails(player, refundResult, connectedChunks.size)
         
         // 4. ChunkCoordinate를 Chunk로 변환
         val chunkSet = connectedChunks.mapNotNull { chunkCoord ->
@@ -1517,10 +1618,15 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                     .append(Component.text("'의 토지 ${connectedChunks.size}개 청크가 성공적으로 반환되었습니다!", NamedTextColor.WHITE))
             )
             
-            // TODO: 환불 완료 메시지 (향후 구현)
-            // if (refundItems.isNotEmpty()) {
-            //     player.sendMessage(Component.text("환불된 아이템이 인벤토리에 지급되었습니다.", NamedTextColor.YELLOW))
-            // }
+            // 환불 지급 처리
+            if (refundResult.refundItems.isNotEmpty()) {
+                giveRefundItems(player, refundResult.refundItems)
+                player.sendMessage(
+                    Component.text()
+                        .append(Component.text("🎁 ", NamedTextColor.GOLD))
+                        .append(Component.text("환불된 아이템이 인벤토리에 지급되었습니다.", NamedTextColor.YELLOW))
+                )
+            }
         } else {
             player.sendMessage(Component.text(returnResult.message, NamedTextColor.RED))
         }
@@ -1548,8 +1654,125 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         }
     }
     
-    // TODO: 향후 마을 환불 시스템을 위한 확장 메서드들
-    // private fun calculateVillageRefund(chunks: Set<org.bukkit.Chunk>, villageInfo: VillageInfo): List<ItemStack> { ... }
+    // ===== 마을 환불 시스템 =====
+
+    /**
+     * 마을 토지 환불 계산
+     */
+    private fun calculateVillageRefund(
+        chunks: Set<org.bukkit.Chunk>,
+        villageInfo: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.VillageInfo
+    ): VillageRefundResult {
+        val advancedManager = advancedLandManager ?: return VillageRefundResult(emptyList(), RefundPolicy.NONE, emptyMap())
+
+        val refundItems = mutableListOf<org.bukkit.inventory.ItemStack>()
+        val refundDetails = mutableMapOf<RefundPolicy, Int>()
+        val currentTime = System.currentTimeMillis()
+
+        chunks.forEach { chunk ->
+            val claimInfo = advancedManager.getClaimOwner(chunk.world.name, chunk.x, chunk.z)
+            if (claimInfo != null && claimInfo.claimType == com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimType.VILLAGE) {
+                val policy = determineRefundPolicy(claimInfo, currentTime)
+                val originalRefund = advancedManager.calculateRefundItems(claimInfo.claimCost)
+
+                originalRefund.forEach { item ->
+                    val adjustedAmount = (item.amount * policy.refundRate).toInt()
+                    if (adjustedAmount > 0) {
+                        val adjustedItem = item.clone()
+                        adjustedItem.amount = adjustedAmount
+                        refundItems.add(adjustedItem)
+                    }
+                }
+
+                refundDetails[policy] = refundDetails.getOrDefault(policy, 0) + 1
+            }
+        }
+
+        // 동일 아이템 들을 합침
+        val consolidatedItems = consolidateItems(refundItems)
+        val primaryPolicy = refundDetails.maxByOrNull { it.value }?.key ?: RefundPolicy.HALF
+
+        return VillageRefundResult(consolidatedItems, primaryPolicy, refundDetails)
+    }
+
+    /**
+     * 동일한 아이템들을 합침
+     */
+    private fun consolidateItems(items: List<org.bukkit.inventory.ItemStack>): List<org.bukkit.inventory.ItemStack> {
+        val itemMap = mutableMapOf<org.bukkit.Material, Int>()
+
+        items.forEach { item ->
+            itemMap[item.type] = itemMap.getOrDefault(item.type, 0) + item.amount
+        }
+
+        return itemMap.map { (material, amount) ->
+            org.bukkit.inventory.ItemStack(material, amount)
+        }
+    }
+
+    /**
+     * 마을 환불 결과 데이터 클래스
+     */
+    data class VillageRefundResult(
+        val refundItems: List<org.bukkit.inventory.ItemStack>,
+        val primaryPolicy: RefundPolicy,
+        val policyBreakdown: Map<RefundPolicy, Int>
+    )
+
+    /**
+     * 환불 상세 정보 표시
+     */
+    private fun showRefundDetails(player: Player, refundResult: VillageRefundResult, chunkCount: Int) {
+        if (refundResult.refundItems.isEmpty()) {
+            player.sendMessage(
+                Component.text()
+                    .append(Component.text("💰 ", NamedTextColor.YELLOW))
+                    .append(Component.text("환불 아이템이 없습니다. (무료 토지 또는 환불 불가)", NamedTextColor.GRAY))
+            )
+            return
+        }
+
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("💰 ", NamedTextColor.GOLD))
+                .append(Component.text("환불 정보", NamedTextColor.WHITE, TextDecoration.BOLD))
+        )
+
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("   전체 정책: ", NamedTextColor.GRAY))
+                .append(Component.text(refundResult.primaryPolicy.displayName, NamedTextColor.GREEN))
+                .append(Component.text(" (${refundResult.primaryPolicy.description})", NamedTextColor.DARK_GRAY))
+        )
+
+        if (refundResult.policyBreakdown.size > 1) {
+            player.sendMessage(Component.text("   상세 정책 분류:", NamedTextColor.GRAY))
+            refundResult.policyBreakdown.forEach { (policy, count) ->
+                player.sendMessage(
+                    Component.text()
+                        .append(Component.text("     • ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(policy.displayName, NamedTextColor.YELLOW))
+                        .append(Component.text(": ${count}개 청크", NamedTextColor.WHITE))
+                )
+            }
+        }
+
+        player.sendMessage(Component.text("   환불 아이템:", NamedTextColor.GRAY))
+        refundResult.refundItems.forEach { item ->
+            val itemName = when (item.type) {
+                org.bukkit.Material.IRON_INGOT -> "철괴"
+                org.bukkit.Material.DIAMOND -> "다이아몴드"
+                org.bukkit.Material.NETHERITE_INGOT -> "네더라이트 주괴"
+                else -> item.type.name
+            }
+            player.sendMessage(
+                Component.text()
+                    .append(Component.text("     • ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text("${itemName} ", NamedTextColor.AQUA))
+                    .append(Component.text("x${item.amount}", NamedTextColor.WHITE))
+            )
+        }
+    }
     
     /**
      * 마을 권한 관리 기능 - 구성원의 역할 변경
@@ -1923,6 +2146,110 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             player.sendMessage(Component.text(result.message, NamedTextColor.RED))
         }
     }
+    
+    // ===== 마을 해체 및 이장 양도 시스템 =====
+    
+    /**
+     * 마을 해체 확정 처리
+     */
+    private fun handleVillageDisbandConfirm(player: Player) {
+        val advancedManager = advancedLandManager
+        if (advancedManager == null) {
+            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // VillageSettingsGUI에서 해체 확정 대기 상태 확인
+        val villageGUI = villageSettingsGUI
+        if (villageGUI == null) {
+            player.sendMessage(Component.text("마을 설정 GUI가 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // 해체 확정 대기 상태인지 확인 (VillageSettingsGUI의 pendingDisbandVillages 맵 확인)
+        // 임시로 현재 위치 청크의 마을 정보를 통해 해체 진행
+        val chunk = player.location.chunk
+        val worldName = chunk.world.name
+        val claimInfo = advancedManager.getClaimOwner(worldName, chunk.x, chunk.z)
+        
+        if (claimInfo == null) {
+            player.sendMessage(Component.text("이 청크는 클레이밍되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        if (claimInfo.claimType != com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimType.VILLAGE) {
+            player.sendMessage(Component.text("마을 토지에서만 마을 해체가 가능합니다.", NamedTextColor.RED))
+            return
+        }
+        
+        val villageId = claimInfo.villageId
+        if (villageId == null) {
+            player.sendMessage(Component.text("마을 정보를 찾을 수 없습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // 마을 해체 실행
+        val result = advancedManager.disbandVillage(player, villageId)
+        if (result.success) {
+            player.sendMessage(Component.text(result.message, NamedTextColor.GREEN))
+        } else {
+            player.sendMessage(Component.text(result.message, NamedTextColor.RED))
+        }
+    }
+    
+    /**
+     * 이장 양도 처리
+     * 사용법: /땅 이장양도 <플레이어>
+     */
+    private fun handleMayorTransfer(player: Player, args: Array<out String>) {
+        val advancedManager = advancedLandManager
+        if (advancedManager == null) {
+            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        if (args.size < 2) {
+            player.sendMessage(Component.text("사용법: /땅 이장양도 <플레이어>", NamedTextColor.RED))
+            return
+        }
+        
+        val chunk = player.location.chunk
+        val worldName = chunk.world.name
+        val claimInfo = advancedManager.getClaimOwner(worldName, chunk.x, chunk.z)
+        
+        if (claimInfo == null) {
+            player.sendMessage(Component.text("이 청크는 클레이밍되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        if (claimInfo.claimType != com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimType.VILLAGE) {
+            player.sendMessage(Component.text("마을 토지에서만 이장 양도가 가능합니다.", NamedTextColor.RED))
+            return
+        }
+        
+        val villageId = claimInfo.villageId
+        if (villageId == null) {
+            player.sendMessage(Component.text("마을 정보를 찾을 수 없습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // 새로운 이장 대상 플레이어 검증
+        val targetPlayerName = args[1]
+        val targetOfflinePlayer = org.bukkit.Bukkit.getOfflinePlayer(targetPlayerName)
+        
+        if (!targetOfflinePlayer.hasPlayedBefore() && !targetOfflinePlayer.isOnline) {
+            player.sendMessage(Component.text("'$targetPlayerName'은(는) 존재하지 않는 플레이어입니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // 이장 양도 실행
+        val result = advancedManager.transferVillageMayorship(player, villageId, targetOfflinePlayer.uniqueId, targetPlayerName)
+        if (result.success) {
+            player.sendMessage(Component.text(result.message, NamedTextColor.GREEN))
+        } else {
+            player.sendMessage(Component.text(result.message, NamedTextColor.RED))
+        }
+    }
 
     override fun onTabComplete(
         sender: CommandSender,
@@ -1933,13 +2260,13 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         if (args.size == 1) {
             return mutableListOf(
                 "정보", "기록", "친구추가", "친구삭제", "친구목록", // 기존 명령어
-                "클레임", "반환", "목록", "비용", "현황", // 새로운 명령어
-                "마을생성", "마을초대", "마을추방", "마을정보", "마을권한", "마을반환", "마을설정", "마을클레임" // 마을 명령어
+                "클레임", "반환", "목록", "비용", "환불정보", "환불내역", "상태", // 새로운 명령어
+                "마을생성", "마을초대", "마을추방", "마을정보", "마을권한", "마을반환", "마을설정", "마을클레임", "마을해체확정", "이장양도" // 마을 명령어
             ).filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
         }
         if (args.size == 2) {
             when (args[0].lowercase()) {
-                "친구추가", "친구삭제", "마을초대", "마을추방" -> {
+                "친구추가", "친구삭제", "마을초대", "마을추방", "이장양도" -> {
                     return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
                 }
                 "클레임", "마을클레임" -> {
@@ -1948,5 +2275,155 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             }
         }
         return mutableListOf()
+    }
+
+    /**
+     * 환불 정보 조회 - 현재 위치 토지의 예상 환불 정보 표시
+     */
+    private fun handleRefundInfo(player: Player) {
+        val advancedManager = advancedLandManager
+        if (advancedManager == null) {
+            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+
+        val chunk = player.location.chunk
+        val worldName = chunk.world.name
+        val claimInfo = advancedManager.getClaimOwner(worldName, chunk.x, chunk.z)
+
+        if (claimInfo == null) {
+            player.sendMessage(Component.text("이 청크는 클레이밍되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+
+        if (claimInfo.ownerUuid != player.uniqueId && claimInfo.claimType != com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimType.VILLAGE) {
+            player.sendMessage(Component.text("이 청크의 소유자가 아닙니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 현재 정책 결정
+        val currentTime = System.currentTimeMillis()
+        val policy = determineRefundPolicy(claimInfo, currentTime)
+        val refundItems = calculateRefund(claimInfo)
+
+        // 환부 정책 적용
+        val adjustedRefundItems = refundItems.map { item ->
+            val adjustedItem = item.clone()
+            adjustedItem.amount = (item.amount * policy.refundRate).toInt()
+            adjustedItem
+        }.filter { it.amount > 0 }
+
+        // 현재 소유 기간 계산
+        val ownershipDuration = currentTime - claimInfo.claimedAt
+        val days = ownershipDuration / (24 * 60 * 60 * 1000L)
+        val hours = (ownershipDuration % (24 * 60 * 60 * 1000L)) / (60 * 60 * 1000L)
+
+        // 정보 표시
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("💰 ", NamedTextColor.GOLD))
+                .append(Component.text("토지 환불 정보", NamedTextColor.WHITE, TextDecoration.BOLD))
+        )
+
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("   위치: ", NamedTextColor.GRAY))
+                .append(CoordinateDisplayUtils.formatCompactCoordinates(chunk))
+        )
+
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("   소유기간: ", NamedTextColor.GRAY))
+                .append(Component.text("${days}일 ${hours}시간", NamedTextColor.WHITE))
+        )
+
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("   현재 정책: ", NamedTextColor.GRAY))
+                .append(Component.text(policy.displayName, NamedTextColor.GREEN, TextDecoration.BOLD))
+                .append(Component.text(" (${policy.description})", NamedTextColor.DARK_GRAY))
+        )
+
+        if (adjustedRefundItems.isNotEmpty()) {
+            player.sendMessage(Component.text("   예상 환불:", NamedTextColor.GRAY))
+            adjustedRefundItems.forEach { item ->
+                val itemName = when (item.type) {
+                    org.bukkit.Material.IRON_INGOT -> "철괴"
+                    org.bukkit.Material.DIAMOND -> "다이아몬드"
+                    org.bukkit.Material.NETHERITE_INGOT -> "네더라이트 주괴"
+                    else -> item.type.name
+                }
+                player.sendMessage(
+                    Component.text()
+                        .append(Component.text("     • ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("${itemName} ", NamedTextColor.AQUA))
+                        .append(Component.text("x${item.amount}", NamedTextColor.WHITE))
+                )
+            }
+        } else {
+            player.sendMessage(
+                Component.text()
+                    .append(Component.text("   ⚠️ ", NamedTextColor.YELLOW))
+                    .append(Component.text("환불 아이템이 없습니다.", NamedTextColor.GRAY))
+            )
+        }
+
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("💡 ", NamedTextColor.YELLOW))
+                .append(Component.text("팁: '/땅 반환' 명령어로 실제 반환할 수 있습니다.", NamedTextColor.GOLD))
+        )
+    }
+
+    /**
+     * 환불 내역 조회 - 최근 환불 내역 표시
+     */
+    private fun handleRefundHistory(player: Player) {
+        // 최근 환불은 청크 소유권 내역에서 추출
+        val recentReturns = landManager.getClaimHistory(player.location.chunk)
+            .filter {
+                it.previousOwnerUuid == player.uniqueId &&
+                (it.changeReason.contains("자발적 포기") ||
+                it.changeReason.contains("마을 반환"))
+            }
+            .take(10) // 최근 10개
+
+        if (recentReturns.isEmpty()) {
+            player.sendMessage(
+                Component.text()
+                    .append(Component.text("📄 ", NamedTextColor.GRAY))
+                    .append(Component.text("최근 환불 내역이 없습니다.", NamedTextColor.GRAY))
+            )
+            return
+        }
+
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("📄 ", NamedTextColor.GOLD))
+                .append(Component.text("최근 환불 내역", NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(Component.text(" (최근 ${recentReturns.size}건)", NamedTextColor.GRAY))
+        )
+
+        val dateFormat = java.text.SimpleDateFormat("MM-dd HH:mm")
+        recentReturns.forEach { history ->
+            val formattedDate = dateFormat.format(java.util.Date(history.changeTime))
+            val chunk = history.chunkCoordinate
+
+            player.sendMessage(
+                Component.text()
+                    .append(Component.text("  • ", NamedTextColor.YELLOW))
+                    .append(Component.text("$formattedDate ", NamedTextColor.GRAY))
+                    .append(Component.text("청크 (", NamedTextColor.WHITE))
+                    .append(Component.text("${chunk.x}, ${chunk.z}", NamedTextColor.AQUA))
+                    .append(Component.text(")", NamedTextColor.WHITE))
+                    .append(Component.text(" - ${history.changeReason}", NamedTextColor.GRAY))
+            )
+        }
+
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("💡 ", NamedTextColor.YELLOW))
+                .append(Component.text("자세한 내역은 '/땅 기록' 명령어를 사용하세요.", NamedTextColor.GOLD))
+        )
     }
 } 

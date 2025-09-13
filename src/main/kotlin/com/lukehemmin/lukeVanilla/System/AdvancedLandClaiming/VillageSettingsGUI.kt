@@ -27,6 +27,9 @@ class VillageSettingsGUI(
 
     private val openInventories = mutableMapOf<UUID, VillageGUISession>()
     private val inventoryTitle = "마을 설정"
+    
+    // 마을 해체 확정 대기 중인 플레이어들 (플레이어 UUID -> 만료 시간)
+    private val pendingDisbandVillages = mutableMapOf<UUID, Long>()
 
     /**
      * GUI 세션 정보를 담는 데이터 클래스
@@ -34,7 +37,9 @@ class VillageSettingsGUI(
     private data class VillageGUISession(
         val villageId: Int,
         val playerRole: VillageRole,
-        val currentPage: GUIPage = GUIPage.MAIN
+        val currentPage: GUIPage = GUIPage.MAIN,
+        val selectedMember: VillageMember? = null,
+        val permissionsPage: Int = 0  // 권한 페이지 번호 (페이지네이션용)
     )
 
     /**
@@ -43,8 +48,10 @@ class VillageSettingsGUI(
     private enum class GUIPage {
         MAIN,           // 메인 페이지
         MEMBER_MANAGE,  // 멤버 관리
+        MEMBER_DETAIL,  // 개별 멤버 상세 관리
         VILLAGE_INFO,   // 마을 정보
-        PERMISSIONS     // 권한 설정 (향후 확장용)
+        PERMISSIONS,    // 권한 설정
+        MEMBER_PERMISSIONS  // 개별 멤버 권한 설정
     }
 
     /**
@@ -66,8 +73,10 @@ class VillageSettingsGUI(
         when (session.currentPage) {
             GUIPage.MAIN -> renderMainPage(inventory, session)
             GUIPage.MEMBER_MANAGE -> renderMemberManagePage(player, inventory, session)
+            GUIPage.MEMBER_DETAIL -> renderMemberDetailPage(inventory, session)
             GUIPage.VILLAGE_INFO -> renderVillageInfoPage(inventory, session)
             GUIPage.PERMISSIONS -> renderPermissionsPage(inventory, session)
+            GUIPage.MEMBER_PERMISSIONS -> renderMemberPermissionsPage(inventory, session)
         }
     }
 
@@ -153,6 +162,40 @@ class VillageSettingsGUI(
                 }
             }
             inventory.setItem(33, disbandItem)
+
+            // 권한 관리 아이템 (31번 슬롯)
+            val permissionsItem = ItemStack(Material.COMMAND_BLOCK).apply {
+                editMeta { meta ->
+                    meta.displayName(Component.text("🔐 권한 관리", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
+                    val lore = mutableListOf<Component>()
+                    lore.add(Component.text("마을 멤버들의 권한을 관리합니다.", NamedTextColor.GRAY))
+                    lore.add(Component.text(""))
+                    lore.add(Component.text("• 건설/파괴 권한", NamedTextColor.WHITE))
+                    lore.add(Component.text("• 토지 관리 권한", NamedTextColor.WHITE))
+                    lore.add(Component.text("• 멤버 관리 권한", NamedTextColor.WHITE))
+                    lore.add(Component.text(""))
+                    lore.add(Component.text("클릭하여 권한 관리하기", NamedTextColor.YELLOW))
+                    meta.lore(lore)
+                }
+            }
+            inventory.setItem(31, permissionsItem)
+        } else if (session.playerRole == VillageRole.DEPUTY_MAYOR) {
+            // 부마을장도 권한 관리 가능
+            val permissionsItem = ItemStack(Material.COMMAND_BLOCK).apply {
+                editMeta { meta ->
+                    meta.displayName(Component.text("🔐 권한 관리", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
+                    val lore = mutableListOf<Component>()
+                    lore.add(Component.text("마을 멤버들의 권한을 관리합니다.", NamedTextColor.GRAY))
+                    lore.add(Component.text(""))
+                    lore.add(Component.text("• 건설/파괴 권한", NamedTextColor.WHITE))
+                    lore.add(Component.text("• 컨테이너 사용 권한", NamedTextColor.WHITE))
+                    lore.add(Component.text("• 레드스톤 사용 권한", NamedTextColor.WHITE))
+                    lore.add(Component.text(""))
+                    lore.add(Component.text("클릭하여 권한 관리하기", NamedTextColor.YELLOW))
+                    meta.lore(lore)
+                }
+            }
+            inventory.setItem(31, permissionsItem)
         }
 
         // 닫기 버튼 (49번 슬롯)
@@ -287,22 +330,54 @@ class VillageSettingsGUI(
     }
 
     /**
-     * 권한 설정 페이지를 렌더링합니다. (향후 확장용)
+     * 권한 설정 페이지를 렌더링합니다.
      */
     private fun renderPermissionsPage(inventory: Inventory, session: VillageGUISession) {
         clearInventory(inventory)
-        
-        // TODO: 향후 마을 권한 시스템 확장 시 구현
-        val comingSoonItem = ItemStack(Material.CLOCK).apply {
-            editMeta { meta ->
-                meta.displayName(Component.text("🚧 개발 예정", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                val lore = mutableListOf<Component>()
-                lore.add(Component.text("마을 권한 설정 기능은", NamedTextColor.GRAY))
-                lore.add(Component.text("향후 업데이트에서 추가될 예정입니다.", NamedTextColor.GRAY))
-                meta.lore(lore)
+
+        val members = advancedManager.getVillageMembers(session.villageId).filter {
+            it.role != VillageRole.MAYOR // 마을장 제외
+        }
+
+        if (members.isEmpty()) {
+            // 권한을 설정할 멤버가 없는 경우
+            val noMembersItem = ItemStack(Material.BARRIER).apply {
+                editMeta { meta ->
+                    meta.displayName(Component.text("❌ 설정 가능한 멤버 없음", NamedTextColor.RED, TextDecoration.BOLD))
+                    val lore = mutableListOf<Component>()
+                    lore.add(Component.text("권한을 설정할 멤버가 없습니다.", NamedTextColor.GRAY))
+                    lore.add(Component.text("마을장의 권한은 변경할 수 없습니다.", NamedTextColor.GRAY))
+                    meta.lore(lore)
+                }
+            }
+            inventory.setItem(22, noMembersItem)
+        } else {
+            // 타이틀 아이템
+            val titleItem = ItemStack(Material.COMMAND_BLOCK).apply {
+                editMeta { meta ->
+                    meta.displayName(Component.text("🔐 멤버 권한 관리", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
+                    meta.lore(listOf(
+                        Component.text("멤버를 선택하여 권한을 설정하세요", NamedTextColor.GRAY)
+                    ))
+                }
+            }
+            inventory.setItem(4, titleItem)
+
+            // 멤버 목록 표시 (10-34번 슬롯)
+            members.forEachIndexed { index, member ->
+                if (index >= 25) return@forEachIndexed // 최대 25명까지만 표시
+
+                val slot = when {
+                    index < 7 -> 10 + index
+                    index < 14 -> 19 + (index - 7)
+                    index < 21 -> 28 + (index - 14)
+                    else -> 37 + (index - 21)
+                }
+
+                val memberItem = createPermissionMemberItem(member, session.villageId)
+                inventory.setItem(slot, memberItem)
             }
         }
-        inventory.setItem(22, comingSoonItem)
 
         // 뒤로가기 버튼
         val backButton = ItemStack(Material.ARROW).apply {
@@ -314,6 +389,199 @@ class VillageSettingsGUI(
         inventory.setItem(49, backButton)
 
         fillEmptySlots(inventory)
+    }
+
+    /**
+     * 개별 멤버 권한 설정 페이지를 렌더링합니다.
+     */
+    private fun renderMemberPermissionsPage(inventory: Inventory, session: VillageGUISession) {
+        clearInventory(inventory)
+
+        val member = session.selectedMember ?: return
+
+        // 멤버 정보 아이템 (4번 슬롯)
+        val memberInfoItem = ItemStack(Material.PLAYER_HEAD).apply {
+            editMeta { meta ->
+                meta.displayName(Component.text("👤 ${member.memberName}의 권한 설정", NamedTextColor.AQUA, TextDecoration.BOLD))
+                val lore = mutableListOf<Component>()
+                lore.add(Component.text(""))
+                lore.add(Component.text("역할: ${getRoleDisplayName(member.role)}", NamedTextColor.WHITE))
+                lore.add(Component.text(""))
+                lore.add(Component.text("아래 버튼들을 클릭하여", NamedTextColor.GRAY))
+                lore.add(Component.text("권한을 설정/해제하세요", NamedTextColor.GRAY))
+                meta.lore(lore)
+            }
+        }
+        inventory.setItem(4, memberInfoItem)
+
+        // 현재 멤버의 권한 조회
+        val currentPermissions = advancedManager.getMemberPermissions(session.villageId, member.memberUuid)
+
+        // 권한 버튼들 배치
+        val permissionSlots = mapOf(
+            VillagePermissionType.BUILD to 10,
+            VillagePermissionType.BREAK_BLOCKS to 11,
+            VillagePermissionType.USE_CONTAINERS to 12,
+            VillagePermissionType.USE_REDSTONE to 13,
+            VillagePermissionType.INVITE_MEMBERS to 16,
+            VillagePermissionType.KICK_MEMBERS to 19,
+            VillagePermissionType.MANAGE_LAND to 20,
+            VillagePermissionType.EXPAND_LAND to 21,
+            VillagePermissionType.REDUCE_LAND to 22,
+            VillagePermissionType.MANAGE_ROLES to 25,
+            VillagePermissionType.MANAGE_PERMISSIONS to 28,
+            VillagePermissionType.RENAME_VILLAGE to 29
+        )
+
+        permissionSlots.forEach { (permission, slot) ->
+            val hasPermission = currentPermissions.contains(permission)
+            val permissionItem = createPermissionToggleItem(permission, hasPermission, member.role, session.playerRole)
+            inventory.setItem(slot, permissionItem)
+        }
+
+        // 뒤로가기 버튼
+        val backButton = ItemStack(Material.ARROW).apply {
+            editMeta { meta ->
+                meta.displayName(Component.text("⬅ 뒤로가기", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                meta.lore(listOf(Component.text("권한 관리 페이지로 돌아갑니다.", NamedTextColor.GRAY)))
+            }
+        }
+        inventory.setItem(49, backButton)
+
+        fillEmptySlots(inventory)
+    }
+
+    /**
+     * 개별 멤버 상세 관리 페이지를 렌더링합니다.
+     */
+    private fun renderMemberDetailPage(inventory: Inventory, session: VillageGUISession) {
+        clearInventory(inventory)
+
+        val member = session.selectedMember ?: return
+        val isManager = session.playerRole == VillageRole.MAYOR || session.playerRole == VillageRole.DEPUTY_MAYOR
+
+        // 멤버 정보 아이템 (13번 슬롯)
+        val memberItem = ItemStack(Material.PLAYER_HEAD).apply {
+            editMeta { meta ->
+                meta.displayName(Component.text("👤 ${member.memberName}", NamedTextColor.AQUA, TextDecoration.BOLD))
+                val lore = mutableListOf<Component>()
+                lore.add(Component.text(""))
+                lore.add(Component.text("역할: ${getRoleDisplayName(member.role)}", NamedTextColor.WHITE))
+                lore.add(Component.text("가입일: ${java.text.SimpleDateFormat("yyyy-MM-dd").format(java.util.Date(member.joinedAt))}", NamedTextColor.GRAY))
+                lore.add(Component.text("최근 접속: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(java.util.Date(member.lastSeen))}", NamedTextColor.GRAY))
+                val onlineStatus = if (org.bukkit.Bukkit.getPlayer(member.memberUuid) != null) "🟢 온라인" else "🔴 오프라인"
+                lore.add(Component.text("상태: $onlineStatus", NamedTextColor.WHITE))
+                meta.lore(lore)
+            }
+        }
+        inventory.setItem(13, memberItem)
+
+        if (isManager && session.playerRole == VillageRole.MAYOR) {
+            // 마을장만 가능한 관리 옵션들
+
+            // 역할 변경 아이템 (19번 슬롯)
+            val roleItem = when (member.role) {
+                VillageRole.MEMBER -> {
+                    // 일반 멤버를 부이장으로 승진
+                    ItemStack(Material.GOLD_INGOT).apply {
+                        editMeta { meta ->
+                            meta.displayName(Component.text("⬆️ 부이장으로 승진", NamedTextColor.GOLD, TextDecoration.BOLD))
+                            val lore = mutableListOf<Component>()
+                            lore.add(Component.text(""))
+                            lore.add(Component.text("${member.memberName}님을", NamedTextColor.WHITE))
+                            lore.add(Component.text("부이장으로 승진시킵니다.", NamedTextColor.WHITE))
+                            lore.add(Component.text(""))
+                            lore.add(Component.text("클릭하여 승진시키기", NamedTextColor.YELLOW))
+                            meta.lore(lore)
+                        }
+                    }
+                }
+                VillageRole.DEPUTY_MAYOR -> {
+                    // 부이장을 일반 멤버로 강등
+                    ItemStack(Material.IRON_INGOT).apply {
+                        editMeta { meta ->
+                            meta.displayName(Component.text("⬇️ 일반 멤버로 강등", NamedTextColor.GRAY, TextDecoration.BOLD))
+                            val lore = mutableListOf<Component>()
+                            lore.add(Component.text(""))
+                            lore.add(Component.text("${member.memberName}님을", NamedTextColor.WHITE))
+                            lore.add(Component.text("일반 멤버로 강등시킵니다.", NamedTextColor.WHITE))
+                            lore.add(Component.text(""))
+                            lore.add(Component.text("클릭하여 강등시키기", NamedTextColor.YELLOW))
+                            meta.lore(lore)
+                        }
+                    }
+                }
+                VillageRole.MAYOR -> {
+                    // 이장은 변경 불가
+                    ItemStack(Material.BARRIER).apply {
+                        editMeta { meta ->
+                            meta.displayName(Component.text("❌ 변경 불가", NamedTextColor.RED, TextDecoration.BOLD))
+                            val lore = mutableListOf<Component>()
+                            lore.add(Component.text(""))
+                            lore.add(Component.text("마을장의 역할은", NamedTextColor.GRAY))
+                            lore.add(Component.text("변경할 수 없습니다.", NamedTextColor.GRAY))
+                            lore.add(Component.text(""))
+                            lore.add(Component.text("이장 양도 기능을 사용하세요.", NamedTextColor.YELLOW))
+                            meta.lore(lore)
+                        }
+                    }
+                }
+            }
+            inventory.setItem(19, roleItem)
+
+            // 멤버 추방 아이템 (25번 슬롯) - 마을장은 추방 불가
+            if (member.role != VillageRole.MAYOR) {
+                val kickItem = ItemStack(Material.TNT).apply {
+                    editMeta { meta ->
+                        meta.displayName(Component.text("🚫 멤버 추방", NamedTextColor.RED, TextDecoration.BOLD))
+                        val lore = mutableListOf<Component>()
+                        lore.add(Component.text("⚠️ 위험한 작업입니다!", NamedTextColor.RED, TextDecoration.BOLD))
+                        lore.add(Component.text(""))
+                        lore.add(Component.text("${member.memberName}님을", NamedTextColor.WHITE))
+                        lore.add(Component.text("마을에서 추방합니다.", NamedTextColor.WHITE))
+                        lore.add(Component.text(""))
+                        lore.add(Component.text("Shift+클릭으로 추방하기", NamedTextColor.DARK_RED))
+                        meta.lore(lore)
+                    }
+                }
+                inventory.setItem(25, kickItem)
+            }
+        } else {
+            // 관리 권한이 없는 경우 안내 메시지
+            val noPermItem = ItemStack(Material.BARRIER).apply {
+                editMeta { meta ->
+                    meta.displayName(Component.text("❌ 관리 권한 없음", NamedTextColor.RED, TextDecoration.BOLD))
+                    val lore = mutableListOf<Component>()
+                    lore.add(Component.text(""))
+                    lore.add(Component.text("멤버 관리는 마을장만", NamedTextColor.GRAY))
+                    lore.add(Component.text("할 수 있습니다.", NamedTextColor.GRAY))
+                    meta.lore(lore)
+                }
+            }
+            inventory.setItem(22, noPermItem)
+        }
+
+        // 뒤로가기 버튼 (49번 슬롯)
+        val backButton = ItemStack(Material.ARROW).apply {
+            editMeta { meta ->
+                meta.displayName(Component.text("⬅ 뒤로가기", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                meta.lore(listOf(Component.text("멤버 관리 페이지로 돌아갑니다.", NamedTextColor.GRAY)))
+            }
+        }
+        inventory.setItem(49, backButton)
+
+        fillEmptySlots(inventory)
+    }
+
+    /**
+     * 역할 표시명을 반환합니다.
+     */
+    private fun getRoleDisplayName(role: VillageRole): String {
+        return when (role) {
+            VillageRole.MAYOR -> "👑 마을장"
+            VillageRole.DEPUTY_MAYOR -> "🏅 부마을장"
+            VillageRole.MEMBER -> "👤 구성원"
+        }
     }
 
     /**
@@ -333,30 +601,166 @@ class VillageSettingsGUI(
                     VillageRole.DEPUTY_MAYOR -> "🏅 부마을장"
                     VillageRole.MEMBER -> "👤 구성원"
                 }
-                
+
                 val roleColor = when (member.role) {
                     VillageRole.MAYOR -> NamedTextColor.GOLD
                     VillageRole.DEPUTY_MAYOR -> NamedTextColor.YELLOW
                     VillageRole.MEMBER -> NamedTextColor.GREEN
                 }
-                
+
                 meta.displayName(Component.text("${member.memberName}", roleColor, TextDecoration.BOLD))
                 val lore = mutableListOf<Component>()
                 lore.add(Component.text("역할: $roleText", roleColor))
                 lore.add(Component.text("가입일: ${java.text.SimpleDateFormat("yyyy-MM-dd").format(Date(member.joinedAt))}", NamedTextColor.GRAY))
                 lore.add(Component.text("최근 접속: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(Date(member.lastSeen))}", NamedTextColor.GRAY))
                 lore.add(Component.text(""))
-                
+
                 if (canManage && member.role != VillageRole.MAYOR) {
                     lore.add(Component.text("좌클릭: 역할 변경", NamedTextColor.YELLOW))
                     lore.add(Component.text("Shift+우클릭: 추방", NamedTextColor.RED))
                 } else {
                     lore.add(Component.text("클릭하여 정보 보기", NamedTextColor.GRAY))
                 }
-                
+
                 meta.lore(lore)
             }
         }
+    }
+
+    /**
+     * 권한 설정용 멤버 아이템을 생성합니다.
+     */
+    private fun createPermissionMemberItem(member: VillageMember, villageId: Int): ItemStack {
+        val material = when (member.role) {
+            VillageRole.MAYOR -> Material.GOLDEN_HELMET
+            VillageRole.DEPUTY_MAYOR -> Material.IRON_HELMET
+            VillageRole.MEMBER -> Material.LEATHER_HELMET
+        }
+
+        return ItemStack(material).apply {
+            editMeta { meta ->
+                val roleText = when (member.role) {
+                    VillageRole.MAYOR -> "👑 마을장"
+                    VillageRole.DEPUTY_MAYOR -> "🏅 부마을장"
+                    VillageRole.MEMBER -> "👤 구성원"
+                }
+
+                val roleColor = when (member.role) {
+                    VillageRole.MAYOR -> NamedTextColor.GOLD
+                    VillageRole.DEPUTY_MAYOR -> NamedTextColor.YELLOW
+                    VillageRole.MEMBER -> NamedTextColor.GREEN
+                }
+
+                meta.displayName(Component.text("${member.memberName}", roleColor, TextDecoration.BOLD))
+                val lore = mutableListOf<Component>()
+                lore.add(Component.text("역할: $roleText", roleColor))
+                lore.add(Component.text(""))
+
+                // 현재 권한 개수 표시
+                val currentPermissions = advancedManager.getMemberPermissions(villageId, member.memberUuid)
+                lore.add(Component.text("현재 권한: ${currentPermissions.size}개", NamedTextColor.AQUA))
+                lore.add(Component.text(""))
+                lore.add(Component.text("클릭하여 권한 설정하기", NamedTextColor.YELLOW))
+
+                meta.lore(lore)
+            }
+        }
+    }
+
+    /**
+     * 권한 토글 아이템을 생성합니다.
+     */
+    private fun createPermissionToggleItem(
+        permission: VillagePermissionType,
+        hasPermission: Boolean,
+        memberRole: VillageRole,
+        managerRole: VillageRole
+    ): ItemStack {
+        val (name, description, category) = getPermissionInfo(permission)
+        val material = if (hasPermission) Material.LIME_DYE else Material.GRAY_DYE
+        val status = if (hasPermission) "✅ 활성화" else "❌ 비활성화"
+        val statusColor = if (hasPermission) NamedTextColor.GREEN else NamedTextColor.RED
+
+        // 권한 설정 가능 여부 확인
+        val canToggle = canTogglePermission(permission, memberRole, managerRole)
+
+        return ItemStack(material).apply {
+            editMeta { meta ->
+                meta.displayName(Component.text("$name", NamedTextColor.WHITE, TextDecoration.BOLD))
+                val lore = mutableListOf<Component>()
+                lore.add(Component.text(""))
+                lore.add(Component.text("분류: $category", NamedTextColor.GRAY))
+                lore.add(Component.text("설명: $description", NamedTextColor.GRAY))
+                lore.add(Component.text(""))
+                lore.add(Component.text("상태: $status", statusColor, TextDecoration.BOLD))
+                lore.add(Component.text(""))
+
+                if (canToggle) {
+                    if (hasPermission) {
+                        lore.add(Component.text("클릭하여 권한 해제하기", NamedTextColor.RED))
+                    } else {
+                        lore.add(Component.text("클릭하여 권한 부여하기", NamedTextColor.GREEN))
+                    }
+                } else {
+                    lore.add(Component.text("⚠️ 이 권한은 변경할 수 없습니다.", NamedTextColor.YELLOW))
+                    lore.add(Component.text("마을장만 설정 가능하거나", NamedTextColor.GRAY))
+                    lore.add(Component.text("해당 역할에 기본 제공됩니다.", NamedTextColor.GRAY))
+                }
+
+                meta.lore(lore)
+            }
+        }
+    }
+
+    /**
+     * 권한 정보를 반환합니다.
+     */
+    private fun getPermissionInfo(permission: VillagePermissionType): Triple<String, String, String> {
+        return when (permission) {
+            VillagePermissionType.BUILD -> Triple("🔨 건설 허용", "마을 내에서 블록을 설치할 수 있습니다.", "건설")
+            VillagePermissionType.BREAK_BLOCKS -> Triple("⛏️ 블록 파괴", "마을 내에서 블록을 파괴할 수 있습니다.", "건설")
+            VillagePermissionType.USE_CONTAINERS -> Triple("📦 컨테이너 사용", "상자, 화로 등을 사용할 수 있습니다.", "건설")
+            VillagePermissionType.USE_REDSTONE -> Triple("⚡ 레드스톤 사용", "레드스톤 장치를 조작할 수 있습니다.", "건설")
+            VillagePermissionType.INVITE_MEMBERS -> Triple("📨 멤버 초대", "새로운 멤버를 마을에 초대할 수 있습니다.", "멤버 관리")
+            VillagePermissionType.KICK_MEMBERS -> Triple("🚫 멤버 추방", "마을 멤버를 추방할 수 있습니다.", "멤버 관리")
+            VillagePermissionType.MANAGE_ROLES -> Triple("👥 역할 관리", "멤버의 역할을 변경할 수 있습니다.", "멤버 관리")
+            VillagePermissionType.EXPAND_LAND -> Triple("📈 토지 확장", "마을 토지를 확장할 수 있습니다.", "토지 관리")
+            VillagePermissionType.REDUCE_LAND -> Triple("📉 토지 축소", "마을 토지를 축소할 수 있습니다.", "토지 관리")
+            VillagePermissionType.MANAGE_LAND -> Triple("🗺️ 토지 관리", "마을 토지를 종합적으로 관리할 수 있습니다.", "토지 관리")
+            VillagePermissionType.MANAGE_PERMISSIONS -> Triple("🔐 권한 관리", "다른 멤버의 권한을 설정할 수 있습니다.", "마을 관리")
+            VillagePermissionType.RENAME_VILLAGE -> Triple("✏️ 마을 이름 변경", "마을의 이름을 변경할 수 있습니다.", "마을 관리")
+            VillagePermissionType.DISSOLVE_VILLAGE -> Triple("💥 마을 해체", "마을을 해체할 수 있습니다.", "마을 관리")
+        }
+    }
+
+    /**
+     * 특정 권한을 토글할 수 있는지 확인합니다.
+     */
+    private fun canTogglePermission(
+        permission: VillagePermissionType,
+        memberRole: VillageRole,
+        managerRole: VillageRole
+    ): Boolean {
+        // 마을장은 모든 권한을 설정할 수 있음
+        if (managerRole == VillageRole.MAYOR) {
+            return true
+        }
+
+        // 부마을장이 설정할 수 없는 권한들
+        if (managerRole == VillageRole.DEPUTY_MAYOR) {
+            val restrictedPermissions = setOf(
+                VillagePermissionType.KICK_MEMBERS,
+                VillagePermissionType.MANAGE_ROLES,
+                VillagePermissionType.EXPAND_LAND,
+                VillagePermissionType.REDUCE_LAND,
+                VillagePermissionType.MANAGE_PERMISSIONS,
+                VillagePermissionType.RENAME_VILLAGE,
+                VillagePermissionType.DISSOLVE_VILLAGE
+            )
+            return !restrictedPermissions.contains(permission)
+        }
+
+        return false
     }
 
     @EventHandler
@@ -371,7 +775,10 @@ class VillageSettingsGUI(
         when (session.currentPage) {
             GUIPage.MAIN -> handleMainPageClick(player, event, session)
             GUIPage.MEMBER_MANAGE -> handleMemberManageClick(player, event, session)
-            GUIPage.VILLAGE_INFO, GUIPage.PERMISSIONS -> handleBackButtonClick(player, event, session)
+            GUIPage.MEMBER_DETAIL -> handleMemberDetailClick(player, event, session)
+            GUIPage.VILLAGE_INFO -> handleBackButtonClick(player, event, session)
+            GUIPage.PERMISSIONS -> handlePermissionsPageClick(player, event, session)
+            GUIPage.MEMBER_PERMISSIONS -> handleMemberPermissionsClick(player, event, session)
         }
     }
 
@@ -397,6 +804,16 @@ class VillageSettingsGUI(
                 val newSession = session.copy(currentPage = GUIPage.VILLAGE_INFO)
                 openInventories[player.uniqueId] = newSession
                 updateGUI(player, event.inventory, newSession)
+            }
+            31 -> {
+                // 권한 관리
+                if (session.playerRole == VillageRole.MAYOR || session.playerRole == VillageRole.DEPUTY_MAYOR) {
+                    val newSession = session.copy(currentPage = GUIPage.PERMISSIONS)
+                    openInventories[player.uniqueId] = newSession
+                    updateGUI(player, event.inventory, newSession)
+                } else {
+                    player.sendMessage(Component.text("권한 관리는 마을장과 부마을장만 사용할 수 있습니다.", NamedTextColor.RED))
+                }
             }
             33 -> {
                 // 마을 해체 (마을장만 가능, Shift+클릭)
@@ -452,23 +869,329 @@ class VillageSettingsGUI(
      * 멤버 클릭 처리
      */
     private fun handleMemberClick(player: Player, event: InventoryClickEvent, session: VillageGUISession) {
-        // TODO: 멤버 관리 기능 구현 (역할 변경, 추방 등)
         val clickedItem = event.currentItem ?: return
-        val memberName = clickedItem.itemMeta?.displayName()?.examinableName() ?: return
-        
-        if (session.playerRole == VillageRole.MAYOR) {
-            player.sendMessage(Component.text("${memberName}의 관리 기능은 향후 업데이트에서 추가될 예정입니다.", NamedTextColor.YELLOW))
+        val displayName = clickedItem.itemMeta?.displayName()
+        val memberName = if (displayName != null) {
+            // Component의 텍스트 내용 추출
+            displayName.examinableName().replace("👤 ", "").replace("👑 ", "").replace("🏅 ", "")
         } else {
-            player.sendMessage(Component.text("${memberName}의 정보를 조회했습니다.", NamedTextColor.GREEN))
+            return
         }
+
+        // 마을 멤버 목록에서 해당 멤버 찾기
+        val members = advancedManager.getVillageMembers(session.villageId)
+        val selectedMember = members.find { it.memberName == memberName } ?: return
+
+        // 멤버 상세 관리 페이지로 이동
+        val newSession = session.copy(currentPage = GUIPage.MEMBER_DETAIL, selectedMember = selectedMember)
+        openInventories[player.uniqueId] = newSession
+        updateGUI(player, event.inventory, newSession)
+    }
+
+    /**
+     * 멤버 상세 관리 페이지 클릭 처리
+     */
+    private fun handleMemberDetailClick(player: Player, event: InventoryClickEvent, session: VillageGUISession) {
+        val member = session.selectedMember ?: return
+
+        when (event.slot) {
+            19 -> {
+                // 역할 변경 (마을장만 가능)
+                if (session.playerRole != VillageRole.MAYOR) {
+                    player.sendMessage(Component.text("마을장만 역할을 변경할 수 있습니다.", NamedTextColor.RED))
+                    return
+                }
+
+                if (member.role == VillageRole.MAYOR) {
+                    player.sendMessage(Component.text("마을장의 역할은 변경할 수 없습니다. 이장 양도 기능을 사용하세요.", NamedTextColor.RED))
+                    return
+                }
+
+                val newRole = when (member.role) {
+                    VillageRole.MEMBER -> VillageRole.DEPUTY_MAYOR
+                    VillageRole.DEPUTY_MAYOR -> VillageRole.MEMBER
+                    VillageRole.MAYOR -> return // 이미 위에서 체크함
+                }
+
+                val result = advancedManager.changeVillageMemberRole(session.villageId, member.memberUuid, newRole)
+                if (result) {
+                    val roleMsg = when (newRole) {
+                        VillageRole.DEPUTY_MAYOR -> "부이장으로 승진"
+                        VillageRole.MEMBER -> "일반 멤버로 강등"
+                        VillageRole.MAYOR -> "이장으로 변경" // 일어나지 않음
+                    }
+
+                    player.sendMessage(
+                        Component.text()
+                            .append(Component.text("✅ ", NamedTextColor.GREEN))
+                            .append(Component.text("${member.memberName}님을 ${roleMsg}시켰습니다.", NamedTextColor.WHITE))
+                    )
+
+                    // 대상 플레이어에게 알림 (온라인인 경우)
+                    val targetPlayer = org.bukkit.Bukkit.getPlayer(member.memberUuid)
+                    if (targetPlayer != null) {
+                        targetPlayer.sendMessage(
+                            Component.text()
+                                .append(Component.text("🎉 ", NamedTextColor.GOLD))
+                                .append(Component.text("마을에서 역할이 변경되었습니다: ", NamedTextColor.WHITE))
+                                .append(Component.text(getRoleDisplayName(newRole), NamedTextColor.YELLOW))
+                        )
+                    }
+
+                    // GUI 새로고침 (업데이트된 멤버 정보로)
+                    val updatedMembers = advancedManager.getVillageMembers(session.villageId)
+                    val updatedMember = updatedMembers.find { it.memberUuid == member.memberUuid }
+                    if (updatedMember != null) {
+                        val updatedSession = session.copy(selectedMember = updatedMember)
+                        openInventories[player.uniqueId] = updatedSession
+                        updateGUI(player, event.inventory, updatedSession)
+                    }
+                } else {
+                    player.sendMessage(Component.text("역할 변경 중 오류가 발생했습니다.", NamedTextColor.RED))
+                }
+            }
+
+            25 -> {
+                // 멤버 추방 (Shift+클릭으로만 가능, 마을장만 가능)
+                if (!event.isShiftClick) {
+                    player.sendMessage(Component.text("추방하려면 Shift+클릭하세요.", NamedTextColor.YELLOW))
+                    return
+                }
+
+                if (session.playerRole != VillageRole.MAYOR) {
+                    player.sendMessage(Component.text("마을장만 멤버를 추방할 수 있습니다.", NamedTextColor.RED))
+                    return
+                }
+
+                if (member.role == VillageRole.MAYOR) {
+                    player.sendMessage(Component.text("마을장은 추방할 수 없습니다.", NamedTextColor.RED))
+                    return
+                }
+
+                val result = advancedManager.kickVillageMember(session.villageId, member.memberUuid)
+                if (result) {
+                    player.sendMessage(
+                        Component.text()
+                            .append(Component.text("🚫 ", NamedTextColor.RED))
+                            .append(Component.text("${member.memberName}님을 마을에서 추방했습니다.", NamedTextColor.WHITE))
+                    )
+
+                    // 추방된 플레이어에게 알림 (온라인인 경우)
+                    val targetPlayer = org.bukkit.Bukkit.getPlayer(member.memberUuid)
+                    if (targetPlayer != null) {
+                        val villageInfo = advancedManager.getVillageInfo(session.villageId)
+                        targetPlayer.sendMessage(
+                            Component.text()
+                                .append(Component.text("📢 ", NamedTextColor.RED))
+                                .append(Component.text("마을 '", NamedTextColor.WHITE))
+                                .append(Component.text(villageInfo?.villageName ?: "알 수 없음", NamedTextColor.YELLOW))
+                                .append(Component.text("'에서 추방되었습니다.", NamedTextColor.WHITE))
+                        )
+                    }
+
+                    // 멤버 관리 페이지로 돌아가기
+                    val newSession = session.copy(currentPage = GUIPage.MEMBER_MANAGE, selectedMember = null)
+                    openInventories[player.uniqueId] = newSession
+                    updateGUI(player, event.inventory, newSession)
+                } else {
+                    player.sendMessage(Component.text("멤버 추방 중 오류가 발생했습니다.", NamedTextColor.RED))
+                }
+            }
+
+            49 -> {
+                // 뒤로가기 (멤버 관리 페이지로)
+                val newSession = session.copy(currentPage = GUIPage.MEMBER_MANAGE, selectedMember = null)
+                openInventories[player.uniqueId] = newSession
+                updateGUI(player, event.inventory, newSession)
+            }
+        }
+    }
+
+    /**
+     * 권한 관리 페이지 클릭 처리
+     */
+    private fun handlePermissionsPageClick(player: Player, event: InventoryClickEvent, session: VillageGUISession) {
+        when (event.slot) {
+            49 -> {
+                // 뒤로가기
+                val newSession = session.copy(currentPage = GUIPage.MAIN)
+                openInventories[player.uniqueId] = newSession
+                updateGUI(player, event.inventory, newSession)
+            }
+            in 10..44 -> {
+                // 멤버 클릭 처리
+                handlePermissionMemberClick(player, event, session)
+            }
+        }
+    }
+
+    /**
+     * 권한 설정용 멤버 클릭 처리
+     */
+    private fun handlePermissionMemberClick(player: Player, event: InventoryClickEvent, session: VillageGUISession) {
+        val clickedItem = event.currentItem ?: return
+        val displayName = clickedItem.itemMeta?.displayName()
+        val memberName = if (displayName != null) {
+            displayName.examinableName().replace("👤 ", "").replace("👑 ", "").replace("🏅 ", "")
+        } else {
+            return
+        }
+
+        // 마을 멤버 목록에서 해당 멤버 찾기
+        val members = advancedManager.getVillageMembers(session.villageId)
+        val selectedMember = members.find { it.memberName == memberName && it.role != VillageRole.MAYOR } ?: return
+
+        // 멤버 권한 설정 페이지로 이동
+        val newSession = session.copy(currentPage = GUIPage.MEMBER_PERMISSIONS, selectedMember = selectedMember)
+        openInventories[player.uniqueId] = newSession
+        updateGUI(player, event.inventory, newSession)
+    }
+
+    /**
+     * 개별 멤버 권한 설정 페이지 클릭 처리
+     */
+    private fun handleMemberPermissionsClick(player: Player, event: InventoryClickEvent, session: VillageGUISession) {
+        val member = session.selectedMember ?: return
+
+        when (event.slot) {
+            49 -> {
+                // 뒤로가기 (권한 관리 페이지로)
+                val newSession = session.copy(currentPage = GUIPage.PERMISSIONS, selectedMember = null)
+                openInventories[player.uniqueId] = newSession
+                updateGUI(player, event.inventory, newSession)
+            }
+            10, 11, 12, 13, 16, 19, 20, 21, 22, 25, 28, 29 -> {
+                // 권한 토글
+                handlePermissionToggle(player, event, session, member)
+            }
+        }
+    }
+
+    /**
+     * 권한 토글 처리
+     */
+    private fun handlePermissionToggle(player: Player, event: InventoryClickEvent, session: VillageGUISession, member: VillageMember) {
+        val permissionSlots = mapOf(
+            10 to VillagePermissionType.BUILD,
+            11 to VillagePermissionType.BREAK_BLOCKS,
+            12 to VillagePermissionType.USE_CONTAINERS,
+            13 to VillagePermissionType.USE_REDSTONE,
+            16 to VillagePermissionType.INVITE_MEMBERS,
+            19 to VillagePermissionType.KICK_MEMBERS,
+            20 to VillagePermissionType.MANAGE_LAND,
+            21 to VillagePermissionType.EXPAND_LAND,
+            22 to VillagePermissionType.REDUCE_LAND,
+            25 to VillagePermissionType.MANAGE_ROLES,
+            28 to VillagePermissionType.MANAGE_PERMISSIONS,
+            29 to VillagePermissionType.RENAME_VILLAGE
+        )
+
+        val permission = permissionSlots[event.slot] ?: return
+
+        // 권한 설정 가능 여부 확인
+        if (!canTogglePermission(permission, member.role, session.playerRole)) {
+            player.sendMessage(Component.text("이 권한은 변경할 수 없습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 현재 권한 상태 확인
+        val currentPermissions = advancedManager.getMemberPermissions(session.villageId, member.memberUuid)
+        val hasPermission = currentPermissions.contains(permission)
+
+        if (hasPermission) {
+            // 권한 해제
+            val result = advancedManager.revokeMemberPermission(
+                player,
+                session.villageId,
+                member.memberUuid,
+                permission
+            )
+
+            if (result.success) {
+                val (name, _, _) = getPermissionInfo(permission)
+                player.sendMessage(
+                    Component.text()
+                        .append(Component.text("❌ ", NamedTextColor.RED))
+                        .append(Component.text("${member.memberName}님의 '$name' 권한을 해제했습니다.", NamedTextColor.WHITE))
+                )
+
+                // 대상 플레이어에게 알림
+                val targetPlayer = org.bukkit.Bukkit.getPlayer(member.memberUuid)
+                if (targetPlayer != null) {
+                    targetPlayer.sendMessage(
+                        Component.text()
+                            .append(Component.text("📢 ", NamedTextColor.YELLOW))
+                            .append(Component.text("'$name' 권한이 해제되었습니다.", NamedTextColor.WHITE))
+                    )
+                }
+            } else {
+                player.sendMessage(Component.text("권한 해제 중 오류가 발생했습니다: ${result.message}", NamedTextColor.RED))
+            }
+        } else {
+            // 권한 부여
+            val result = advancedManager.grantMemberPermission(
+                player,
+                session.villageId,
+                member.memberUuid,
+                permission
+            )
+
+            if (result.success) {
+                val (name, _, _) = getPermissionInfo(permission)
+                player.sendMessage(
+                    Component.text()
+                        .append(Component.text("✅ ", NamedTextColor.GREEN))
+                        .append(Component.text("${member.memberName}님에게 '$name' 권한을 부여했습니다.", NamedTextColor.WHITE))
+                )
+
+                // 대상 플레이어에게 알림
+                val targetPlayer = org.bukkit.Bukkit.getPlayer(member.memberUuid)
+                if (targetPlayer != null) {
+                    targetPlayer.sendMessage(
+                        Component.text()
+                            .append(Component.text("🎉 ", NamedTextColor.GOLD))
+                            .append(Component.text("'$name' 권한이 부여되었습니다!", NamedTextColor.WHITE))
+                    )
+                }
+            } else {
+                player.sendMessage(Component.text("권한 부여 중 오류가 발생했습니다: ${result.message}", NamedTextColor.RED))
+            }
+        }
+
+        // GUI 새로고침
+        updateGUI(player, event.inventory, session)
     }
 
     /**
      * 마을 해체 처리
      */
     private fun handleVillageDisband(player: Player, session: VillageGUISession) {
-        // TODO: 마을 해체 기능 구현
-        player.sendMessage(Component.text("마을 해체 기능은 향후 업데이트에서 추가될 예정입니다.", NamedTextColor.YELLOW))
+        val villageId = session.villageId
+        
+        // 마을 해체 확인
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("⚠️ ", NamedTextColor.RED))
+                .append(Component.text("정말로 마을을 해체하시겠습니까?", NamedTextColor.WHITE))
+        )
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("모든 마을 토지가 개인 토지로 변환됩니다.", NamedTextColor.GRAY))
+        )
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("이 작업은 되돌릴 수 없습니다.", NamedTextColor.RED))
+        )
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("해체를 확정하려면 ", NamedTextColor.WHITE))
+                .append(Component.text("'/땅 마을해체확정'", NamedTextColor.YELLOW))
+                .append(Component.text("을 입력하세요.", NamedTextColor.WHITE))
+        )
+        
+        // 해체 확정 대기 상태로 설정 (5분 후 만료)
+        pendingDisbandVillages[player.uniqueId] = System.currentTimeMillis() + 300000 // 5분
+        
         player.closeInventory()
     }
 
