@@ -730,14 +730,14 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         claimInfo: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.AdvancedClaimInfo,
         currentTime: Long
     ): RefundPolicy {
-        val claimDuration = currentTime - claimInfo.claimedAt
+        val claimDuration = currentTime - claimInfo.createdAt
         val oneDayInMillis = 24 * 60 * 60 * 1000L
         val oneWeekInMillis = 7 * oneDayInMillis
 
         return when {
             claimInfo.claimCost?.resourceType == com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimResourceType.FREE -> RefundPolicy.NONE
-            claimDuration < oneDayInMillis -> RefundPolicy.FULL
-            claimDuration < oneWeekInMillis -> RefundPolicy.HALF
+            claimDuration <= oneDayInMillis -> RefundPolicy.FULL
+            claimDuration <= oneWeekInMillis -> RefundPolicy.HALF
             else -> RefundPolicy.QUARTER
         }
     }
@@ -1586,24 +1586,19 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             return
         }
         
-        // 환불 시스템 처리
+        // 3-1. ChunkCoordinate를 Chunk로 변환
         val chunkSet = connectedChunks.mapNotNull { chunkCoord ->
             val world = org.bukkit.Bukkit.getWorld(chunkCoord.worldName)
             world?.getChunkAt(chunkCoord.x, chunkCoord.z)
         }.toSet()
 
+        // 3-2. 환불 시스템 처리
         val refundResult = calculateVillageRefund(chunkSet, villageInfo)
 
-        // 환불 상세 정보 표시
+        // 3-3. 환불 상세 정보 표시
         showRefundDetails(player, refundResult, connectedChunks.size)
         
-        // 4. ChunkCoordinate를 Chunk로 변환
-        val chunkSet = connectedChunks.mapNotNull { chunkCoord ->
-            val world = org.bukkit.Bukkit.getWorld(chunkCoord.worldName)
-            world?.getChunkAt(chunkCoord.x, chunkCoord.z)
-        }.toSet()
-        
-        // 5. 마을 반환 처리
+        // 4. 마을 반환 처리
         val returnResult = advancedManager.returnVillageChunks(player, villageId, chunkSet, "이장에 의한 마을 반환")
         
         if (returnResult.success) {
@@ -2314,7 +2309,7 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         }.filter { it.amount > 0 }
 
         // 현재 소유 기간 계산
-        val ownershipDuration = currentTime - claimInfo.claimedAt
+        val ownershipDuration = currentTime - claimInfo.createdAt
         val days = ownershipDuration / (24 * 60 * 60 * 1000L)
         val hours = (ownershipDuration % (24 * 60 * 60 * 1000L)) / (60 * 60 * 1000L)
 
@@ -2383,8 +2378,8 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         val recentReturns = landManager.getClaimHistory(player.location.chunk)
             .filter {
                 it.previousOwnerUuid == player.uniqueId &&
-                (it.changeReason.contains("자발적 포기") ||
-                it.changeReason.contains("마을 반환"))
+                (it.reason.contains("자발적 포기") ||
+                it.reason.contains("마을 반환"))
             }
             .take(10) // 최근 10개
 
@@ -2406,17 +2401,18 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
 
         val dateFormat = java.text.SimpleDateFormat("MM-dd HH:mm")
         recentReturns.forEach { history ->
-            val formattedDate = dateFormat.format(java.util.Date(history.changeTime))
-            val chunk = history.chunkCoordinate
+            val formattedDate = dateFormat.format(java.util.Date(history.unclaimedAt.time))
+            // 청크 좌표는 현재 위치를 사용 (개선 가능)
+            val currentChunk = player.location.chunk
 
             player.sendMessage(
                 Component.text()
                     .append(Component.text("  • ", NamedTextColor.YELLOW))
                     .append(Component.text("$formattedDate ", NamedTextColor.GRAY))
                     .append(Component.text("청크 (", NamedTextColor.WHITE))
-                    .append(Component.text("${chunk.x}, ${chunk.z}", NamedTextColor.AQUA))
+                    .append(Component.text("${currentChunk.x}, ${currentChunk.z}", NamedTextColor.AQUA))
                     .append(Component.text(")", NamedTextColor.WHITE))
-                    .append(Component.text(" - ${history.changeReason}", NamedTextColor.GRAY))
+                    .append(Component.text(" - ${history.reason}", NamedTextColor.GRAY))
             )
         }
 

@@ -38,6 +38,7 @@ object CoordinateDisplayUtils {
             .append(Component.text(" ≈ ", NamedTextColor.DARK_GRAY))
             .append(Component.text("좌표 ", NamedTextColor.GRAY))
             .append(Component.text("(${worldCoordX}, ${worldCoordZ})", NamedTextColor.GREEN, TextDecoration.BOLD))
+            .build()
     }
 
     /**
@@ -65,6 +66,7 @@ object CoordinateDisplayUtils {
                             .append(Component.text("📋 청크 좌표 복사하기", NamedTextColor.GREEN, TextDecoration.BOLD))
                             .append(Component.newline())
                             .append(Component.text("클릭하여 청크 좌표를 채팅창에 입력", NamedTextColor.GRAY))
+                            .build()
                     ))
                     .clickEvent(ClickEvent.suggestCommand("${chunk.x} ${chunk.z}"))
             )
@@ -78,9 +80,11 @@ object CoordinateDisplayUtils {
                             .append(Component.text("클릭하여 월드 좌표를 채팅창에 입력", NamedTextColor.GRAY))
                             .append(Component.newline())
                             .append(Component.text("텔레포트: /tp @s ${worldCoordX} ~ ${worldCoordZ}", NamedTextColor.YELLOW))
+                            .build()
                     ))
                     .clickEvent(ClickEvent.suggestCommand("/tp @s ${worldCoordX} ~ ${worldCoordZ}"))
             )
+            .build()
     }
 
     /**
@@ -90,7 +94,7 @@ object CoordinateDisplayUtils {
         val worldCoordX = chunk.x * 16 + 8
         val worldCoordZ = chunk.z * 16 + 8
 
-        return Component.text()
+        val baseComponent = Component.text()
             .append(Component.text("🗺️ ", NamedTextColor.GOLD))
             .append(Component.text("상세 좌표 정보", NamedTextColor.WHITE, TextDecoration.BOLD))
             .append(Component.newline())
@@ -105,23 +109,24 @@ object CoordinateDisplayUtils {
             .append(Component.newline())
             .append(Component.text("   🎯 좌표: ", NamedTextColor.GRAY))
             .append(Component.text("X=${worldCoordX}, Z=${worldCoordZ}", NamedTextColor.GREEN))
-            .apply {
-                // 참조 위치가 있으면 거리와 방향 정보 추가
-                referenceLocation?.let { ref ->
-                    if (ref.world == chunk.world) {
-                        val distance = calculateDistance(ref.blockX, ref.blockZ, worldCoordX, worldCoordZ)
-                        val direction = calculateDirection(ref.blockX, ref.blockZ, worldCoordX, worldCoordZ)
-
-                        this.append(Component.newline())
-                            .append(Component.text("   📏 거리: ", NamedTextColor.GRAY))
-                            .append(Component.text("${String.format("%.1f", distance)}블록", NamedTextColor.YELLOW))
-                            .append(Component.text(" (", NamedTextColor.DARK_GRAY))
-                            .append(Component.text(direction.icon, direction.color))
-                            .append(Component.text(" ${direction.name}", direction.color))
-                            .append(Component.text(")", NamedTextColor.DARK_GRAY))
-                    }
-                }
-            }
+        
+        // 참조 위치가 있으면 거리와 방향 정보 추가
+        return if (referenceLocation != null && referenceLocation.world == chunk.world) {
+            val distance = calculateDistance(referenceLocation.blockX, referenceLocation.blockZ, worldCoordX, worldCoordZ)
+            val direction = calculateDirection(referenceLocation.blockX, referenceLocation.blockZ, worldCoordX, worldCoordZ)
+            
+            baseComponent
+                .append(Component.newline())
+                .append(Component.text("   📏 거리: ", NamedTextColor.GRAY))
+                .append(Component.text("${String.format("%.1f", distance)}블록", NamedTextColor.YELLOW))
+                .append(Component.text(" (", NamedTextColor.DARK_GRAY))
+                .append(Component.text(direction.icon, direction.color))
+                .append(Component.text(" ${direction.name}", direction.color))
+                .append(Component.text(")", NamedTextColor.DARK_GRAY))
+                .build()
+        } else {
+            baseComponent.build()
+        }
     }
 
     /**
@@ -131,12 +136,13 @@ object CoordinateDisplayUtils {
         val worldCoordX = chunk.x * 16 + 8
         val worldCoordZ = chunk.z * 16 + 8
 
-        return Component.text()
-            .apply {
-                index?.let {
-                    this.append(Component.text("${it}. ", NamedTextColor.GOLD))
-                }
-            }
+        val baseBuilder = Component.text()
+        
+        if (index != null) {
+            baseBuilder.append(Component.text("${index}. ", NamedTextColor.GOLD))
+        }
+        
+        return baseBuilder
             .append(Component.text("${getWorldIcon(chunk.world)} ", getWorldColor(chunk.world)))
             .append(Component.text("${chunk.x}", NamedTextColor.WHITE))
             .append(Component.text(", ", NamedTextColor.DARK_GRAY))
@@ -146,6 +152,7 @@ object CoordinateDisplayUtils {
             .append(Component.text(", ", NamedTextColor.DARK_GRAY))
             .append(Component.text("${worldCoordZ}", NamedTextColor.GREEN))
             .append(Component.text(")", NamedTextColor.DARK_GRAY))
+            .build()
     }
 
     /**
@@ -174,7 +181,7 @@ object CoordinateDisplayUtils {
         val isAllSameWorld = chunks.all { it.world == world }
 
         return Component.text()
-            .append(Component.text("🏘️ ", NamedTextColor.GOLD))
+            .append(Component.text("🏠️ ", NamedTextColor.GOLD))
             .append(Component.text("연결된 영역 ", NamedTextColor.WHITE, TextDecoration.BOLD))
             .append(Component.text("(${chunks.size}개 청크)", NamedTextColor.GRAY))
             .append(Component.newline())
@@ -193,6 +200,7 @@ object CoordinateDisplayUtils {
                 }
             )
             .append(Component.text("(${centerWorldX}, ${centerWorldZ})", NamedTextColor.GREEN, TextDecoration.BOLD))
+            .build()
     }
 
     // === 유틸리티 메서드들 ===

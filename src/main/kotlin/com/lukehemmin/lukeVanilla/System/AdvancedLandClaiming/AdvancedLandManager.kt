@@ -1222,6 +1222,19 @@ class AdvancedLandManager(
     }
 
     /**
+     * 플레이어가 특정 마을 권한을 가지고 있는지 확인합니다.
+     */
+    fun hasVillagePermission(playerUuid: UUID, villageId: Int, permissionType: VillagePermissionType): Boolean {
+        return try {
+            val memberPermissions = getMemberPermissions(villageId, playerUuid)
+            memberPermissions.contains(permissionType)
+        } catch (e: Exception) {
+            debugManager.log("AdvancedLandClaiming", "[PERMISSION_CHECK] 권한 확인 중 오류 발생: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * 권한의 표시명을 반환합니다.
      */
     fun getPermissionDisplayName(permission: VillagePermissionType): String {
