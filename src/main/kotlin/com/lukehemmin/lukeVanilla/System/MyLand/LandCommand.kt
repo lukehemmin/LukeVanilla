@@ -38,10 +38,26 @@ data class VillageInviteResult(
     val message: String
 )
 
+/**
+ * 이장 양도 정보를 저장하는 데이터 클래스
+ */
+data class MayorTransferInvitation(
+    val villageId: Int,
+    val villageName: String,
+    val currentMayorUuid: UUID,
+    val currentMayorName: String,
+    val newMayorUuid: UUID,
+    val transferTime: Long,
+    val expiresAt: Long = transferTime + 300000 // 5분 후 만료
+)
+
 class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCompleter {
     
     // 진행 중인 마을 초대들을 관리하는 맵
     private val pendingInvitations = ConcurrentHashMap<UUID, VillageInvitation>()
+
+    // 진행 중인 이장 양도들을 관리하는 맵
+    private val pendingMayorTransfers = ConcurrentHashMap<UUID, MayorTransferInvitation>()
     
     // FarmVillageManager 참조를 위한 변수 (나중에 설정됨)
     private var farmVillageManager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager? = null
@@ -98,6 +114,8 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 "마을클레임" -> handleVillageClaim(sender, args)
                 "마을해체확정" -> handleVillageDisbandConfirm(sender)
                 "이장양도" -> handleMayorTransfer(sender, args)
+                "이장양도수락" -> handleMayorTransferAccept(sender)
+                "이장양도거절" -> handleMayorTransferReject(sender)
                 
                 else -> sendUsage(sender)
             }
@@ -198,6 +216,8 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
         sender.sendMessage(Component.text("/땅 마을추방 <플레이어> - 마을에서 플레이어를 추방합니다.", NamedTextColor.YELLOW))
         sender.sendMessage(Component.text("/땅 마을정보 - 마을 정보를 확인합니다.", NamedTextColor.YELLOW))
         sender.sendMessage(Component.text("/땅 마을클레임 [자원타입] - 마을 토지를 확장합니다.", NamedTextColor.YELLOW))
+        sender.sendMessage(Component.text("/땅 이장양도수락 - 받은 이장 양도 요청을 수락합니다.", NamedTextColor.YELLOW))
+        sender.sendMessage(Component.text("/땅 이장양도거절 - 받은 이장 양도 요청을 거절합니다.", NamedTextColor.YELLOW))
     }
 
     private fun handleAddMember(player: Player, args: Array<out String>) {
@@ -559,16 +579,16 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
      * AdvancedLandClaiming으로 클레이밍된 땅 정보를 표시합니다.
      */
     private fun showAdvancedClaimInfo(player: Player, chunk: org.bukkit.Chunk, claimInfo: com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.AdvancedClaimInfo) {
-        val ownerName = claimInfo.ownerName
         val worldName = chunk.world.name
         val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm")
         val claimedDate = dateFormat.format(java.util.Date(claimInfo.createdAt))
-        
+
         val claimTypeText = when (claimInfo.claimType) {
             com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimType.PERSONAL -> "개인 토지"
             com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimType.VILLAGE -> "마을 토지"
         }
-        
+
+        // 클레이밍 비용 표시 개선 - 서버 재시작 후에도 정보 유지
         val costText = claimInfo.claimCost?.let { cost ->
             when (cost.resourceType) {
                 com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimResourceType.FREE -> "무료 슬롯 사용"
@@ -576,16 +596,54 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimResourceType.DIAMOND -> "다이아몬드 ${cost.amount}개"
                 com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimResourceType.NETHERITE_INGOT -> "네더라이트 주괴 ${cost.amount}개"
             }
-        } ?: "알 수 없음"
+        } ?: "과거 클레이밍 정보 (기록 없음)"
 
+        // 기본 정보 메시지 구성
         val infoMessage = Component.text()
             .append(Component.text(" "))
             .append(Component.text("■", NamedTextColor.GOLD))
-            .append(Component.text(" 고급 토지 클레이밍 정보 ", NamedTextColor.WHITE, TextDecoration.BOLD))
+            .append(Component.text(" 토지 정보 ", NamedTextColor.WHITE, TextDecoration.BOLD))
             .append(Component.text("■", NamedTextColor.GOLD))
             .append(Component.newline())
-            .append(Component.text("   소유자: ", NamedTextColor.GRAY))
-            .append(Component.text(ownerName, NamedTextColor.AQUA))
+
+        // 마을 토지와 개인 토지에 따른 소유자 정보 표시
+        when (claimInfo.claimType) {
+            com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimType.VILLAGE -> {
+                // 마을 토지인 경우
+                val advancedManager = advancedLandManager
+                if (advancedManager != null && claimInfo.villageId != null) {
+                    val villageInfo = advancedManager.getVillageInfo(claimInfo.villageId)
+                    if (villageInfo != null) {
+                        // 마을 이름과 이장 정보 표시
+                        infoMessage
+                            .append(Component.text("   마을 이름: ", NamedTextColor.GRAY))
+                            .append(Component.text(villageInfo.villageName, NamedTextColor.YELLOW))
+                            .append(Component.newline())
+                            .append(Component.text("   마을 이장: ", NamedTextColor.GRAY))
+                            .append(Component.text(villageInfo.mayorName, NamedTextColor.AQUA))
+                    } else {
+                        // 마을 정보를 찾을 수 없는 경우
+                        infoMessage
+                            .append(Component.text("   소유자: ", NamedTextColor.GRAY))
+                            .append(Component.text("${claimInfo.ownerName} (마을)", NamedTextColor.AQUA))
+                    }
+                } else {
+                    // AdvancedManager가 없거나 villageId가 없는 경우
+                    infoMessage
+                        .append(Component.text("   소유자: ", NamedTextColor.GRAY))
+                        .append(Component.text("${claimInfo.ownerName} (마을)", NamedTextColor.AQUA))
+                }
+            }
+            com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.ClaimType.PERSONAL -> {
+                // 개인 토지인 경우
+                infoMessage
+                    .append(Component.text("   소유자: ", NamedTextColor.GRAY))
+                    .append(Component.text(claimInfo.ownerName, NamedTextColor.AQUA))
+            }
+        }
+
+        // 나머지 정보 추가
+        infoMessage
             .append(Component.newline())
             .append(Component.text("   위치: ", NamedTextColor.GRAY))
             .append(CoordinateDisplayUtils.formatClickableCoordinates(chunk, includeWorld = true))
@@ -2237,13 +2295,76 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             return
         }
         
-        // 이장 양도 실행
-        val result = advancedManager.transferVillageMayorship(player, villageId, targetOfflinePlayer.uniqueId, targetPlayerName)
-        if (result.success) {
-            player.sendMessage(Component.text(result.message, NamedTextColor.GREEN))
-        } else {
-            player.sendMessage(Component.text(result.message, NamedTextColor.RED))
+        // 대상자가 온라인인지 확인
+        val targetPlayer = targetOfflinePlayer.player
+        if (targetPlayer == null) {
+            player.sendMessage(Component.text("대상 플레이어가 현재 온라인이 아닙니다. 이장 양도는 온라인 플레이어에게만 가능합니다.", NamedTextColor.RED))
+            return
         }
+
+        // 마을 정보 조회
+        val villageInfo = advancedManager.getVillageInfo(villageId)
+        if (villageInfo == null) {
+            player.sendMessage(Component.text("마을 정보를 찾을 수 없습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 기존 이장 양도 요청이 있는지 확인
+        if (pendingMayorTransfers.containsKey(targetPlayer.uniqueId)) {
+            player.sendMessage(Component.text("해당 플레이어에게 이미 보낸 이장 양도 요청이 있습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 이장 양도 요청 생성 및 전송
+        val transferInvitation = MayorTransferInvitation(
+            villageId = villageId,
+            villageName = villageInfo.villageName,
+            currentMayorUuid = player.uniqueId,
+            currentMayorName = player.name,
+            newMayorUuid = targetPlayer.uniqueId,
+            transferTime = System.currentTimeMillis()
+        )
+
+        pendingMayorTransfers[targetPlayer.uniqueId] = transferInvitation
+
+        // 요청자에게 알림
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("👑 ", NamedTextColor.GOLD))
+                .append(Component.text("이장 양도 요청을 ", NamedTextColor.WHITE))
+                .append(Component.text(targetPlayerName, NamedTextColor.AQUA))
+                .append(Component.text("님에게 보냈습니다.", NamedTextColor.WHITE))
+        )
+
+        // 대상자에게 이장 양도 요청 알림
+        targetPlayer.sendMessage(
+            Component.text()
+                .append(Component.text("👑 ", NamedTextColor.GOLD))
+                .append(Component.text("마을 '", NamedTextColor.WHITE))
+                .append(Component.text(villageInfo.villageName, NamedTextColor.YELLOW))
+                .append(Component.text("'의 ", NamedTextColor.WHITE))
+                .append(Component.text(player.name, NamedTextColor.AQUA))
+                .append(Component.text("님이 이장을 양도하려고 합니다.", NamedTextColor.WHITE))
+        )
+
+        val acceptButton = Component.text()
+            .append(Component.text("[수락]", NamedTextColor.GREEN, TextDecoration.BOLD))
+            .clickEvent(ClickEvent.runCommand("/땅 이장양도수락"))
+            .hoverEvent(HoverEvent.showText(Component.text("클릭하여 이장 양도를 수락합니다.")))
+
+        val rejectButton = Component.text()
+            .append(Component.text("[거절]", NamedTextColor.RED, TextDecoration.BOLD))
+            .clickEvent(ClickEvent.runCommand("/땅 이장양도거절"))
+            .hoverEvent(HoverEvent.showText(Component.text("클릭하여 이장 양도를 거절합니다.")))
+
+        targetPlayer.sendMessage(
+            Component.text()
+                .append(Component.text("    ", NamedTextColor.WHITE))
+                .append(acceptButton)
+                .append(Component.text("  ", NamedTextColor.WHITE))
+                .append(rejectButton)
+                .append(Component.text("  (5분 내에 응답하세요)", NamedTextColor.GRAY))
+        )
     }
 
     override fun onTabComplete(
@@ -2256,7 +2377,7 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             return mutableListOf(
                 "정보", "기록", "친구추가", "친구삭제", "친구목록", // 기존 명령어
                 "클레임", "반환", "목록", "비용", "환불정보", "환불내역", "상태", // 새로운 명령어
-                "마을생성", "마을초대", "마을추방", "마을정보", "마을권한", "마을반환", "마을설정", "마을클레임", "마을해체확정", "이장양도" // 마을 명령어
+                "마을생성", "마을초대", "마을추방", "마을정보", "마을권한", "마을반환", "마을설정", "마을클레임", "마을해체확정", "이장양도", "이장양도수락", "이장양도거절" // 마을 명령어
             ).filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
         }
         if (args.size == 2) {
@@ -2420,6 +2541,98 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             Component.text()
                 .append(Component.text("💡 ", NamedTextColor.YELLOW))
                 .append(Component.text("자세한 내역은 '/땅 기록' 명령어를 사용하세요.", NamedTextColor.GOLD))
+        )
+    }
+
+    // ===== 이장 양도 수락/거절 시스템 =====
+
+    /**
+     * 이장 양도 수락 처리
+     */
+    private fun handleMayorTransferAccept(player: Player) {
+        val advancedManager = advancedLandManager
+        if (advancedManager == null) {
+            player.sendMessage(Component.text("고급 토지 시스템이 초기화되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 대기 중인 이장 양도 요청 확인
+        val transferInvitation = pendingMayorTransfers[player.uniqueId]
+        if (transferInvitation == null) {
+            player.sendMessage(Component.text("받은 이장 양도 요청이 없습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 요청 만료 확인
+        if (System.currentTimeMillis() > transferInvitation.expiresAt) {
+            pendingMayorTransfers.remove(player.uniqueId)
+            player.sendMessage(Component.text("이장 양도 요청이 만료되었습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 이장 양도 실행
+        val currentMayorPlayer = org.bukkit.Bukkit.getPlayer(transferInvitation.currentMayorUuid)
+        if (currentMayorPlayer == null) {
+            player.sendMessage(Component.text("현재 이장이 온라인이 아닙니다.", NamedTextColor.RED))
+            pendingMayorTransfers.remove(player.uniqueId)
+            return
+        }
+
+        val result = advancedManager.transferVillageMayorship(
+            currentMayorPlayer,
+            transferInvitation.villageId,
+            player.uniqueId,
+            player.name
+        )
+
+        // 대기 목록에서 제거
+        pendingMayorTransfers.remove(player.uniqueId)
+
+        if (result.success) {
+            player.sendMessage(Component.text(result.message, NamedTextColor.GREEN))
+
+            // 이전 이장에게 알림
+            currentMayorPlayer.sendMessage(
+                Component.text()
+                    .append(Component.text("✅ ", NamedTextColor.GREEN))
+                    .append(Component.text(player.name, NamedTextColor.AQUA))
+                    .append(Component.text("님이 이장 양도를 수락했습니다!", NamedTextColor.WHITE))
+            )
+        } else {
+            player.sendMessage(Component.text(result.message, NamedTextColor.RED))
+        }
+    }
+
+    /**
+     * 이장 양도 거절 처리
+     */
+    private fun handleMayorTransferReject(player: Player) {
+        // 대기 중인 이장 양도 요청 확인
+        val transferInvitation = pendingMayorTransfers[player.uniqueId]
+        if (transferInvitation == null) {
+            player.sendMessage(Component.text("받은 이장 양도 요청이 없습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 대기 목록에서 제거
+        pendingMayorTransfers.remove(player.uniqueId)
+
+        // 거절 알림
+        player.sendMessage(
+            Component.text()
+                .append(Component.text("❌ ", NamedTextColor.RED))
+                .append(Component.text("마을 '", NamedTextColor.WHITE))
+                .append(Component.text(transferInvitation.villageName, NamedTextColor.YELLOW))
+                .append(Component.text("'의 이장 양도를 거절했습니다.", NamedTextColor.WHITE))
+        )
+
+        // 이장에게 거절 알림
+        val currentMayor = org.bukkit.Bukkit.getPlayer(transferInvitation.currentMayorUuid)
+        currentMayor?.sendMessage(
+            Component.text()
+                .append(Component.text("❌ ", NamedTextColor.RED))
+                .append(Component.text(player.name, NamedTextColor.AQUA))
+                .append(Component.text("님이 이장 양도를 거절했습니다.", NamedTextColor.WHITE))
         )
     }
 } 

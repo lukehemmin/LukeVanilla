@@ -608,9 +608,9 @@ class AdvancedLandData(private val database: Database) {
      */
     fun updateClaimToPersonal(worldName: String, chunkX: Int, chunkZ: Int, ownerUuid: UUID, ownerName: String): Boolean {
         val query = """
-            UPDATE advanced_claimed_chunks 
+            UPDATE $TABLE_NAME
             SET claim_type = 'PERSONAL', village_id = NULL, owner_uuid = ?, owner_name = ?
-            WHERE world_name = ? AND chunk_x = ? AND chunk_z = ?
+            WHERE world = ? AND chunk_x = ? AND chunk_z = ?
         """.trimIndent()
         
         return try {
@@ -662,9 +662,9 @@ class AdvancedLandData(private val database: Database) {
      */
     fun updateClaimOwner(worldName: String, chunkX: Int, chunkZ: Int, ownerUuid: UUID, ownerName: String): Boolean {
         val query = """
-            UPDATE advanced_claimed_chunks 
+            UPDATE $TABLE_NAME
             SET owner_uuid = ?, owner_name = ?
-            WHERE world_name = ? AND chunk_x = ? AND chunk_z = ?
+            WHERE world = ? AND chunk_x = ? AND chunk_z = ?
         """.trimIndent()
         
         return try {
