@@ -18,6 +18,11 @@ class AsyncAdvancedLandData(
         private const val TABLE_NAME = "myland_claims"
         private const val ADVANCED_FILTER = "resource_type IS NOT NULL"
         private const val PERSONAL_CLAIMS_FILTER = "$ADVANCED_FILTER AND claim_type = 'PERSONAL'"
+
+        // 배치 처리 최적화 설정
+        private const val DEFAULT_BATCH_SIZE = 50        // 기본 배치 크기
+        private const val MIN_BATCH_SIZE = 10           // 최소 배치 크기
+        private const val MAX_BATCH_SIZE = 100          // 최대 배치 크기
     }
 
     /**
@@ -61,8 +66,9 @@ class AsyncAdvancedLandData(
                     query to params
                 }
 
-                // 배치 크기로 분할 (한 번에 최대 20개)
-                val batchSize = 20
+                // 동적 배치 크기 계산 (총 아이템 수에 따라 최적화)
+                val batchSize = calculateOptimalBatchSize(villageLands.size)
+                plugin.logger.info("[AsyncAdvancedLandData] 최적화된 배치 크기: $batchSize (총 ${villageLands.size}개 항목)")
                 val batches = batchQueries.chunked(batchSize)
                 var completedBatches = 0
 
@@ -280,6 +286,20 @@ class AsyncAdvancedLandData(
                 onFailure(e)
             }
         )
+    }
+
+    /**
+     * 동적 배치 크기 계산
+     * @param totalItems 처리할 총 항목 수
+     * @return 최적화된 배치 크기
+     */
+    private fun calculateOptimalBatchSize(totalItems: Int): Int {
+        return when {
+            totalItems <= 50 -> MIN_BATCH_SIZE                    // 적은 수: 작은 배치
+            totalItems <= 200 -> DEFAULT_BATCH_SIZE               // 보통: 기본 배치
+            totalItems <= 500 -> (DEFAULT_BATCH_SIZE * 1.5).toInt()  // 많음: 큰 배치
+            else -> MAX_BATCH_SIZE                                // 대량: 최대 배치
+        }
     }
 
     /**

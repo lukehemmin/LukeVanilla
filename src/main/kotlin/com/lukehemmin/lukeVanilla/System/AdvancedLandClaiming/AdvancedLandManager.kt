@@ -13,6 +13,8 @@ import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.util.*
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
+import java.util.Collections
 
 data class ClaimResult(
     val success: Boolean,
@@ -26,9 +28,9 @@ class AdvancedLandManager(
     private val debugManager: DebugManager,
     private val playTimeManager: PlayTimeManager
 ) {
-    // 메모리 캐시: 빠른 조회를 위해
-    private val claimedChunks = mutableMapOf<String, MutableMap<Pair<Int, Int>, AdvancedClaimInfo>>()
-    private val playerClaims = mutableMapOf<UUID, MutableList<AdvancedClaimInfo>>()
+    // 메모리 캐시: 빠른 조회를 위해 (동시성 보호)
+    private val claimedChunks = ConcurrentHashMap<String, ConcurrentHashMap<Pair<Int, Int>, AdvancedClaimInfo>>()
+    private val playerClaims = ConcurrentHashMap<UUID, MutableList<AdvancedClaimInfo>>()
     
     private val landData: AdvancedLandData
     
@@ -40,11 +42,16 @@ class AdvancedLandManager(
         const val FREE_CLAIMS_COUNT = 4              // 무료 클레이밍 수
         const val NEWBIE_MAX_CLAIMS = 9              // 신규 플레이어 최대 클레이밍
         const val VETERAN_DAYS_THRESHOLD = 7         // 베테랑 플레이어 기준 (일)
-        
+
         // 자원 비용 설정
         const val IRON_COST = 64                     // 철괴 64개 (스택 1개)
         const val DIAMOND_COST = 8                   // 다이아몬드 8개
         const val NETHERITE_COST = 2                 // 네더라이트 주괴 2개
+
+        // 캐시 크기 제한 (OOM 방지)
+        const val MAX_CLAIMED_CHUNKS_CACHE_SIZE = 10000  // 최대 청크 캐시 수
+        const val MAX_PLAYER_CLAIMS_CACHE_SIZE = 1000    // 최대 플레이어 캐시 수
+        const val CACHE_CLEANUP_THRESHOLD = 0.8          // 캐시 정리 임계점 (80%)
     }
     
     init {
@@ -59,17 +66,26 @@ class AdvancedLandManager(
         val loadedClaims = landData.loadAllClaims()
         claimedChunks.clear()
         playerClaims.clear()
-        
-        claimedChunks.putAll(loadedClaims)
-        
-        // 플레이어별 클레이밍 캐시 구성
+
+        // ConcurrentHashMap에 안전하게 데이터 로드
+        loadedClaims.forEach { (worldName, chunks) ->
+            val worldChunks = ConcurrentHashMap<Pair<Int, Int>, AdvancedClaimInfo>()
+            worldChunks.putAll(chunks)
+            claimedChunks[worldName] = worldChunks
+        }
+
+        // 플레이어별 클레이밍 캐시 구성 (동시성 안전)
         loadedClaims.forEach { (worldName, chunks) ->
             chunks.forEach { (chunkCoords, claimInfo) ->
-                playerClaims.computeIfAbsent(claimInfo.ownerUuid) { mutableListOf() }
-                    .add(claimInfo)
+                playerClaims.computeIfAbsent(claimInfo.ownerUuid) {
+                    Collections.synchronizedList(mutableListOf())
+                }.add(claimInfo)
             }
         }
-        
+
+        // 초기 로딩 후 캐시 정리 (필요시)
+        cleanupCaches()
+
         val totalClaims = claimedChunks.values.sumOf { it.size }
         plugin.logger.info("[AdvancedLandClaiming] ${totalClaims}개의 고급 토지 클레이밍을 데이터베이스에서 불러왔습니다.")
     }
@@ -136,8 +152,11 @@ class AdvancedLandManager(
         // 데이터베이스에 저장
         if (landData.saveClaim(claimInfo)) {
             // 캐시 업데이트
-            claimedChunks.computeIfAbsent(worldName) { mutableMapOf() }[chunkCoord] = claimInfo
+            claimedChunks.computeIfAbsent(worldName) { ConcurrentHashMap() }[chunkCoord] = claimInfo
             playerClaims.computeIfAbsent(playerUuid) { mutableListOf() }.add(claimInfo)
+
+            // 캐시 크기 관리
+            cleanupCaches()
             
             val costMessage = if (claimCost?.resourceType == ClaimResourceType.FREE) {
                 "무료 슬롯 사용"
@@ -465,7 +484,8 @@ class AdvancedLandManager(
                     if (landData.updateClaimToVillage(updatedClaimInfo)) {
                         // 캐시 업데이트
                         val chunkCoord = Pair(chunk.x, chunk.z)
-                        claimedChunks[chunk.world.name]?.set(chunkCoord, updatedClaimInfo)
+                        claimedChunks.computeIfAbsent(chunk.world.name) { ConcurrentHashMap() }
+                            .put(chunkCoord, updatedClaimInfo)
                         
                         // 플레이어 캐시에서 기존 정보 제거하고 새 정보 추가
                         playerClaims[player.uniqueId]?.removeIf { 
@@ -779,7 +799,7 @@ class AdvancedLandManager(
         // 9. 데이터베이스에 저장
         if (landData.saveClaim(claimInfo)) {
             // 캐시 업데이트
-            claimedChunks.computeIfAbsent(worldName) { mutableMapOf() }[chunkCoord] = claimInfo
+            claimedChunks.computeIfAbsent(worldName) { ConcurrentHashMap() }[chunkCoord] = claimInfo
             playerClaims.computeIfAbsent(villageInfo.mayorUuid) { mutableListOf() }.add(claimInfo)
             
             val costMessage = if (claimCost?.resourceType == ClaimResourceType.FREE) {
@@ -908,7 +928,8 @@ class AdvancedLandManager(
                     )
                     
                     // 캐시 업데이트
-                    claimedChunks[worldName]?.set(chunkX to chunkZ, personalClaimInfo)
+                    claimedChunks.computeIfAbsent(worldName) { ConcurrentHashMap() }
+                        .put(chunkX to chunkZ, personalClaimInfo)
                     
                     // 데이터베이스 업데이트
                     landData.updateClaimToPersonal(worldName, chunkX, chunkZ, villageInfo.mayorUuid, villageInfo.mayorName)
@@ -1022,7 +1043,8 @@ class AdvancedLandManager(
                         ownerUuid = newMayorUuid,
                         ownerName = "${villageInfo.villageName} (마을)"
                     )
-                    claimedChunks[worldName]?.set(chunkX to chunkZ, updatedClaimInfo)
+                    claimedChunks.computeIfAbsent(worldName) { ConcurrentHashMap() }
+                        .put(chunkX to chunkZ, updatedClaimInfo)
                     landData.updateClaimOwner(worldName, chunkX, chunkZ, newMayorUuid, "${villageInfo.villageName} (마을)")
                 }
             }
@@ -1253,5 +1275,68 @@ class AdvancedLandManager(
             VillagePermissionType.DISSOLVE_VILLAGE -> "마을 해체"
             VillagePermissionType.RENAME_VILLAGE -> "마을 이름 변경"
         }
+    }
+
+    /**
+     * 캐시 크기 관리 - 청크 캐시 정리
+     */
+    private fun checkAndCleanupChunkCache() {
+        val totalChunks = claimedChunks.values.sumOf { it.size }
+        if (totalChunks > MAX_CLAIMED_CHUNKS_CACHE_SIZE * CACHE_CLEANUP_THRESHOLD) {
+            debugManager.log("AdvancedLandClaiming", "[CACHE] 청크 캐시 정리 시작: $totalChunks chunks")
+
+            // 가장 적은 수의 청크를 가진 월드부터 제거
+            val sortedWorlds = claimedChunks.entries.sortedBy { it.value.size }
+            var removedChunks = 0
+            val targetRemoval = (totalChunks * 0.2).toInt() // 20% 제거
+
+            for ((worldName, chunks) in sortedWorlds) {
+                if (removedChunks >= targetRemoval) break
+
+                val chunksToRemove = minOf(chunks.size / 2, targetRemoval - removedChunks)
+                val chunkList = chunks.keys.toList()
+
+                for (i in 0 until chunksToRemove) {
+                    chunks.remove(chunkList[i])
+                    removedChunks++
+                }
+            }
+
+            debugManager.log("AdvancedLandClaiming", "[CACHE] 청크 캐시 정리 완료: ${removedChunks}개 제거")
+        }
+    }
+
+    /**
+     * 캐시 크기 관리 - 플레이어 캐시 정리
+     */
+    private fun checkAndCleanupPlayerCache() {
+        if (playerClaims.size > MAX_PLAYER_CLAIMS_CACHE_SIZE * CACHE_CLEANUP_THRESHOLD) {
+            debugManager.log("AdvancedLandClaiming", "[CACHE] 플레이어 캐시 정리 시작: ${playerClaims.size} players")
+
+            // 가장 적은 수의 청크를 가진 플레이어부터 제거
+            val sortedPlayers = playerClaims.entries.sortedBy { it.value.size }
+            var removedPlayers = 0
+            val targetRemoval = (playerClaims.size * 0.2).toInt() // 20% 제거
+
+            for ((playerUuid, claims) in sortedPlayers) {
+                if (removedPlayers >= targetRemoval) break
+
+                // 클레이밍이 적은 플레이어 우선 제거 (최소 1개 이상 가진 경우에만)
+                if (claims.size <= 2) {
+                    playerClaims.remove(playerUuid)
+                    removedPlayers++
+                }
+            }
+
+            debugManager.log("AdvancedLandClaiming", "[CACHE] 플레이어 캐시 정리 완료: ${removedPlayers}명 제거")
+        }
+    }
+
+    /**
+     * 전체 캐시 정리 실행
+     */
+    private fun cleanupCaches() {
+        checkAndCleanupChunkCache()
+        checkAndCleanupPlayerCache()
     }
 }
