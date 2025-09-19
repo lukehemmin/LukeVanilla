@@ -257,6 +257,9 @@ class Main : JavaPlugin() {
         val dbInitializer = DatabaseInitializer(database)
         dbInitializer.createTables()
 
+        // 비동기 DB 매니저 초기화 (테이블 생성 후)
+        database.initializeAsyncManager()
+
         // DebugManager 초기화
         debugManager = DebugManager(this)
 
@@ -390,9 +393,13 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this, database), this)
         server.pluginManager.registerEvents(PlayerJoinListener(this, database, discordRoleManager), this) 
 
-        // Player_Join_And_Quit_Message 갱신 스케줄러
-        server.scheduler.runTaskTimer(this, Runnable {
-            Player_Join_And_Quit_Message_Listener.updateMessages(database)
+        // Player_Join_And_Quit_Message 갱신 스케줄러 (비동기로 실행하여 메인 스레드 블로킹 방지)
+        server.scheduler.runTaskTimerAsynchronously(this, Runnable {
+            try {
+                Player_Join_And_Quit_Message_Listener.updateMessages(database)
+            } catch (e: Exception) {
+                logger.warning("Join/Quit 메시지 업데이트 중 오류 발생: ${e.message}")
+            }
         }, 0L, 1200L) 
 
         // Nametag System

@@ -16,6 +16,9 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     private val dataSource: HikariDataSource
     private val gson = Gson()
 
+    // 비동기 DB 매니저 (지연 초기화)
+    private var asyncManager: AsyncDatabaseManager? = null
+
     // 데이터 클래스 추가
     data class AuthRecord(val uuid: String, val isAuth: Boolean)
     data class PlayerData(val nickname: String, val uuid: String, val discordId: String?) // discordId 추가
@@ -67,7 +70,7 @@ class Database(private val plugin: Main, config: FileConfiguration) {
         val user = config.getString("database.user") ?: throw IllegalArgumentException("Database user not specified in config.")
         val password = config.getString("database.password") ?: throw IllegalArgumentException("Database password not specified in config.")
 
-        hikariConfig.jdbcUrl = "jdbc:mysql://$host:$port/$dbName?useSSL=false&serverTimezone=UTC"
+        hikariConfig.jdbcUrl = "jdbc:mysql://$host:$port/$dbName?useSSL=false&serverTimezone=UTC&connectTimeout=5000&socketTimeout=10000&autoReconnect=true"
         hikariConfig.username = user
         hikariConfig.password = password
         hikariConfig.addDataSourceProperty("cachePrepStmts", "true")
@@ -77,6 +80,9 @@ class Database(private val plugin: Main, config: FileConfiguration) {
         hikariConfig.minimumIdle = 5
         hikariConfig.idleTimeout = 30000
         hikariConfig.maxLifetime = 1800000
+        hikariConfig.connectionTimeout = 5000L  // 5초 연결 타임아웃
+        hikariConfig.validationTimeout = 3000L  // 3초 검증 타임아웃
+        hikariConfig.leakDetectionThreshold = 60000L  // 1분 누수 감지
 
         dataSource = HikariDataSource(hikariConfig)
     }
@@ -441,7 +447,42 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     /**
      * 데이터베이스를 닫는 메서드
      */
+    /**
+     * 비동기 DB 매니저 초기화 (플러그인 활성화 후 호출)
+     */
+    fun initializeAsyncManager() {
+        if (asyncManager == null) {
+            asyncManager = AsyncDatabaseManager(plugin, this)
+            plugin.logger.info("[Database] AsyncDatabaseManager 초기화 완료")
+
+            // 5분마다 캐시 정리
+            plugin.server.scheduler.runTaskTimerAsynchronously(plugin, Runnable {
+                asyncManager?.cleanupCache()
+            }, 6000L, 6000L) // 5분 간격
+
+            // 30초마다 통계 로그 (디버그 모드에서만)
+            plugin.server.scheduler.runTaskTimerAsynchronously(plugin, Runnable {
+                if (plugin.logger.isLoggable(java.util.logging.Level.FINE)) {
+                    val stats = asyncManager?.getStats()
+                    plugin.logger.fine("[AsyncDatabaseManager] 통계: $stats")
+                }
+            }, 600L, 600L) // 30초 간격
+        }
+    }
+
+    /**
+     * 비동기 DB 매니저 반환
+     */
+    fun getAsyncManager(): AsyncDatabaseManager? = asyncManager
+
+    /**
+     * 데이터베이스를 닫는 메서드
+     */
     fun close() {
+        // 비동기 매니저 종료
+        asyncManager?.shutdown()
+        asyncManager = null
+
         if (!dataSource.isClosed) {
             dataSource.close()
         }
