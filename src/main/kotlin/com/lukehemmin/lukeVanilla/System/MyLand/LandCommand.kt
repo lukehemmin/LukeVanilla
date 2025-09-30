@@ -245,8 +245,22 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 player.sendMessage(Component.text("사용법: /땅 친구추가 <플레이어>", NamedTextColor.RED))
                 return
             }
-            
-            val member = Bukkit.getOfflinePlayer(args[1])
+
+            val playerName = args[1].trim()
+
+            // 플레이어 이름 유효성 검증
+            if (!isValidPlayerName(playerName)) {
+                player.sendMessage(Component.text("유효하지 않은 플레이어 이름입니다. (3-16자, 영문자/숫자/언더스코어만 허용)", NamedTextColor.RED))
+                return
+            }
+
+            // 안전한 플레이어 조회 (예외 처리)
+            val member = try {
+                Bukkit.getOfflinePlayer(playerName)
+            } catch (e: Exception) {
+                player.sendMessage(Component.text("플레이어를 찾을 수 없습니다. 정확한 이름을 확인해주세요.", NamedTextColor.RED))
+                return
+            }
             
             // 대표 청크를 찾아서 친구 추가
             val representativeChunk = advancedManager.getRepresentativeChunk(player.uniqueId, chunk)
@@ -278,7 +292,19 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             player.sendMessage(Component.text("사용법: /땅 친구추가 <플레이어>", NamedTextColor.RED))
             return
         }
-        val member = Bukkit.getOfflinePlayer(args[1])
+
+        val playerName = args[1].trim()
+        if (!isValidPlayerName(playerName)) {
+            player.sendMessage(Component.text("유효하지 않은 플레이어 이름입니다. (3-16자, 영문자/숫자/언더스코어만 허용)", NamedTextColor.RED))
+            return
+        }
+
+        val member = try {
+            Bukkit.getOfflinePlayer(playerName)
+        } catch (e: Exception) {
+            player.sendMessage(Component.text("플레이어를 찾을 수 없습니다. 정확한 이름을 확인해주세요.", NamedTextColor.RED))
+            return
+        }
         if (landManager.addMember(chunk, player, member)) {
             player.sendMessage(Component.text("${member.name}님을 친구로 추가했습니다.", NamedTextColor.GREEN))
         } else {
@@ -311,8 +337,19 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 player.sendMessage(Component.text("사용법: /땅 친구삭제 <플레이어>", NamedTextColor.RED))
                 return
             }
-            
-            val member = Bukkit.getOfflinePlayer(args[1])
+
+            val playerName = args[1].trim()
+            if (!isValidPlayerName(playerName)) {
+                player.sendMessage(Component.text("유효하지 않은 플레이어 이름입니다. (3-16자, 영문자/숫자/언더스코어만 허용)", NamedTextColor.RED))
+                return
+            }
+
+            val member = try {
+                Bukkit.getOfflinePlayer(playerName)
+            } catch (e: Exception) {
+                player.sendMessage(Component.text("플레이어를 찾을 수 없습니다. 정확한 이름을 확인해주세요.", NamedTextColor.RED))
+                return
+            }
             
             // 대표 청크를 찾아서 친구 제거
             val representativeChunk = advancedManager.getRepresentativeChunk(player.uniqueId, chunk)
@@ -344,7 +381,19 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
             player.sendMessage(Component.text("사용법: /땅 친구삭제 <플레이어>", NamedTextColor.RED))
             return
         }
-        val member = Bukkit.getOfflinePlayer(args[1])
+
+        val playerName = args[1].trim()
+        if (!isValidPlayerName(playerName)) {
+            player.sendMessage(Component.text("유효하지 않은 플레이어 이름입니다. (3-16자, 영문자/숫자/언더스코어만 허용)", NamedTextColor.RED))
+            return
+        }
+
+        val member = try {
+            Bukkit.getOfflinePlayer(playerName)
+        } catch (e: Exception) {
+            player.sendMessage(Component.text("플레이어를 찾을 수 없습니다. 정확한 이름을 확인해주세요.", NamedTextColor.RED))
+            return
+        }
         if (landManager.removeMember(chunk, player, member)) {
             player.sendMessage(Component.text("${member.name}님을 친구에서 삭제했습니다.", NamedTextColor.GREEN))
         } else {
@@ -2634,5 +2683,21 @@ class LandCommand(private val landManager: LandManager) : CommandExecutor, TabCo
                 .append(Component.text(player.name, NamedTextColor.AQUA))
                 .append(Component.text("님이 이장 양도를 거절했습니다.", NamedTextColor.WHITE))
         )
+    }
+
+    /**
+     * 마인크래프트 플레이어 이름 유효성 검증
+     * @param name 검증할 플레이어 이름
+     * @return 유효한 이름이면 true, 아니면 false
+     */
+    private fun isValidPlayerName(name: String): Boolean {
+        // 마인크래프트 플레이어 이름 규칙:
+        // - 3-16자 길이
+        // - 영문자, 숫자, 언더스코어(_)만 허용
+        // - 첫 글자는 영문자여야 함
+        if (name.length < 3 || name.length > 16) return false
+
+        val validNamePattern = Regex("^[a-zA-Z][a-zA-Z0-9_]{2,15}$")
+        return validNamePattern.matches(name)
     }
 } 
