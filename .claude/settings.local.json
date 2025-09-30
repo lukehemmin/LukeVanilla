@@ -5,7 +5,8 @@
       "Bash(./gradlew:*)",
       "Bash(git add:*)",
       "Bash(find:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(kotlinc:*)"
     ],
     "deny": []
   }
