@@ -62,6 +62,10 @@ class DatabaseInitializer(private val database: Database) {
         // Discord 계정 연동 테이블 생성
         createDiscordAccountLinkTable()
 
+        // 낚시 상인 시스템 테이블 생성
+        createFishMerchantNPCTable()
+        createFishPricesTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -1043,6 +1047,77 @@ class DatabaseInitializer(private val database: Database) {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Discord 계정 연동 정보';
                 """.trimIndent()
             )
+        }
+    }
+
+    /**
+     * 낚시 상인 NPC 테이블 생성
+     * - 낚시 상인으로 지정된 NPC ID를 저장 (단일)
+     */
+    private fun createFishMerchantNPCTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS fish_merchant_npc (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `npc_id` INT UNIQUE NOT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='낚시 상인 NPC 정보';
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 물고기 가격 테이블 생성
+     * - 물고기 아이템별 구매 가격 저장
+     * - VANILLA, CUSTOMFISHING, NEXO 제공자별로 관리
+     */
+    private fun createFishPricesTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS fish_prices (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `item_provider` VARCHAR(20) NOT NULL,
+                    `fish_type` VARCHAR(100) NOT NULL,
+                    `price` DECIMAL(20, 2) NOT NULL,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY `unique_fish` (`item_provider`, `fish_type`),
+                    INDEX `idx_provider` (`item_provider`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='물고기 가격 정보';
+                """.trimIndent()
+            )
+
+            // 기본 바닐라 물고기 가격 초기화
+            val checkQuery = "SELECT COUNT(*) FROM fish_prices WHERE item_provider = ? AND fish_type = ?"
+            val insertQuery = "INSERT INTO fish_prices (item_provider, fish_type, price) VALUES (?, ?, ?)"
+
+            val defaultPrices = listOf(
+                Triple("VANILLA", "COD", 10.0),
+                Triple("VANILLA", "SALMON", 15.0),
+                Triple("VANILLA", "TROPICAL_FISH", 20.0),
+                Triple("VANILLA", "PUFFERFISH", 25.0)
+            )
+
+            defaultPrices.forEach { (provider, fishType, price) ->
+                connection.prepareStatement(checkQuery).use { checkStmt ->
+                    checkStmt.setString(1, provider)
+                    checkStmt.setString(2, fishType)
+                    checkStmt.executeQuery().use { rs ->
+                        if (rs.next() && rs.getInt(1) == 0) {
+                            connection.prepareStatement(insertQuery).use { insertStmt ->
+                                insertStmt.setString(1, provider)
+                                insertStmt.setString(2, fishType)
+                                insertStmt.setDouble(3, price)
+                                insertStmt.executeUpdate()
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

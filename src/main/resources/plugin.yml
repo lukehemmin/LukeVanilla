@@ -158,7 +158,12 @@ commands:
     description: "Manage books written in Minecraft."
     usage: "/book [list|public|private|delete|info|website|token|stats] [args]"
     aliases: [ 책 ]
-  
+  낚시상인:
+    description: "낚시 상인 시스템을 관리합니다."
+    usage: "/낚시상인 [설정|제거|가격설정|가격목록|정보] [인자]"
+    permission: "lukevanilla.fishmerchant"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
+
 permissions:
   lukevanilla.nametag:
     description: "Allows the use of the /nametag command"
@@ -267,4 +272,7 @@ permissions:
     default: op
   playtime.admin.stats:
     description: "플레이타임 통계 확인 권한"
+    default: op
+  lukevanilla.fishmerchant:
+    description: "낚시 상인 시스템 관리 권한"
     default: op

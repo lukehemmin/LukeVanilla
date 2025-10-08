@@ -61,6 +61,7 @@ class Main : JavaPlugin() {
     private var privateLandSystem: PrivateLandSystem? = null
     private var farmVillageSystem: FarmVillageSystem? = null
     private var playTimeSystem: PlayTimeSystem? = null
+    private var fishMerchantManager: com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantManager? = null
     private var advancedLandSystem: AdvancedLandSystem? = null
     private lateinit var debugManager: DebugManager
     private var luckPerms: LuckPerms? = null
@@ -679,6 +680,26 @@ class Main : JavaPlugin() {
             }
         } else {
             logger.info("[MyLand/FarmVillage] ${serviceType} 서버에서는 개인 땅 및 농장마을 시스템이 비활성화됩니다.")
+        }
+
+        // FishMerchant 시스템 초기화 (야생 서버에서만 실행)
+        if (serviceType == "Vanilla") {
+            try {
+                fishMerchantManager = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantManager(this, database, economyManager)
+                val fishMerchantListener = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantListener(fishMerchantManager!!)
+                server.pluginManager.registerEvents(fishMerchantListener, this)
+
+                val fishMerchantCommand = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantCommand(fishMerchantManager!!)
+                getCommand("낚시상인")?.setExecutor(fishMerchantCommand)
+                getCommand("낚시상인")?.tabCompleter = fishMerchantCommand
+
+                logger.info("[FishMerchant] 야생 서버에서 낚시 상인 시스템이 성공적으로 초기화되었습니다.")
+            } catch (e: Exception) {
+                logger.severe("[FishMerchant] 낚시 상인 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        } else {
+            logger.info("[FishMerchant] ${serviceType} 서버에서는 낚시 상인 시스템이 비활성화됩니다.")
         }
 
         // BookSystem 초기화 (야생 서버에서만 실행)
