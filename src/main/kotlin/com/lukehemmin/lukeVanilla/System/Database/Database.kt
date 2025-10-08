@@ -853,13 +853,14 @@ class Database(private val plugin: Main, config: FileConfiguration) {
      * Discord ID로 기본 계정 UUID를 조회합니다
      */
     fun getPrimaryUuidByDiscordId(discordId: String): String? {
+                // 먼저 Discord_Account_Link에서 조회
                 val query = """
                     SELECT dal.primary_uuid
                     FROM Discord_Account_Link dal
-                    INNER JOIN Player_Data pd ON dal.primary_uuid = pd.UUID
+                    INNER JOIN Player_Data pd ON dal.primary_uuid COLLATE utf8mb4_unicode_ci = pd.UUID COLLATE utf8mb4_unicode_ci
                     WHERE pd.DiscordID = ?
                 """.trimIndent()
-                
+
                 getConnection().use { connection ->
                     connection.prepareStatement(query).use { statement ->
                         statement.setString(1, discordId)
@@ -870,6 +871,14 @@ class Database(private val plugin: Main, config: FileConfiguration) {
                         }
                     }
                 }
+
+                // Discord_Account_Link에 없으면 Player_Data에서 조회 후 자동 생성
+                val uuid = getPlayerUUIDByDiscordID(discordId)
+                if (uuid != null) {
+                    insertAccountLink(uuid)
+                    return uuid
+                }
+
         return null
     }
     
@@ -878,14 +887,15 @@ class Database(private val plugin: Main, config: FileConfiguration) {
      */
     fun insertAccountLink(primaryUuid: String): Boolean {
                 val query = """
-                    INSERT INTO Discord_Account_Link (primary_uuid, secondary_uuid)
+                    INSERT IGNORE INTO Discord_Account_Link (primary_uuid, secondary_uuid)
                     VALUES (?, NULL)
                 """.trimIndent()
-                
+
                 getConnection().use { connection ->
                     connection.prepareStatement(query).use { statement ->
                         statement.setString(1, primaryUuid)
-                        return statement.executeUpdate() > 0
+                        statement.executeUpdate()
+                        return true
                     }
         }
     }

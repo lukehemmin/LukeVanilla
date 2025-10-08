@@ -106,6 +106,9 @@ class DiscordAuth(
             // DiscordID 업데이트
             database.updateDiscordId(playerData.uuid, event.author.id)
 
+            // Discord_Account_Link에 기본 계정으로 등록
+            database.insertAccountLink(playerData.uuid)
+
             // 역할 부여
             event.guild.retrieveMember(event.author).queue({ member ->
                 val role = event.guild.getRoleById(authRoleId) ?: run {

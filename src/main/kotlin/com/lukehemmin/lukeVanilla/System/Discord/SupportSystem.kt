@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
+import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import net.dv8tion.jda.api.interactions.components.text.TextInput
@@ -184,6 +185,24 @@ class SupportSystem(
     }
 
     private fun handleLinkSecondaryAccount(event: ButtonInteractionEvent) {
+        // 이미 부계정이 연결되어 있는지 체크
+        try {
+            val discordId = event.user.id
+            val primaryUuid = database.getPrimaryUuidByDiscordId(discordId)
+
+            if (primaryUuid != null) {
+                val accountLink = database.getAccountLinkByPrimaryUuid(primaryUuid)
+                if (accountLink?.secondaryUuid != null) {
+                    event.reply("이미 부계정이 연결되어 있습니다.")
+                        .setEphemeral(true)
+                        .queue()
+                    return
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("부계정 체크 중 오류: ${e.message}")
+        }
+
         val modal = Modal.create("link_secondary_account_modal", "부계정 연결")
             .addActionRow(
                 TextInput.create("auth_code", "마인크래프트 인증코드", TextInputStyle.SHORT)
@@ -269,9 +288,8 @@ class SupportSystem(
 
                     conn.commit()
 
-                    event.hook.sendMessage("부계정 연결이 완료되었습니다.")
-                        .setEphemeral(true)
-                        .queue()
+                    // 5. 완료 메시지와 함께 업데이트된 내 정보 표시
+                    sendUpdatedMyInfo(event.hook, primaryUuid, "✅ 부계정 연결이 완료되었습니다!\n\n")
 
                 } catch (e: Exception) {
                     conn.rollback()
@@ -284,9 +302,75 @@ class SupportSystem(
             }
 
         } catch (e: Exception) {
-            logger.severe("부계정 연결 모달 처리 중 오류: ${e.message}")
+            logger.severe("부계정 연결 처리 중 오류: ${e.message}")
             e.printStackTrace()
             event.hook.sendMessage("작업 중 오류가 발생했습니다.")
+                .setEphemeral(true)
+                .queue()
+        }
+    }
+
+    private fun sendUpdatedMyInfo(hook: InteractionHook, primaryUuid: String, prefixMessage: String = "") {
+        try {
+            // 기본 계정 정보 조회
+            val playerInfo = database.getPlayerInfo(primaryUuid)
+            if (playerInfo == null) {
+                hook.sendMessage("${prefixMessage}플레이어 정보를 찾을 수 없습니다.")
+                    .setEphemeral(true)
+                    .queue()
+                return
+            }
+
+            // 플레이타임 조회
+            val uuid = UUID.fromString(primaryUuid)
+            val playTimeSeconds = if (playTimeManager.isPlayerOnline(uuid)) {
+                val player = plugin.server.getPlayer(uuid)
+                if (player != null) {
+                    playTimeManager.getCurrentTotalPlayTime(player)
+                } else {
+                    playTimeManager.getSavedTotalPlayTime(uuid)
+                }
+            } else {
+                playTimeManager.getSavedTotalPlayTime(uuid)
+            }
+
+            // 부계정 확인
+            val accountLink = database.getAccountLinkByPrimaryUuid(primaryUuid)
+            val hasSecondary = accountLink?.secondaryUuid != null
+
+            // 임베드 생성
+            val embed = EmbedBuilder()
+                .setTitle("📊 내 정보")
+                .setColor(Color.GREEN)
+                .addField("닉네임", playerInfo.nickname, true)
+                .addField("UUID", primaryUuid, false)
+                .addField("플레이 시간", formatPlayTime(playTimeSeconds), true)
+                .addField("부계정", if (hasSecondary) "연결됨" else "미연결", true)
+                .setFooter("디스코드 ID: ${playerInfo.discordId ?: "없음"}")
+                .build()
+
+            // 버튼 구성
+            val buttons = mutableListOf<Button>()
+            buttons.add(Button.danger("auth_unlink_primary", "인증 해제"))
+
+            if (hasSecondary) {
+                buttons.add(Button.secondary("show_secondary_account", "부계정 정보"))
+            } else {
+                buttons.add(Button.primary("link_secondary_account", "부계정 연결"))
+            }
+
+            buttons.add(Button.success("season_items_from_profile", "아이템 등록 보기"))
+
+            hook.sendMessage(prefixMessage)
+                .setEmbeds(embed)
+                .setComponents(ActionRow.of(buttons))
+                .setEphemeral(true)
+                .queue()
+
+        } catch (e: Exception) {
+            logger.severe("내 정보 표시 중 오류: ${e.message}")
+            e.printStackTrace()
+            hook.sendMessage("${prefixMessage}정보를 조회하는 중 오류가 발생했습니다.")
                 .setEphemeral(true)
                 .queue()
         }
@@ -414,6 +498,29 @@ class SupportSystem(
 
                     conn.commit()
 
+                    // 4. 부계정이 본서버에 접속중이면 킥 처리
+                    try {
+                        val secondaryPlayerInfo = database.getPlayerInfo(secondaryUuid)
+                        if (secondaryPlayerInfo != null) {
+                            val currentServer = database.getPlayerCurrentServer(secondaryUuid)
+                            if (currentServer == "vanilla") {
+                                database.addCrossServerCommand(
+                                    commandType = "kick",
+                                    targetPlayerUuid = secondaryUuid,
+                                    targetPlayerName = secondaryPlayerInfo.nickname,
+                                    sourceServer = "lobby",
+                                    targetServer = "vanilla",
+                                    commandData = mapOf("reason" to "부계정 연결이 해제되었습니다."),
+                                    commandReason = "부계정 연결 해제",
+                                    issuedBy = "System"
+                                )
+                                logger.info("본서버 킥 명령 전송 (부계정 연결 해제): ${secondaryPlayerInfo.nickname}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        logger.warning("부계정 킥 처리 실패: ${e.message}")
+                    }
+
                     event.hook.sendMessage("부계정 연결이 해제되었습니다.")
                         .setEphemeral(true)
                         .queue()
@@ -506,7 +613,51 @@ class SupportSystem(
 
                     conn.commit()
 
-                    // 5. 디스코드 역할 제거
+                    // 5. 본서버에 접속중이면 킥 처리 (기본 계정)
+                    try {
+                        val playerInfo = database.getPlayerInfo(primaryUuid)
+                        if (playerInfo != null) {
+                            val currentServer = database.getPlayerCurrentServer(primaryUuid)
+                            if (currentServer == "vanilla") {
+                                database.addCrossServerCommand(
+                                    commandType = "kick",
+                                    targetPlayerUuid = primaryUuid,
+                                    targetPlayerName = playerInfo.nickname,
+                                    sourceServer = "lobby",
+                                    targetServer = "vanilla",
+                                    commandData = mapOf("reason" to "인증이 해제되었습니다."),
+                                    commandReason = "인증 해제",
+                                    issuedBy = "System"
+                                )
+                                logger.info("본서버 킥 명령 전송 (기본 계정): ${playerInfo.nickname}")
+                            }
+                        }
+
+                        // 부계정도 본서버에 접속중이면 킥 처리
+                        if (secondaryUuid != null) {
+                            val secondaryPlayerInfo = database.getPlayerInfo(secondaryUuid)
+                            if (secondaryPlayerInfo != null) {
+                                val secondaryCurrentServer = database.getPlayerCurrentServer(secondaryUuid)
+                                if (secondaryCurrentServer == "vanilla") {
+                                    database.addCrossServerCommand(
+                                        commandType = "kick",
+                                        targetPlayerUuid = secondaryUuid,
+                                        targetPlayerName = secondaryPlayerInfo.nickname,
+                                        sourceServer = "lobby",
+                                        targetServer = "vanilla",
+                                        commandData = mapOf("reason" to "인증이 해제되었습니다."),
+                                        commandReason = "인증 해제",
+                                        issuedBy = "System"
+                                    )
+                                    logger.info("본서버 킥 명령 전송 (부계정): ${secondaryPlayerInfo.nickname}")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        logger.warning("본서버 킥 처리 실패: ${e.message}")
+                    }
+
+                    // 6. 디스코드 역할 제거
                     try {
                         discordRoleManager.removeAuthRole(discordId)
                     } catch (e: Exception) {
