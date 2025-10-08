@@ -364,20 +364,7 @@ class Main : JavaPlugin() {
             }
         }
 
-        // Discord Bot 초기화 부분 아래에 추가
-        // 고객지원 시스템은 로비 서버에서만 실행
-        if (serviceType == "Lobby") {
-            logger.info("로비 서버에서 고객지원 시스템을 초기화합니다.")
-            discordBot.jda.addEventListener(
-                SupportSystem(discordBot, database),
-                SupportCaseListener(database, discordBot)
-            )
-            // 고객지원 채널 설정 초기화 (로비 서버에서만 수행)
-            val supportSystem = SupportSystem(discordBot, database)
-            supportSystem.setupSupportChannel()
-        } else {
-            logger.info("${serviceType} 서버에서는 고객지원 시스템이 비활성화됩니다.")
-        }
+        // 고객지원 시스템은 PlayTimeSystem 초기화 이후에 초기화됩니다 (아래 참조)
 
         // 로비 서버일 때만 눈싸움 미니게임 초기화
         if (serviceType == "Lobby") {
@@ -602,6 +589,29 @@ class Main : JavaPlugin() {
         } catch (e: Exception) {
             logger.severe("[PlayTime] 플레이타임 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
+        }
+        
+        // 고객지원 시스템은 로비 서버에서만 실행 (PlayTimeSystem 초기화 이후)
+        if (serviceType == "Lobby") {
+            try {
+                val playTimeManager = playTimeSystem?.getPlayTimeManager()
+                if (playTimeManager != null) {
+                    logger.info("로비 서버에서 고객지원 시스템을 초기화합니다.")
+                    val supportSystem = SupportSystem(this, discordBot, database, playTimeManager, discordRoleManager)
+                    discordBot.jda.addEventListener(supportSystem)
+                    discordBot.jda.addEventListener(SupportCaseListener(database, discordBot))
+                    // 고객지원 채널 설정 초기화
+                    supportSystem.setupSupportChannel()
+                    logger.info("[SupportSystem] 고객지원 시스템 초기화 완료")
+                } else {
+                    logger.warning("[SupportSystem] PlayTimeManager를 찾을 수 없어 고객지원 시스템을 초기화할 수 없습니다.")
+                }
+            } catch (e: Exception) {
+                logger.severe("[SupportSystem] 고객지원 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        } else {
+            logger.info("[SupportSystem] ${serviceType} 서버에서는 고객지원 시스템이 비활성화됩니다.")
         }
 
         // AdvancedLandClaiming 시스템 초기화 (야생서버에서만 실행, PlayTime 시스템 이후)

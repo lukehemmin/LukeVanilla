@@ -58,6 +58,9 @@ class DatabaseInitializer(private val database: Database) {
         createBookSessionsTable()
         // PlayTime 시스템 테이블 생성
         createPlayTimeTable()
+        
+        // Discord 계정 연동 테이블 생성
+        createDiscordAccountLinkTable()
 
         // 다른 테이블 생성 코드 추가 가능
     }
@@ -1016,6 +1019,28 @@ class DatabaseInitializer(private val database: Database) {
                     FOREIGN KEY (`village_id`) REFERENCES `villages`(`village_id`) ON DELETE CASCADE,
                     FOREIGN KEY (`village_id`, `member_uuid`) REFERENCES `village_members`(`village_id`, `member_uuid`) ON DELETE CASCADE
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='마을 구성원 권한';
+                """.trimIndent()
+            )
+        }
+    }
+    
+    /**
+     * Discord 계정 연동 테이블 생성
+     * - 디스코드 사용자 기준으로 기본 계정과 부계정을 관리
+     */
+    private fun createDiscordAccountLinkTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS Discord_Account_Link (
+                    `primary_uuid` VARCHAR(36) NOT NULL,
+                    `secondary_uuid` VARCHAR(36) UNIQUE,
+                    `linked_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`primary_uuid`),
+                    INDEX `idx_primary` (`primary_uuid`),
+                    INDEX `idx_secondary` (`secondary_uuid`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Discord 계정 연동 정보';
                 """.trimIndent()
             )
         }
