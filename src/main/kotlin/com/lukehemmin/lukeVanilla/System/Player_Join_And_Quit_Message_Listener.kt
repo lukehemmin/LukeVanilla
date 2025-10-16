@@ -40,11 +40,11 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
                 // 스폰 위치 설정 (안전 구역 내 위치로 설정)
                 val spawnLocation = org.bukkit.Location(
                     Bukkit.getWorld("world"), // 월드 이름 설정
-                    -223.5, // x 좌표
+                    -221.5, // x 좌표
                     67.0, // y 좌표
-                    -112.5, // z 좌표
-                    180f, // yaw (수평 회전)
-                    1.2f  // pitch (수직 회전)
+                    -99.5, // z 좌표
+                    90.0f, // yaw (수평 회전 - West)
+                    -1.0f  // pitch (수직 회전 - 약간 위)
                 )
                 player.teleport(spawnLocation)
             }, 20L) // 1초(20틱) 후 텔레포트 실행
