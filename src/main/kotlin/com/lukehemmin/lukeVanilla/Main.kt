@@ -323,7 +323,10 @@ class Main : JavaPlugin() {
             
             // 티토커 채팅 리스너 등록 (모든 서버 공통)
             discordBot.jda.addEventListener(TitokerChatListener(this))
-            
+
+            // 연홍 채팅 리스너 등록 (모든 서버 공통)
+            discordBot.jda.addEventListener(YeonhongChatListener(this))
+
             // 서비스 타입이 "Lobby"가 아닐 경우에만 인증코드 처리 시스템 초기화
             if (serviceType != "Lobby") {
                 // DiscordAuth 초기화 및 리스너 등록 (인증코드 처리만 로비에서 비활성화)
@@ -452,6 +455,10 @@ class Main : JavaPlugin() {
         // 티토커 메시지 명령어 등록
         getCommand("티토커메시지")?.setExecutor(TitokerMessageCommand(this))
         getCommand("티토커메시지")?.tabCompleter = TitokerCommandCompleter()
+
+        // 연홍 메시지 명령어 등록
+        getCommand("연홍메시지")?.setExecutor(YeonhongMessageCommand(this))
+        getCommand("연홍메시지")?.tabCompleter = YeonhongCommandCompleter()
 
         // 음성채널 메시지 명령어 등록
         getCommand("음성채널메시지")?.setExecutor(VoiceChannelMessageCommand(this))

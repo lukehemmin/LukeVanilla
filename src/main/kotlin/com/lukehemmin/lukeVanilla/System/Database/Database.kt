@@ -331,6 +331,38 @@ class Database(private val plugin: Main, config: FileConfiguration) {
         }
     }
 
+    fun setYeonhongMessageEnabled(uuid: String, enabled: Boolean) {
+        val query = """
+            INSERT INTO Yeonhong_Message_Setting (UUID, IsEnabled)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE IsEnabled = ?
+        """
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, uuid)
+                statement.setBoolean(2, enabled)
+                statement.setBoolean(3, enabled)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun isYeonhongMessageEnabled(uuid: String): Boolean {
+        val query = "SELECT IsEnabled FROM Yeonhong_Message_Setting WHERE UUID = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, uuid)
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        resultSet.getBoolean("IsEnabled")
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
+    }
+
     fun setVoiceChannelMessageEnabled(uuid: String, enabled: Boolean) {
         val query = """
             INSERT INTO Voice_Channel_Message_Setting (UUID, IsEnabled) 
