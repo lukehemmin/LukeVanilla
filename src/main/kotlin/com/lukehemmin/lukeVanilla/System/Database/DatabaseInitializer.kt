@@ -18,6 +18,7 @@ class DatabaseInitializer(private val database: Database) {
         createSpringItemOwnerTable()
         createSpringItemReceiveTable()
         createTitokerMessageSettingTable()
+        createYeonhongMessageSettingTable()
         createVoiceChannelMessageSettingTable()
         createDynamicVoiceChannelTable()
         createSupportChatLinkTable()
@@ -384,6 +385,20 @@ class DatabaseInitializer(private val database: Database) {
             statement.executeUpdate(
                 """
             CREATE TABLE IF NOT EXISTS Titoker_Message_Setting (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `IsEnabled` BOOLEAN DEFAULT false
+            )
+            """
+            )
+        }
+    }
+
+    private fun createYeonhongMessageSettingTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Yeonhong_Message_Setting (
                 `UUID` VARCHAR(36) PRIMARY KEY,
                 `IsEnabled` BOOLEAN DEFAULT false
             )
@@ -1077,13 +1092,16 @@ class DatabaseInitializer(private val database: Database) {
     private fun createFishPricesTable() {
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
+
+            // 새로운 테이블 구조 생성 (price 컬럼 제거)
             statement.executeUpdate(
                 """
                 CREATE TABLE IF NOT EXISTS fish_prices (
                     `id` INT PRIMARY KEY AUTO_INCREMENT,
                     `item_provider` VARCHAR(20) NOT NULL,
                     `fish_type` VARCHAR(100) NOT NULL,
-                    `price` DECIMAL(20, 2) NOT NULL,
+                    `base_price` DECIMAL(20, 2) NOT NULL DEFAULT 0,
+                    `price_per_cm` DECIMAL(20, 2) NOT NULL DEFAULT 0,
                     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     UNIQUE KEY `unique_fish` (`item_provider`, `fish_type`),
                     INDEX `idx_provider` (`item_provider`)
@@ -1091,9 +1109,32 @@ class DatabaseInitializer(private val database: Database) {
                 """.trimIndent()
             )
 
+            // 기존 테이블에 새 컬럼 추가 (테이블이 이미 존재하고 컬럼이 없을 경우)
+            try {
+                statement.executeUpdate("ALTER TABLE fish_prices ADD COLUMN `base_price` DECIMAL(20, 2) NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+
+            try {
+                statement.executeUpdate("ALTER TABLE fish_prices ADD COLUMN `price_per_cm` DECIMAL(20, 2) NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+
+            // 레거시 price 컬럼에서 base_price로 데이터 마이그레이션 (한 번만 실행)
+            try {
+                // price 컬럼이 존재하는지 확인
+                val rsColumns = connection.metaData.getColumns(null, null, "fish_prices", "price")
+                if (rsColumns.next()) {
+                    // price 컬럼이 존재하면 데이터 복사 후 제거
+                    statement.executeUpdate("UPDATE fish_prices SET base_price = price WHERE base_price = 0 AND price > 0")
+                    statement.executeUpdate("ALTER TABLE fish_prices DROP COLUMN `price`")
+                }
+                rsColumns.close()
+            } catch (e: Exception) {
+                // price 컬럼이 없거나 이미 삭제됨
+            }
+
             // 기본 바닐라 물고기 가격 초기화
             val checkQuery = "SELECT COUNT(*) FROM fish_prices WHERE item_provider = ? AND fish_type = ?"
-            val insertQuery = "INSERT INTO fish_prices (item_provider, fish_type, price) VALUES (?, ?, ?)"
+            val insertQuery = "INSERT INTO fish_prices (item_provider, fish_type, base_price, price_per_cm) VALUES (?, ?, ?, 0)"
 
             val defaultPrices = listOf(
                 Triple("VANILLA", "COD", 10.0),

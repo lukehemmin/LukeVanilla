@@ -14,7 +14,8 @@ import org.bukkit.plugin.java.JavaPlugin
 data class FishIdentificationResult(
     val provider: String,  // VANILLA, CUSTOMFISHING, NEXO
     val fishId: String,
-    val displayName: String
+    val displayName: String,
+    val size: Double? = null  // CustomFishing 물고기 크기 (cm)
 )
 
 class FishMerchantManager(
@@ -27,14 +28,15 @@ class FishMerchantManager(
 
     /**
      * NPC를 낚시 상인으로 설정
+     * @return Pair<성공 여부, 이전 NPC ID>
      */
-    fun setFishMerchant(npcId: Int): Boolean {
+    fun setFishMerchant(npcId: Int): Pair<Boolean, Int?> {
         val npc = CitizensAPI.getNPCRegistry().getById(npcId)
         if (npc == null) {
-            return false
+            return Pair(false, null)
         }
-        data.saveNPCMerchant(npcId)
-        return true
+        val previousNpcId = data.saveNPCMerchant(npcId)
+        return Pair(true, previousNpcId)
     }
 
     /**
@@ -56,7 +58,8 @@ class FishMerchantManager(
      * NPC ID로 낚시 상인인지 확인
      */
     fun isFishMerchant(npcId: Int): Boolean {
-        return data.getNPCMerchant() == npcId
+        val registeredNpcId = data.getNPCMerchant()
+        return registeredNpcId == npcId
     }
 
     /**
@@ -87,10 +90,15 @@ class FishMerchantManager(
                     } else {
                         itemId
                     }
+
+                    // 크기 정보 추출 (displayName 또는 lore에서)
+                    val size = extractSizeFromItem(itemStack)
+
                     return FishIdentificationResult(
                         "CUSTOMFISHING",
                         itemId,
-                        displayNameText
+                        displayNameText,
+                        size
                     )
                 }
             }
@@ -135,7 +143,7 @@ class FishMerchantManager(
     }
 
     /**
-     * 물고기 가격 설정
+     * 물고기 가격 설정 (단순 가격)
      */
     fun setFishPrice(provider: String, fishType: String, price: Double): Boolean {
         data.setFishPrice(provider, fishType, price)
@@ -143,10 +151,33 @@ class FishMerchantManager(
     }
 
     /**
-     * 물고기 가격 조회
+     * 물고기 가격 설정 (크기 기반)
+     */
+    fun setFishPriceWithSize(provider: String, fishType: String, basePrice: Double, pricePerCm: Double): Boolean {
+        data.setFishPriceWithSize(provider, fishType, basePrice, pricePerCm)
+        return true
+    }
+
+    /**
+     * 물고기 가격 조회 (기본 가격만)
      */
     fun getFishPrice(provider: String, fishType: String): Double? {
         return data.getFishPrice(provider, fishType)
+    }
+
+    /**
+     * 물고기 실제 판매 가격 계산 (크기 포함)
+     */
+    fun calculateFishPrice(fishInfo: FishIdentificationResult): Double? {
+        val priceInfo = data.getFishPriceInfo(fishInfo.provider, fishInfo.fishId) ?: return null
+
+        // 크기 정보가 있고 cm당 가격이 설정되어 있으면 크기 기반 계산
+        return if (fishInfo.size != null && priceInfo.pricePerCm > 0) {
+            priceInfo.basePrice + (fishInfo.size * priceInfo.pricePerCm)
+        } else {
+            // 크기 정보가 없거나 cm당 가격이 0이면 기본 가격만
+            priceInfo.basePrice
+        }
     }
 
     /**
@@ -231,6 +262,78 @@ class FishMerchantManager(
 
                 if (remaining == 0) break
             }
+        }
+    }
+
+    /**
+     * ItemStack에서 물고기 크기 추출 (displayName 또는 lore에서)
+     * 예:
+     *   - displayName: "참치 (150.5cm)" → 150.5
+     *   - lore: "크기: 150.5cm" → 150.5
+     *   - lore: "Size: 150.5cm" → 150.5
+     */
+    private fun extractSizeFromItem(itemStack: ItemStack): Double? {
+        return try {
+            val meta = itemStack.itemMeta ?: return null
+
+            // 1. displayName에서 크기 찾기
+            val displayName = meta.displayName()
+            if (displayName != null) {
+                val displayNameText = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(displayName)
+                val sizeFromName = extractSizeFromText(displayNameText)
+                if (sizeFromName != null) return sizeFromName
+            }
+
+            // 2. lore에서 크기 찾기
+            val lore = meta.lore()
+            if (lore != null && lore.isNotEmpty()) {
+                for (loreLine in lore) {
+                    val loreText = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(loreLine)
+                    val sizeFromLore = extractSizeFromText(loreText)
+                    if (sizeFromLore != null) return sizeFromLore
+                }
+            }
+
+            null
+        } catch (e: Exception) {
+            plugin.logger.warning("크기 추출 중 오류: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * 텍스트에서 크기 추출
+     * 다양한 패턴 지원:
+     *   - "크기: 150.5cm"
+     *   - "(150.5cm)"
+     *   - "150.5cm"
+     */
+    private fun extractSizeFromText(text: String): Double? {
+        return try {
+            // 패턴 1: "크기: 숫자cm" 또는 "Size: 숫자cm" (lore 전용)
+            val pattern1 = Regex("""(?:크기|Size|size)\s*[:：]\s*(\d+(?:\.\d+)?)\s*cm""", RegexOption.IGNORE_CASE)
+            val match1 = pattern1.find(text)
+            if (match1 != null) {
+                return match1.groupValues[1].toDoubleOrNull()
+            }
+
+            // 패턴 2: "(숫자cm)" 형태 (displayName 전용)
+            val pattern2 = Regex("""[(（](\d+(?:\.\d+)?)\s*cm[)）]""")
+            val match2 = pattern2.find(text)
+            if (match2 != null) {
+                return match2.groupValues[1].toDoubleOrNull()
+            }
+
+            // 패턴 3: "숫자cm" 형태 (일반)
+            val pattern3 = Regex("""(\d+(?:\.\d+)?)\s*cm""")
+            val match3 = pattern3.find(text)
+            if (match3 != null) {
+                return match3.groupValues[1].toDoubleOrNull()
+            }
+
+            null
+        } catch (e: Exception) {
+            null
         }
     }
 

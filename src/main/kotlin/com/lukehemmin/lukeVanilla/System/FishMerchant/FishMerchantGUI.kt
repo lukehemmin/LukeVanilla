@@ -37,7 +37,7 @@ class FishMerchantGUI(
         val inventory = Bukkit.createInventory(null, GUI_SIZE, Component.text("낚시 상인", NamedTextColor.DARK_GREEN))
 
         // 가격 정보 아이템
-        inventory.setItem(PRICE_INFO_SLOT, createPriceInfoItem(0.0))
+        inventory.setItem(PRICE_INFO_SLOT, createPriceInfoItem(0.0, 0))
 
         // 선택 판매 버튼
         inventory.setItem(SELECT_SELL_SLOT, createSelectSellButton())
@@ -59,16 +59,25 @@ class FishMerchantGUI(
         player.openInventory(inventory)
     }
 
-    private fun createPriceInfoItem(totalPrice: Double): ItemStack {
+    private fun createPriceInfoItem(totalPrice: Double, fishCount: Int): ItemStack {
         return ItemStack(Material.PAPER).apply {
             editMeta { meta ->
                 meta.displayName(
-                    Component.text("총 판매 가격", NamedTextColor.GOLD)
+                    Component.text("총 판매 정보", NamedTextColor.GOLD)
                         .decoration(TextDecoration.ITALIC, false)
+                        .decoration(TextDecoration.BOLD, true)
                 )
                 meta.lore(
                     listOf(
-                        Component.text("${totalPrice}원", NamedTextColor.YELLOW)
+                        Component.empty(),
+                        Component.text("물고기 수량: ", NamedTextColor.GRAY)
+                            .append(Component.text("${fishCount}개", NamedTextColor.AQUA))
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.text("예상 금액: ", NamedTextColor.GRAY)
+                            .append(Component.text("${totalPrice}원", NamedTextColor.YELLOW))
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.empty(),
+                        Component.text("물고기를 GUI에 올려보세요!", NamedTextColor.DARK_GRAY)
                             .decoration(TextDecoration.ITALIC, false)
                     )
                 )
@@ -82,10 +91,20 @@ class FishMerchantGUI(
                 meta.displayName(
                     Component.text("선택 판매", NamedTextColor.GREEN)
                         .decoration(TextDecoration.ITALIC, false)
+                        .decoration(TextDecoration.BOLD, true)
                 )
                 meta.lore(
                     listOf(
+                        Component.empty(),
                         Component.text("GUI에 올린 물고기만 판매합니다", NamedTextColor.GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.empty(),
+                        Component.text("✓ 원하는 물고기만 선택 가능", NamedTextColor.DARK_GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.text("✓ 가격이 없는 물고기는 자동 제외", NamedTextColor.DARK_GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.empty(),
+                        Component.text("▶ 클릭하여 판매", NamedTextColor.YELLOW)
                             .decoration(TextDecoration.ITALIC, false)
                     )
                 )
@@ -99,10 +118,22 @@ class FishMerchantGUI(
                 meta.displayName(
                     Component.text("모두 판매", NamedTextColor.GOLD)
                         .decoration(TextDecoration.ITALIC, false)
+                        .decoration(TextDecoration.BOLD, true)
                 )
                 meta.lore(
                     listOf(
+                        Component.empty(),
                         Component.text("인벤토리의 모든 물고기를 판매합니다", NamedTextColor.GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.empty(),
+                        Component.text("✓ 전체 인벤토리에서 물고기 검색", NamedTextColor.DARK_GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.text("✓ 가격이 설정된 물고기만 판매", NamedTextColor.DARK_GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.text("✓ 즉시 판매 및 GUI 닫기", NamedTextColor.DARK_GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                        Component.empty(),
+                        Component.text("▶ 클릭하여 전체 판매", NamedTextColor.YELLOW)
                             .decoration(TextDecoration.ITALIC, false)
                     )
                 )
@@ -179,18 +210,20 @@ class FishMerchantGUI(
 
     private fun updatePriceInfo(inventory: Inventory) {
         var totalPrice = 0.0
+        var totalFishCount = 0
 
         for (slot in 0..44) {
             val item = inventory.getItem(slot) ?: continue
             if (item.type == Material.AIR) continue
 
             val fishInfo = fishMerchantManager.identifyFish(item) ?: continue
-            val price = fishMerchantManager.getFishPrice(fishInfo.provider, fishInfo.fishId) ?: continue
+            val price = fishMerchantManager.calculateFishPrice(fishInfo) ?: continue
 
             totalPrice += price * item.amount
+            totalFishCount += item.amount
         }
 
-        inventory.setItem(PRICE_INFO_SLOT, createPriceInfoItem(totalPrice))
+        inventory.setItem(PRICE_INFO_SLOT, createPriceInfoItem(totalPrice, totalFishCount))
     }
 
     private fun handleSelectSell(player: Player, inventory: Inventory) {
@@ -211,7 +244,7 @@ class FishMerchantGUI(
                 continue
             }
 
-            val price = fishMerchantManager.getFishPrice(fishInfo.provider, fishInfo.fishId)
+            val price = fishMerchantManager.calculateFishPrice(fishInfo)
             if (price == null) {
                 player.sendMessage(
                     Component.text("구매하지 않는 물고기: [${fishInfo.provider}] ${fishInfo.displayName}", NamedTextColor.RED)
@@ -238,9 +271,10 @@ class FishMerchantGUI(
         player.sendMessage(Component.text("물고기 판매 완료!", NamedTextColor.GREEN))
         fishItems.groupBy { it.second }.forEach { (fishInfo, items) ->
             val totalAmount = items.sumOf { it.first.amount }
-            val price = fishMerchantManager.getFishPrice(fishInfo.provider, fishInfo.fishId)!!
+            val price = fishMerchantManager.calculateFishPrice(fishInfo)!!
+            val sizeText = if (fishInfo.size != null) " (${fishInfo.size}cm)" else ""
             player.sendMessage(
-                Component.text("  - [${fishInfo.provider}] ${fishInfo.displayName} x${totalAmount} = ", NamedTextColor.WHITE)
+                Component.text("  - [${fishInfo.provider}] ${fishInfo.displayName}${sizeText} x${totalAmount} = ", NamedTextColor.WHITE)
                     .append(Component.text("${price * totalAmount}원", NamedTextColor.YELLOW))
             )
         }
@@ -262,7 +296,7 @@ class FishMerchantGUI(
             if (item == null || item.type == Material.AIR) continue
 
             val fishInfo = fishMerchantManager.identifyFish(item) ?: continue
-            val price = fishMerchantManager.getFishPrice(fishInfo.provider, fishInfo.fishId) ?: continue
+            val price = fishMerchantManager.calculateFishPrice(fishInfo) ?: continue
 
             fishItems.add(item to fishInfo)
             totalPrice += price * item.amount
@@ -280,9 +314,10 @@ class FishMerchantGUI(
         val groupedFish = fishItems.groupBy { it.second }
         groupedFish.forEach { (fishInfo, items) ->
             val totalAmount = items.sumOf { it.first.amount }
-            val price = fishMerchantManager.getFishPrice(fishInfo.provider, fishInfo.fishId)!!
+            val price = fishMerchantManager.calculateFishPrice(fishInfo)!!
+            val sizeText = if (fishInfo.size != null) " (${fishInfo.size}cm)" else ""
             player.sendMessage(
-                Component.text("  - [${fishInfo.provider}] ${fishInfo.displayName} x${totalAmount} = ", NamedTextColor.WHITE)
+                Component.text("  - [${fishInfo.provider}] ${fishInfo.displayName}${sizeText} x${totalAmount} = ", NamedTextColor.WHITE)
                     .append(Component.text("${price * totalAmount}원", NamedTextColor.YELLOW))
             )
         }
