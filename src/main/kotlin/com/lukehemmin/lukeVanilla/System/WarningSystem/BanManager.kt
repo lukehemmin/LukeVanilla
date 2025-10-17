@@ -82,26 +82,29 @@ class BanManager(private val database: Database, private val jda: JDA) {
                     connection.commit()
 
                     // 4. 인게임에서 플레이어 차단 (IP 포함)
+                    var banSuccess = false
                     if (nickname != null) {
                         try {
-                            // UUID 기반 차단 - 콘솔 명령어 사용
                             val server = Bukkit.getServer()
                             val consoleCommandSender = Bukkit.getConsoleSender()
-                            
-                            // 플레이어 이름으로 차단
-                            val banCommand = "ban $nickname $reason (Source: $source)"
+                            val offlinePlayer = Bukkit.getOfflinePlayer(uuid)
+
+                            // 플레이어 이름으로 차단 (오프라인 플레이어도 작동)
+                            val banCommand = "ban ${offlinePlayer.name ?: nickname} $reason (Source: $source)"
                             server.dispatchCommand(consoleCommandSender, banCommand)
-                            logger.info("플레이어 ${nickname}님이 차단되었습니다. 사유: $reason")
-                            
+                            logger.info("플레이어 ${nickname}님 차단 명령 실행. 사유: $reason")
+                            banSuccess = true
+
                             // IP 기반 차단
                             for (ip in ipList) {
                                 val ipBanReason = "UUID $uuid ($nickname) 차단 연동: $reason"
                                 val banIpCommand = "ban-ip $ip $ipBanReason"
                                 server.dispatchCommand(consoleCommandSender, banIpCommand)
-                                logger.info("IP 주소 " + ip + "가 차단되었습니다.")
+                                logger.info("IP 주소 $ip 차단 명령 실행")
                             }
                         } catch (e: Exception) {
-                            logger.log(Level.SEVERE, "차단 적용 중 오류 발생", e)
+                            logger.log(Level.SEVERE, "차단 명령 실행 중 오류 발생", e)
+                            banSuccess = false
                         }
 
                         // 온라인 상태라면 강제 퇴장
@@ -114,7 +117,8 @@ class BanManager(private val database: Database, private val jda: JDA) {
                         banUserFromDiscord(discordId, reason, nickname)
                     }
 
-                    return true
+                    // 인게임 차단이 성공했으면 true 반환
+                    return banSuccess
                 } catch (e: Exception) {
                     connection.rollback()
                     logger.log(Level.SEVERE, "플레이어 차단 처리 중 오류 발생", e)
@@ -203,7 +207,7 @@ class BanManager(private val database: Database, private val jda: JDA) {
                 return false
             }
 
-            // 3. DM 전송
+            // 3. DM 전송 (동기 처리)
             val dmMessage = StringBuilder()
                 .append("안녕하세요, 루크바닐라 서버에서 알립니다.\n\n")
                 .append("귀하의 계정이 서버에서 차단되었습니다.\n")
@@ -212,28 +216,26 @@ class BanManager(private val database: Database, private val jda: JDA) {
                 .append("이의가 있으신 경우 공식 디스코드 서버의 문의 채널을 통해 문의해주세요.")
                 .toString()
 
-            user.openPrivateChannel().queue { channel ->
-                channel.sendMessage(dmMessage).queue(
-                    { 
-                        logger.info("디스코드 사용자 ${user.name}에게 차단 DM을 성공적으로 전송했습니다.")
-                    },
-                    { error ->
-                        logger.log(Level.WARNING, "디스코드 사용자 ${user.name}에게 DM 전송 실패", error)
-                    }
-                )
+            try {
+                val privateChannel = user.openPrivateChannel().complete()
+                privateChannel.sendMessage(dmMessage).complete()
+                logger.info("디스코드 사용자 ${user.name}에게 차단 DM을 성공적으로 전송했습니다.")
+            } catch (e: Exception) {
+                logger.log(Level.WARNING, "디스코드 사용자 ${user.name}에게 DM 전송 실패: ${e.message}", e)
+                // DM 전송 실패는 차단 실패로 간주하지 않음 (DM 차단 설정 가능)
             }
 
-            // 4. 디스코드 서버에서 차단
-            guild.ban(user, 0, TimeUnit.SECONDS).reason("인게임 연동 차단: $reason").queue(
-                {
-                    logger.info("디스코드 사용자 ${user.name}을(를) 서버에서 차단했습니다.")
-                },
-                { error ->
-                    logger.log(Level.WARNING, "디스코드 사용자 ${user.name} 차단 실패", error)
-                }
-            )
-            
-            return true
+            // 4. 디스코드 서버에서 차단 (동기 처리)
+            try {
+                guild.ban(user, 0, TimeUnit.SECONDS)
+                    .reason("인게임 연동 차단: $reason")
+                    .complete()  // 동기 처리로 차단 완료 대기
+                logger.info("디스코드 사용자 ${user.name}을(를) 서버에서 차단했습니다.")
+                return true
+            } catch (e: Exception) {
+                logger.log(Level.SEVERE, "디스코드 사용자 ${user.name} 차단 실패: ${e.message}", e)
+                return false
+            }
         } catch (e: Exception) {
             logger.log(Level.SEVERE, "디스코드 사용자 차단 처리 중 오류 발생", e)
             return false
@@ -298,30 +300,33 @@ class BanManager(private val database: Database, private val jda: JDA) {
                     
                     // 트랜잭션 커밋
                     connection.commit()
-                    
+
                     // 4. 인게임에서 플레이어 차단 (IP 포함)
+                    var inGameBanSuccess = false
                     if (playerName.isNotBlank()) {
                         try {
-                            // UUID 기반 차단 - 콘솔 명령어 사용
                             val server = Bukkit.getServer()
                             val consoleCommandSender = Bukkit.getConsoleSender()
-                            
-                            // 플레이어 이름으로 차단
-                            val banCommand = "ban $playerName $reason (Source: $source)"
+                            val offlinePlayer = Bukkit.getOfflinePlayer(playerUuid)
+
+                            // 플레이어 이름으로 차단 (오프라인 플레이어도 작동)
+                            val banCommand = "ban ${offlinePlayer.name ?: playerName} $reason (Source: $source)"
                             server.dispatchCommand(consoleCommandSender, banCommand)
-                            logger.info("플레이어 ${playerName}님이 차단되었습니다. 사유: $reason")
-                            
+                            logger.info("플레이어 ${playerName}님 차단 명령 실행. 사유: $reason")
+                            inGameBanSuccess = true
+
                             // IP 기반 차단
                             for (ip in ipList) {
                                 val ipBanReason = "UUID $playerUuid ($playerName) 차단 연동: $reason"
                                 val banIpCommand = "ban-ip $ip $ipBanReason"
                                 server.dispatchCommand(consoleCommandSender, banIpCommand)
-                                logger.info("IP 주소 " + ip + "가 차단되었습니다.")
+                                logger.info("IP 주소 $ip 차단 명령 실행")
                             }
                         } catch (e: Exception) {
-                            logger.log(Level.SEVERE, "차단 적용 중 오류 발생", e)
+                            logger.log(Level.SEVERE, "차단 명령 실행 중 오류 발생", e)
+                            inGameBanSuccess = false
                         }
-                        
+
                         // 온라인 상태라면 강제 퇴장
                         val player = Bukkit.getPlayer(playerUuid)
                         player?.kick(net.kyori.adventure.text.Component.text("당신은 차단되었습니다. 사유: $reason"))
@@ -332,8 +337,9 @@ class BanManager(private val database: Database, private val jda: JDA) {
                     if (!discordId.isNullOrBlank()) {
                         discordBanned = banUserFromDiscord(discordId!!, reason, playerName)
                     }
-                    
-                    return Triple(true, ipList.size, discordBanned)
+
+                    // 인게임 차단 성공 여부와 함께 반환
+                    return Triple(inGameBanSuccess, ipList.size, discordBanned)
                 } catch (e: Exception) {
                     connection.rollback()
                     logger.log(Level.SEVERE, "플레이어 차단 처리 중 오류 발생", e)

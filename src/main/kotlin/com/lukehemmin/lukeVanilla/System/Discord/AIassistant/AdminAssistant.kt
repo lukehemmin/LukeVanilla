@@ -874,22 +874,31 @@ class AdminAssistant(
                 source = "디스코드 경고 시스템"
             )
 
-            // 차단 결과 메시지 전송 (관리자 채널)
+            // 차단 결과 메시지 전송 (관리자 채널) - 상세한 피드백
             val banMessage = StringBuilder()
-                .append("⛔ '$playerName'님이 $reason 으로 차단되었습니다.\n")
 
             if (banResult.first) {
-                // 성공적으로 차단됨
+                // 인게임 차단 성공
+                banMessage.append("⛔ **'$playerName'님이 차단되었습니다.**\n")
+                banMessage.append("📋 **차단 사유:** $reason\n")
+
+                // IP 차단 결과
                 if (banResult.second > 0) {
-                    banMessage.append("차단된 IP 주소: ${banResult.second}개\n")
+                    banMessage.append("🌐 **차단된 IP 주소:** ${banResult.second}개\n")
+                } else {
+                    banMessage.append("⚠️ IP 차단: 차단할 IP가 없습니다.\n")
                 }
 
+                // 디스코드 차단 결과
                 if (banResult.third) {
-                    banMessage.append("디스코드 사용자도 차단되었습니다.")
+                    banMessage.append("✅ **디스코드:** 디스코드 서버에서도 차단되었습니다.\n")
+                } else {
+                    banMessage.append("ℹ️ **디스코드:** 디스코드 차단 불가 (DiscordID 미등록 또는 차단 실패)\n")
                 }
             } else {
-                // 차단 실패
-                banMessage.append("차단 처리 중 오류가 발생했습니다.")
+                // 인게임 차단 실패
+                banMessage.append("❌ **'$playerName'님 차단 실패**\n")
+                banMessage.append("차단 처리 중 오류가 발생했습니다. 로그를 확인해주세요.\n")
             }
 
             event.channel.sendMessage(banMessage.toString()).queue()
