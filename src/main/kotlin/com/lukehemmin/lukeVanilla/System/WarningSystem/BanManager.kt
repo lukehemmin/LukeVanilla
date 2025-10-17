@@ -97,10 +97,15 @@ class BanManager(private val database: Database, private val jda: JDA) {
 
                             // IP 기반 차단
                             for (ip in ipList) {
-                                val ipBanReason = "UUID $uuid ($nickname) 차단 연동: $reason"
-                                val banIpCommand = "ban-ip $ip $ipBanReason"
-                                server.dispatchCommand(consoleCommandSender, banIpCommand)
-                                logger.info("IP 주소 $ip 차단 명령 실행")
+                                try {
+                                    val ipBanReason = "UUID $uuid ($nickname) 차단 연동: $reason"
+                                    val banIpCommand = "ban-ip $ip $ipBanReason"
+                                    server.dispatchCommand(consoleCommandSender, banIpCommand)
+                                    logger.info("IP 주소 $ip 차단 명령 실행")
+                                } catch (e: Exception) {
+                                    logger.log(Level.WARNING, "IP 주소 $ip 차단 실패: ${e.message}", e)
+                                    // 한 IP 차단 실패해도 다른 IP는 계속 처리
+                                }
                             }
                         } catch (e: Exception) {
                             logger.log(Level.SEVERE, "차단 명령 실행 중 오류 발생", e)
@@ -317,10 +322,15 @@ class BanManager(private val database: Database, private val jda: JDA) {
 
                             // IP 기반 차단
                             for (ip in ipList) {
-                                val ipBanReason = "UUID $playerUuid ($playerName) 차단 연동: $reason"
-                                val banIpCommand = "ban-ip $ip $ipBanReason"
-                                server.dispatchCommand(consoleCommandSender, banIpCommand)
-                                logger.info("IP 주소 $ip 차단 명령 실행")
+                                try {
+                                    val ipBanReason = "UUID $playerUuid ($playerName) 차단 연동: $reason"
+                                    val banIpCommand = "ban-ip $ip $ipBanReason"
+                                    server.dispatchCommand(consoleCommandSender, banIpCommand)
+                                    logger.info("IP 주소 $ip 차단 명령 실행")
+                                } catch (e: Exception) {
+                                    logger.log(Level.WARNING, "IP 주소 $ip 차단 실패: ${e.message}", e)
+                                    // 한 IP 차단 실패해도 다른 IP는 계속 처리
+                                }
                             }
                         } catch (e: Exception) {
                             logger.log(Level.SEVERE, "차단 명령 실행 중 오류 발생", e)

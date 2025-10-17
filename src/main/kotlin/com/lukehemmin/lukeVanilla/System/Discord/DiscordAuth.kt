@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.Discord
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import com.lukehemmin.lukeVanilla.System.WarningSystem.BanEvasionDetector
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import org.bukkit.plugin.java.JavaPlugin
@@ -8,7 +9,8 @@ import java.util.regex.Pattern
 
 class DiscordAuth(
     private val database: Database,
-    private val plugin: JavaPlugin
+    private val plugin: JavaPlugin,
+    private val banEvasionDetector: BanEvasionDetector? = null
 ) : ListenerAdapter() {
 
     private val codePattern = Pattern.compile("^[A-Z0-9]{6}$")
@@ -108,6 +110,29 @@ class DiscordAuth(
 
             // Discord_Account_Link에 기본 계정으로 등록
             database.insertAccountLink(playerData.uuid)
+
+            // 차단 우회 시도 감지
+            banEvasionDetector?.let { detector ->
+                val isEvasion = detector.checkBanEvasion(
+                    newUuid = playerData.uuid,
+                    newNickname = playerData.nickname,
+                    newDiscordId = event.author.id,
+                    newDiscordName = "${event.author.name}#${event.author.discriminator}"
+                )
+
+                // 우회 시도가 감지되면 인증은 완료되지만 즉시 차단됨
+                if (isEvasion) {
+                    plugin.logger.warning("차단 우회 시도 감지: ${playerData.nickname} (${playerData.uuid})")
+                    // 인증은 완료되었지만 즉시 차단되었으므로 역할 부여는 하지 않음
+                    event.channel.sendMessage(":white_check_mark: 인증이 완료되었습니다.")
+                        .queue { confirmationMessage ->
+                            plugin.server.scheduler.scheduleSyncDelayedTask(plugin, {
+                                confirmationMessage.delete().queue()
+                            }, 20 * 60L)
+                        }
+                    return
+                }
+            }
 
             // 역할 부여
             event.guild.retrieveMember(event.author).queue({ member ->

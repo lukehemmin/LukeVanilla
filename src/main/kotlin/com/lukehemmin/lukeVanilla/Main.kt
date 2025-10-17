@@ -329,9 +329,19 @@ class Main : JavaPlugin() {
 
             // 서비스 타입이 "Lobby"가 아닐 경우에만 인증코드 처리 시스템 초기화
             if (serviceType != "Lobby") {
-                // DiscordAuth 초기화 및 리스너 등록 (인증코드 처리만 로비에서 비활성화)
-                val discordAuth = DiscordAuth(database, this)
+                // BanEvasionDetector 초기화 (차단 우회 감지 시스템)
+                val banManager = com.lukehemmin.lukeVanilla.System.WarningSystem.BanManager(database, discordBot.jda)
+                val banEvasionDetector = com.lukehemmin.lukeVanilla.System.WarningSystem.BanEvasionDetector(
+                    database = database,
+                    jda = discordBot.jda,
+                    banManager = banManager,
+                    plugin = this
+                )
+
+                // DiscordAuth 초기화 및 리스너 등록 (차단 우회 감지 포함)
+                val discordAuth = DiscordAuth(database, this, banEvasionDetector)
                 discordBot.jda.addEventListener(discordAuth)
+                logger.info("[BanEvasionDetector] 차단 우회 감지 시스템 초기화 완료")
             }
 
             if (serviceType == "Lobby") {
