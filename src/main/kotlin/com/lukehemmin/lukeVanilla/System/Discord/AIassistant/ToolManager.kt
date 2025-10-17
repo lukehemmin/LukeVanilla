@@ -117,45 +117,119 @@ class ToolManager {
     
     /**
      * AI 응답에서 도구 호출 감지 및 실행
+     * @return Pair<List<ToolResult>, String> - 실행 결과와 JSON을 제거한 남은 텍스트
      */
     fun detectAndExecuteTools(
         aiResponse: String,
         context: ToolExecutionContext
-    ): List<ToolResult> {
+    ): Pair<List<ToolResult>, String> {
         val results = mutableListOf<ToolResult>()
-        
-        // JSON 코드 블록 패턴 감지
-        val jsonPattern = """```json\s*(\{.*?\})\s*```""".toRegex(RegexOption.DOT_MATCHES_ALL)
-        val matches = jsonPattern.findAll(aiResponse)
-        
-        for (match in matches) {
-            val jsonContent = match.groupValues[1].trim()
-            try {
-                val result = executeToolFromJson(jsonContent, context)
-                results.add(result)
-            } catch (e: Exception) {
-                results.add(
-                    ToolResult(
-                        success = false,
-                        message = "도구 실행 중 예외 발생: ${e.message}"
+        var remainingText = aiResponse
+
+        // 1. JSON 코드 블록 패턴 감지 (```json {...} ```)
+        val codeBlockPattern = """```json\s*(\{.*?\})\s*```""".toRegex(RegexOption.DOT_MATCHES_ALL)
+        val codeBlockMatches = codeBlockPattern.findAll(aiResponse).toList()
+
+        if (codeBlockMatches.isNotEmpty()) {
+            // 코드 블록이 있으면 모두 실행하고 제거
+            for (match in codeBlockMatches) {
+                val jsonContent = match.groupValues[1].trim()
+                try {
+                    val result = executeToolFromJson(jsonContent, context)
+                    results.add(result)
+                } catch (e: Exception) {
+                    results.add(
+                        ToolResult(
+                            success = false,
+                            message = "도구 실행 중 예외 발생: ${e.message}"
+                        )
                     )
-                )
+                }
+            }
+            // 모든 JSON 코드 블록을 제거
+            remainingText = remainingText.replace(codeBlockPattern, "").trim()
+        } else {
+            // 2. 코드 블록이 없으면 일반 JSON 패턴 감지
+            // 중괄호 카운팅 방식으로 JSON 추출
+            val jsonMatches = extractJsonObjects(aiResponse)
+
+            if (jsonMatches.isNotEmpty()) {
+                // 일반 JSON이 있으면 모두 실행하고 제거
+                for (jsonContent in jsonMatches) {
+                    try {
+                        // "tool" 키워드가 있는 JSON만 처리
+                        if (jsonContent.contains("\"tool\"")) {
+                            val result = executeToolFromJson(jsonContent, context)
+                            results.add(result)
+                            // 성공적으로 파싱된 JSON만 제거
+                            remainingText = remainingText.replace(jsonContent, "").trim()
+                        }
+                    } catch (e: Exception) {
+                        // JSON 파싱 실패시 무시
+                    }
+                }
+            } else if (aiResponse.trim().startsWith("{") && aiResponse.trim().endsWith("}")) {
+                // 3. 전체 응답이 JSON인 경우
+                try {
+                    val result = executeToolFromJson(aiResponse.trim(), context)
+                    results.add(result)
+                    remainingText = "" // 전체가 JSON이므로 남은 텍스트 없음
+                } catch (e: Exception) {
+                    // 일반 AI 응답으로 처리 (도구 호출이 아님)
+                }
             }
         }
-        
-        // JSON 패턴이 없으면 직접 JSON 파싱 시도
-        if (results.isEmpty() && aiResponse.trim().startsWith("{") && aiResponse.trim().endsWith("}")) {
-            try {
-                val result = executeToolFromJson(aiResponse.trim(), context)
-                results.add(result)
-            } catch (e: Exception) {
-                // 일반 AI 응답으로 처리 (도구 호출이 아님)
-            }
-        }
-        
-        return results
+
+        return Pair(results, remainingText)
     }
     
+    /**
+     * 문자열에서 중괄호 카운팅 방식으로 JSON 객체들을 추출
+     */
+    private fun extractJsonObjects(text: String): List<String> {
+        val jsonObjects = mutableListOf<String>()
+        var braceCount = 0
+        var jsonStart = -1
+        var inString = false
+        var escapeNext = false
+
+        for (i in text.indices) {
+            val char = text[i]
+
+            // 문자열 내부 처리
+            if (char == '\\' && !escapeNext) {
+                escapeNext = true
+                continue
+            }
+
+            if (char == '"' && !escapeNext) {
+                inString = !inString
+            }
+
+            escapeNext = false
+
+            // 문자열 외부에서만 중괄호 카운팅
+            if (!inString) {
+                if (char == '{') {
+                    if (braceCount == 0) {
+                        jsonStart = i
+                    }
+                    braceCount++
+                } else if (char == '}') {
+                    braceCount--
+                    if (braceCount == 0 && jsonStart != -1) {
+                        // 완전한 JSON 객체 발견
+                        val jsonObject = text.substring(jsonStart, i + 1)
+                        jsonObjects.add(jsonObject)
+                        jsonStart = -1
+                    }
+                }
+            }
+        }
+
+        return jsonObjects
+    }
+
     /**
      * JSON 문자열에서 도구 호출 정보를 파싱하고 실행
      */

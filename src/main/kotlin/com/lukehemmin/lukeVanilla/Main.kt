@@ -350,7 +350,8 @@ class Main : JavaPlugin() {
                         openAIApiKey = openAiApiKey, // API 키를 생성자에 전달
                         database = database,
                         warningService = warningService,
-                        multiServerReader = multiServerReader
+                        multiServerReader = multiServerReader,
+                        plugin = this
                     )
                     discordBot.jda.addEventListener(adminAssistant)
                     logger.info("[AdminAssistant] 로비 서버에서 관리자 어시스턴트 초기화 완료.")

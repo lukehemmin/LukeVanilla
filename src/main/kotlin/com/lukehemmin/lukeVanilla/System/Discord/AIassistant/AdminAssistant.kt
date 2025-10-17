@@ -35,7 +35,8 @@ class AdminAssistant(
     private val openAIApiKey: String? = null, // 생성자로 API 키를 전달받음
     private val database: Database,
     private val warningService: WarningService,
-    val multiServerReader: MultiServerReader
+    val multiServerReader: MultiServerReader,
+    private val plugin: org.bukkit.plugin.Plugin
 ) : ListenerAdapter() {
     private var openAIBaseUrl: String? = null
     private var openAIModel: String? = null
@@ -390,11 +391,11 @@ class AdminAssistant(
             if (!aiResponseContent.isNullOrEmpty()) {
                 if (contextQueue.size >= 8) contextQueue.removeFirst()
                 contextQueue.addLast(messageContent to aiResponseContent)
-                
+
                 // 새로운 MCP 스타일 도구 시스템을 사용하여 AI 응답 처리
                 val context = ToolExecutionContext(event, this)
-                val toolResults = toolManager.detectAndExecuteTools(aiResponseContent, context)
-                
+                val (toolResults, remainingText) = toolManager.detectAndExecuteTools(aiResponseContent, context)
+
                 if (toolResults.isNotEmpty()) {
                     // 도구가 실행되었을 경우 결과 처리
                     toolResults.forEach { result ->
@@ -403,6 +404,11 @@ class AdminAssistant(
                         } else if (result.success && result.shouldShowToUser) {
                             event.channel.sendMessage("✅ ${result.message}").queue()
                         }
+                    }
+
+                    // JSON을 제거한 후 남은 텍스트가 있으면 표시
+                    if (remainingText.isNotBlank()) {
+                        displayTypingResponse(remainingText, event)
                     }
                 } else {
                     // 도구 호출이 없었으면 일반 AI 응답 표시
@@ -868,7 +874,7 @@ class AdminAssistant(
                 source = "디스코드 경고 시스템"
             )
 
-            // 차단 결과 메시지 전송
+            // 차단 결과 메시지 전송 (관리자 채널)
             val banMessage = StringBuilder()
                 .append("⛔ '$playerName'님이 $reason 으로 차단되었습니다.\n")
 
@@ -887,9 +893,107 @@ class AdminAssistant(
             }
 
             event.channel.sendMessage(banMessage.toString()).queue()
+
+            // 경고로 인한 자동 차단인 경우 전체 공지 전송
+            if (banResult.first && reason.contains("경고 누적")) {
+                sendBanAnnouncementToPublic(event, playerName, reason)
+                sendBanAnnouncementToAllServers(event, playerName, reason)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             event.channel.sendMessage("차단 처리 중 오류가 발생했습니다: ${e.message}").queue()
+        }
+    }
+
+    /**
+     * 차단 공지를 전체 공지 채널에 전송
+     */
+    private fun sendBanAnnouncementToPublic(event: MessageReceivedEvent, playerName: String, reason: String) {
+        try {
+            // 공지 채널 ID 조회
+            val announcementChannelId = fetchSettingValue("Ban_Announcement_Channel")
+
+            if (announcementChannelId.isNullOrBlank()) {
+                System.err.println("[AdminAssistant] Ban_Announcement_Channel이 설정되지 않아 전체 공지를 보낼 수 없습니다.")
+                return
+            }
+
+            // 공지 채널 가져오기
+            val channel = event.jda.getTextChannelById(announcementChannelId)
+
+            if (channel == null) {
+                System.err.println("[AdminAssistant] 공지 채널을 찾을 수 없습니다. ID: $announcementChannelId")
+                return
+            }
+
+            // 관리자 정보 가져오기
+            val adminName = event.author.name
+
+            // 임베드 생성
+            val embed = EmbedBuilder().apply {
+                setTitle("⛔ 플레이어 차단 알림")
+                setColor(Color.RED)
+                setDescription("규칙 위반으로 플레이어가 차단되었습니다.")
+
+                addField("차단된 플레이어", playerName, true)
+                addField("차단 사유", reason, false)
+                addField("처리 관리자", adminName, true)
+
+                setFooter("루크바닐라 서버 관리 시스템", event.jda.selfUser.avatarUrl)
+                setTimestamp(Date().toInstant())
+            }.build()
+
+            // 전체 공지 채널에 메시지 전송
+            channel.sendMessageEmbeds(embed).queue(
+                {
+                    println("[AdminAssistant] 차단 공지를 전체 공지 채널에 성공적으로 전송했습니다.")
+                },
+                { error ->
+                    System.err.println("[AdminAssistant] 차단 공지 전송 실패: ${error.message}")
+                    error.printStackTrace()
+                }
+            )
+        } catch (e: Exception) {
+            System.err.println("[AdminAssistant] 차단 공지 전송 중 오류 발생: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * 게임 내 전체 공지 - 로비 + 야생 서버 모두에게 전송
+     */
+    private fun sendBanAnnouncementToAllServers(event: MessageReceivedEvent, playerName: String, reason: String) {
+        try {
+            val adminName = event.author.name
+            val message = "§c⛔ §f'§e${playerName}§f'님이 §c${reason}§f으로 차단되었습니다. §7(처리 관리자: ${adminName})"
+
+            // 1. 로비 서버 (현재 서버)에 공지
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                Bukkit.broadcastMessage(message)
+                println("[AdminAssistant] 로비 서버에 차단 공지를 전송했습니다: $playerName")
+            })
+
+            // 2. 야생 서버에 broadcast 명령 전송
+            val commandData = mapOf(
+                "message" to "'${playerName}'님이 ${reason}으로 차단되었습니다. (처리 관리자: ${adminName})",
+                "prefix" to "§c⛔"
+            )
+
+            database.addCrossServerCommand(
+                commandType = "broadcast",
+                targetPlayerUuid = "00000000-0000-0000-0000-000000000000", // broadcast는 특정 플레이어 대상이 아님
+                targetPlayerName = "ALL",
+                sourceServer = "lobby",
+                targetServer = "vanilla",
+                commandData = commandData,
+                commandReason = "경고 누적 차단 공지",
+                issuedBy = adminName
+            )
+
+            println("[AdminAssistant] 야생 서버로 차단 공지 명령을 전송했습니다: $playerName")
+        } catch (e: Exception) {
+            System.err.println("[AdminAssistant] 게임 내 전체 공지 전송 중 오류 발생: ${e.message}")
+            e.printStackTrace()
         }
     }
 
