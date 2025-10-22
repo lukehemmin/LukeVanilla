@@ -166,6 +166,11 @@ commands:
     usage: "/낚시상인 [설정|제거|가격설정|가격목록|정보] [인자]"
     permission: "lukevanilla.fishmerchant"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  룰렛설정:
+    description: "룰렛 시스템을 관리합니다."
+    usage: "/룰렛설정 [npc지정|npc제거|비용 <금액>|활성화|비활성화|리로드|정보]"
+    permission: "lukevanilla.roulette.admin"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -278,4 +283,7 @@ permissions:
     default: op
   lukevanilla.fishmerchant:
     description: "낚시 상인 시스템 관리 권한"
+    default: op
+  lukevanilla.roulette.admin:
+    description: "룰렛 시스템 관리 권한"
     default: op

@@ -67,6 +67,11 @@ class DatabaseInitializer(private val database: Database) {
         createFishMerchantNPCTable()
         createFishPricesTable()
 
+        // 룰렛 시스템 테이블 생성
+        createRouletteConfigTable()
+        createRouletteItemsTable()
+        createRouletteHistoryTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -1161,4 +1166,169 @@ class DatabaseInitializer(private val database: Database) {
             }
         }
     }
+
+    /**
+     * 룰렛 설정 테이블 생성
+     * - 룰렛 NPC ID, 룰렛 비용 등 설정 저장
+     */
+    private fun createRouletteConfigTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS roulette_config (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `npc_id` INT UNIQUE DEFAULT NULL COMMENT 'NPC ID (NULL이면 미설정)',
+                    `cost_type` VARCHAR(20) NOT NULL DEFAULT 'MONEY' COMMENT '비용 타입 (MONEY, ITEM 등)',
+                    `cost_amount` DECIMAL(20, 2) NOT NULL DEFAULT 1000 COMMENT '비용 (돈의 경우)',
+                    `cost_item_type` VARCHAR(100) DEFAULT NULL COMMENT '비용 아이템 타입 (아이템의 경우)',
+                    `cost_item_amount` INT DEFAULT 1 COMMENT '비용 아이템 개수',
+                    `animation_duration` INT NOT NULL DEFAULT 100 COMMENT '애니메이션 지속 시간 (틱 단위)',
+                    `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '룰렛 활성화 여부',
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 시스템 설정';
+                """.trimIndent()
+            )
+
+            // 기본 설정 데이터 삽입
+            val checkQuery = "SELECT COUNT(*) FROM roulette_config"
+            val rs = statement.executeQuery(checkQuery)
+            var isEmpty = true
+            if (rs.next()) {
+                isEmpty = rs.getInt(1) == 0
+            }
+            rs.close()
+
+            if (isEmpty) {
+                statement.executeUpdate(
+                    """
+                    INSERT INTO roulette_config (npc_id, cost_type, cost_amount, animation_duration, enabled)
+                    VALUES (NULL, 'MONEY', 1000, 100, TRUE)
+                    """
+                )
+            }
+        }
+    }
+
+    /**
+     * 룰렛 아이템 테이블 생성
+     * - 룰렛에서 등장할 아이템과 확률 저장
+     */
+    private fun createRouletteItemsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS roulette_items (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `item_provider` VARCHAR(20) NOT NULL DEFAULT 'VANILLA' COMMENT '아이템 제공자 (VANILLA, NEXO, ORAXEN 등)',
+                    `item_identifier` VARCHAR(100) NOT NULL COMMENT '아이템 식별자 (Material 또는 커스텀 아이템 ID)',
+                    `item_display_name` VARCHAR(255) DEFAULT NULL COMMENT '아이템 표시 이름',
+                    `item_amount` INT NOT NULL DEFAULT 1 COMMENT '지급할 아이템 개수',
+                    `item_data` JSON DEFAULT NULL COMMENT '아이템 추가 데이터 (NBT, 로어 등)',
+                    `weight` INT NOT NULL DEFAULT 100 COMMENT '가중치 (확률 계산용, 높을수록 자주 등장)',
+                    `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '활성화 여부',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX `idx_enabled` (`enabled`),
+                    INDEX `idx_weight` (`weight`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 아이템 정보';
+                """.trimIndent()
+            )
+
+            // 기본 아이템 데이터 삽입 (예시)
+            val checkQuery = "SELECT COUNT(*) FROM roulette_items"
+            val rs = statement.executeQuery(checkQuery)
+            var isEmpty = true
+            if (rs.next()) {
+                isEmpty = rs.getInt(1) == 0
+            }
+            rs.close()
+
+            if (isEmpty) {
+                val insertStmt = connection.prepareStatement(
+                    """
+                    INSERT INTO roulette_items (item_provider, item_identifier, item_display_name, item_amount, weight, enabled)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """
+                )
+
+                val defaultItems = listOf(
+                    Tuple6("VANILLA", "DIAMOND", "§b다이아몬드", 1, 50, true),
+                    Tuple6("VANILLA", "EMERALD", "§a에메랄드", 3, 100, true),
+                    Tuple6("VANILLA", "IRON_INGOT", "§f철 주괴", 5, 200, true),
+                    Tuple6("VANILLA", "GOLD_INGOT", "§e금 주괴", 3, 150, true),
+                    Tuple6("VANILLA", "COAL", "§8석탄", 10, 300, true),
+                    Tuple6("VANILLA", "EXPERIENCE_BOTTLE", "§d경험치 병", 5, 180, true)
+                )
+
+                defaultItems.forEach { (provider, identifier, displayName, amount, weight, enabled) ->
+                    insertStmt.setString(1, provider)
+                    insertStmt.setString(2, identifier)
+                    insertStmt.setString(3, displayName)
+                    insertStmt.setInt(4, amount)
+                    insertStmt.setInt(5, weight)
+                    insertStmt.setBoolean(6, enabled)
+                    insertStmt.executeUpdate()
+                }
+            }
+        }
+    }
+
+    /**
+     * 룰렛 플레이 히스토리 테이블 생성
+     * - 플레이어의 룰렛 플레이 기록 저장
+     */
+    private fun createRouletteHistoryTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS roulette_history (
+                    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    `player_uuid` VARCHAR(36) NOT NULL COMMENT '플레이어 UUID',
+                    `player_name` VARCHAR(50) NOT NULL COMMENT '플레이어 닉네임',
+                    `item_id` INT NOT NULL COMMENT '획득한 아이템 ID (roulette_items 참조)',
+                    `item_provider` VARCHAR(20) NOT NULL COMMENT '아이템 제공자 (VANILLA/NEXO/ORAXEN)',
+                    `item_identifier` VARCHAR(100) NOT NULL COMMENT '아이템 식별자 (코드)',
+                    `cost_paid` DECIMAL(20, 2) NOT NULL COMMENT '지불한 비용',
+                    `probability` DECIMAL(5, 2) NOT NULL COMMENT '당첨 확률 (%)',
+                    `played_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '플레이 시각',
+                    INDEX `idx_player_uuid` (`player_uuid`),
+                    INDEX `idx_played_at` (`played_at`),
+                    INDEX `idx_item_provider` (`item_provider`),
+                    FOREIGN KEY (`item_id`) REFERENCES `roulette_items`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 플레이 히스토리';
+                """.trimIndent()
+            )
+
+            // 기존 테이블에 새 컬럼 추가 (마이그레이션)
+            try {
+                connection.createStatement().use { stmt ->
+                    stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `item_provider` VARCHAR(20) NOT NULL DEFAULT 'VANILLA' COMMENT '아이템 제공자' AFTER `item_id`")
+                }
+            } catch (e: Exception) {
+                // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
+            }
+
+            try {
+                connection.createStatement().use { stmt ->
+                    stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `item_identifier` VARCHAR(100) NOT NULL DEFAULT 'UNKNOWN' COMMENT '아이템 식별자' AFTER `item_provider`")
+                }
+            } catch (e: Exception) {
+                // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
+            }
+
+            try {
+                connection.createStatement().use { stmt ->
+                    stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `probability` DECIMAL(5, 2) NOT NULL DEFAULT 0.00 COMMENT '당첨 확률 (%)' AFTER `cost_paid`")
+                }
+            } catch (e: Exception) {
+                // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
+            }
+        }
+    }
 }
+
+// Helper data class for tuples
+private data class Tuple6<A, B, C, D, E, F>(val a: A, val b: B, val c: C, val d: D, val e: E, val f: F)

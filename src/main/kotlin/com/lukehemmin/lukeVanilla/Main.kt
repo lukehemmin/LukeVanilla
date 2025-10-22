@@ -38,6 +38,7 @@ import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader
 import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerUpdater
 import com.lukehemmin.lukeVanilla.System.PlayTime.PlayTimeSystem
 import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.AdvancedLandSystem
+import com.lukehemmin.lukeVanilla.System.Roulette.RouletteSystem
 import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
@@ -67,6 +68,7 @@ class Main : JavaPlugin() {
     private var luckPerms: LuckPerms? = null
     private var multiServerUpdater: MultiServerUpdater? = null
     private var bookSystem: com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem? = null
+    private var rouletteSystem: RouletteSystem? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -734,6 +736,16 @@ class Main : JavaPlugin() {
         } else {
             logger.info("[BookSystem] ${serviceType} 서버에서는 책 시스템이 비활성화됩니다.")
         }
+
+        // RouletteSystem 초기화 (모든 서버에서 실행)
+        try {
+            rouletteSystem = RouletteSystem(this, database, economyManager)
+            rouletteSystem?.enable()
+            logger.info("[Roulette] 룰렛 시스템이 성공적으로 초기화되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[Roulette] 룰렛 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
     }
 
     override fun onDisable() {
@@ -763,7 +775,16 @@ class Main : JavaPlugin() {
             logger.severe("[BookSystem] 책 시스템 종료 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
         }
-        
+
+        // RouletteSystem 종료
+        try {
+            rouletteSystem?.disable()
+            logger.info("[Roulette] 룰렛 시스템이 정상적으로 종료되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[Roulette] 룰렛 시스템 종료 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
+
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         try {
             VanillaShutdownNotifier.notifyShutdownImminent(this)
