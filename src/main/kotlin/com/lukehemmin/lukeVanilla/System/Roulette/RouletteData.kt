@@ -48,7 +48,7 @@ data class RouletteItem(
     val itemDisplayName: String?,
     val itemAmount: Int,
     val itemData: String?, // JSON 형태
-    val weight: Int,
+    val weight: Double, // 가중치 (소수점 2자리까지 지원)
     val enabled: Boolean,
     val createdAt: Timestamp,
     val updatedAt: Timestamp

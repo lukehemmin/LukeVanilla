@@ -1227,7 +1227,7 @@ class DatabaseInitializer(private val database: Database) {
                     `item_display_name` VARCHAR(255) DEFAULT NULL COMMENT '아이템 표시 이름',
                     `item_amount` INT NOT NULL DEFAULT 1 COMMENT '지급할 아이템 개수',
                     `item_data` JSON DEFAULT NULL COMMENT '아이템 추가 데이터 (NBT, 로어 등)',
-                    `weight` INT NOT NULL DEFAULT 100 COMMENT '가중치 (확률 계산용, 높을수록 자주 등장)',
+                    `weight` DECIMAL(10,2) NOT NULL DEFAULT 100.00 COMMENT '가중치 (확률 계산용, 소수점 2자리 지원)',
                     `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '활성화 여부',
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1236,6 +1236,23 @@ class DatabaseInitializer(private val database: Database) {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 아이템 정보';
                 """.trimIndent()
             )
+
+            // 기존 테이블의 weight 컬럼을 DECIMAL로 마이그레이션
+            try {
+                val rsColumns = connection.metaData.getColumns(null, null, "roulette_items", "weight")
+                if (rsColumns.next()) {
+                    val columnType = rsColumns.getString("TYPE_NAME")
+                    // INT 타입이면 DECIMAL로 변경
+                    if (columnType.uppercase().contains("INT")) {
+                        statement.executeUpdate("ALTER TABLE roulette_items MODIFY COLUMN `weight` DECIMAL(10,2) NOT NULL DEFAULT 100.00 COMMENT '가중치 (확률 계산용, 소수점 2자리 지원)'")
+                        println("[Roulette] weight 컬럼을 INT에서 DECIMAL(10,2)로 변경했습니다.")
+                    }
+                }
+                rsColumns.close()
+            } catch (e: Exception) {
+                // 마이그레이션 실패 시 경고만 출력
+                println("[Roulette] weight 컬럼 마이그레이션 중 오류 발생: ${e.message}")
+            }
 
             // 기본 아이템 데이터 삽입 (예시)
             val checkQuery = "SELECT COUNT(*) FROM roulette_items"
@@ -1254,13 +1271,21 @@ class DatabaseInitializer(private val database: Database) {
                     """
                 )
 
+                // 정확히 12개의 기본 아이템 (원형 슬롯에 맞춤, 소수점 가중치 지원)
                 val defaultItems = listOf(
-                    Tuple6("VANILLA", "DIAMOND", "§b다이아몬드", 1, 50, true),
-                    Tuple6("VANILLA", "EMERALD", "§a에메랄드", 3, 100, true),
-                    Tuple6("VANILLA", "IRON_INGOT", "§f철 주괴", 5, 200, true),
-                    Tuple6("VANILLA", "GOLD_INGOT", "§e금 주괴", 3, 150, true),
-                    Tuple6("VANILLA", "COAL", "§8석탄", 10, 300, true),
-                    Tuple6("VANILLA", "EXPERIENCE_BOTTLE", "§d경험치 병", 5, 180, true)
+                    Tuple6("VANILLA", "DIAMOND", "§b다이아몬드", 1, 5.00, true),              // 1번 슬롯 - 5%
+                    Tuple6("VANILLA", "EMERALD", "§a에메랄드", 3, 10.00, true),              // 2번 슬롯 - 10%
+                    Tuple6("VANILLA", "IRON_INGOT", "§f철 주괴", 5, 15.00, true),           // 3번 슬롯 - 15%
+                    Tuple6("VANILLA", "GOLD_INGOT", "§e금 주괴", 3, 12.00, true),           // 4번 슬롯 - 12%
+                    Tuple6("VANILLA", "COAL", "§8석탄", 10, 20.00, true),                   // 5번 슬롯 - 20%
+                    Tuple6("VANILLA", "EXPERIENCE_BOTTLE", "§d경험치 병", 5, 13.00, true),   // 6번 슬롯 - 13%
+                    Tuple6("VANILLA", "REDSTONE", "§c레드스톤", 8, 11.00, true),             // 7번 슬롯 - 11%
+                    Tuple6("VANILLA", "LAPIS_LAZULI", "§9청금석", 6, 8.00, true),          // 8번 슬롯 - 8%
+                    Tuple6("VANILLA", "QUARTZ", "§f석영", 4, 7.00, true),                  // 9번 슬롯 - 7%
+                    Tuple6("VANILLA", "NETHERITE_SCRAP", "§4네더라이트 파편", 1, 1.00, true), // 10번 슬롯 - 1%
+                    Tuple6("VANILLA", "ENDER_PEARL", "§5엔더 진주", 2, 4.00, true),        // 11번 슬롯 - 4%
+                    Tuple6("VANILLA", "BLAZE_ROD", "§6블레이즈 막대", 3, 6.00, true)       // 12번 슬롯 - 6%
+                    // 총합: 100.00
                 )
 
                 defaultItems.forEach { (provider, identifier, displayName, amount, weight, enabled) ->
@@ -1268,7 +1293,7 @@ class DatabaseInitializer(private val database: Database) {
                     insertStmt.setString(2, identifier)
                     insertStmt.setString(3, displayName)
                     insertStmt.setInt(4, amount)
-                    insertStmt.setInt(5, weight)
+                    insertStmt.setDouble(5, weight)
                     insertStmt.setBoolean(6, enabled)
                     insertStmt.executeUpdate()
                 }

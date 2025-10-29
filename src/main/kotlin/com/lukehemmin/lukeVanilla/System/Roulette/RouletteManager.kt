@@ -81,7 +81,7 @@ class RouletteManager(
                     itemDisplayName = rs.getString("item_display_name"),
                     itemAmount = rs.getInt("item_amount"),
                     itemData = rs.getString("item_data"),
-                    weight = rs.getInt("weight"),
+                    weight = rs.getDouble("weight"),
                     enabled = rs.getBoolean("enabled"),
                     createdAt = rs.getTimestamp("created_at"),
                     updatedAt = rs.getTimestamp("updated_at")
@@ -114,16 +114,16 @@ class RouletteManager(
     fun getItems(): List<RouletteItem> = items
 
     /**
-     * 가중치 기반 랜덤 아이템 선택
+     * 가중치 기반 랜덤 아이템 선택 (소수점 가중치 지원)
      */
     fun selectRandomItem(): RouletteItem? {
         if (items.isEmpty()) return null
 
         val totalWeight = items.sumOf { it.weight }
-        if (totalWeight <= 0) return null
+        if (totalWeight <= 0.0) return null
 
-        val randomValue = Random.nextInt(totalWeight)
-        var currentWeight = 0
+        val randomValue = Random.nextDouble(totalWeight)
+        var currentWeight = 0.0
 
         for (item in items) {
             currentWeight += item.weight

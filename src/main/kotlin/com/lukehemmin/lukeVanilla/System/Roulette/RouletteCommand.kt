@@ -200,9 +200,11 @@ class RouletteCommand(
         if (items.isNotEmpty()) {
             sender.sendMessage("§7아이템 목록 (상위 5개):")
             items.forEach { item ->
-                val probability = (item.weight.toDouble() / manager.getItems().sumOf { it.weight } * 100)
+                val totalWeight = manager.getItems().sumOf { it.weight }
+                val probability = (item.weight / totalWeight * 100)
                 sender.sendMessage("  §f- ${item.itemDisplayName ?: item.itemIdentifier} " +
-                        "§7x${item.itemAmount} (확률: §e${String.format("%.2f", probability)}%§7)")
+                        "§7x${item.itemAmount} (가중치: §e${String.format("%.2f", item.weight)}§7, " +
+                        "확률: §e${String.format("%.2f", probability)}%§7)")
             }
             if (manager.getItems().size > 5) {
                 sender.sendMessage("  §7... 외 ${manager.getItems().size - 5}개")

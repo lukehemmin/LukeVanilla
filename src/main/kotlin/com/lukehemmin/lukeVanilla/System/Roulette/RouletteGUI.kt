@@ -75,32 +75,63 @@ class RouletteGUI(
     }
 
     /**
+     * 애니메이션의 총 이동 횟수를 계산
+     */
+    private fun calculateTotalMoves(): Int {
+        var moves = 0
+        for (tick in 0 until totalDuration) {
+            val progress = tick.toDouble() / totalDuration
+            val shouldMove = when {
+                progress < 0.3 -> tick % 1 == 0  // 처음 30%: 매 틱마다 이동
+                progress < 0.5 -> tick % 2 == 0  // 30-50%: 2틱마다 이동
+                progress < 0.7 -> tick % 3 == 0  // 50-70%: 3틱마다 이동
+                progress < 0.85 -> tick % 5 == 0 // 70-85%: 5틱마다 이동
+                progress < 0.95 -> tick % 8 == 0 // 85-95%: 8틱마다 이동
+                else -> tick % 12 == 0           // 95-100%: 12틱마다 이동
+            }
+            if (shouldMove) moves++
+        }
+        return moves
+    }
+
+    /**
      * 아이템 순환 리스트 생성
+     * - 정확히 12개의 아이템을 순서대로 반복 배치
      */
     private fun createItemCycle() {
         val items = manager.getItems()
         if (items.isEmpty()) return
 
-        // 원형 슬롯 개수의 배수로 리스트 생성 (12개 슬롯 * 25바퀴 = 300개)
-        val targetSize = CIRCLE_SLOTS.size * 25
-        while (itemCycle.size < targetSize) {
-            for (item in items) {
+        // 12개 미만일 경우 경고 (12개 정확히 등록되어야 함)
+        if (items.size < CIRCLE_SLOTS.size) {
+            player.sendMessage("§c[룰렛] 아이템이 ${items.size}개만 등록되어 있습니다. 정확히 12개를 등록해주세요.")
+            plugin.logger.warning("[Roulette] 아이템이 ${items.size}개만 등록되어 있습니다. 정확히 12개 필요!")
+            return
+        }
+
+        // 정확히 12개만 사용 (12개 초과로 등록된 경우 상위 12개만 사용)
+        val displayItems = items.take(CIRCLE_SLOTS.size)
+
+        // 12개를 순서대로 25바퀴 반복 (12 * 25 = 300개)
+        val cycles = 25
+        for (cycle in 0 until cycles) {
+            for (item in displayItems) {
                 val itemStack = item.toItemStack() ?: continue
                 itemCycle.add(itemStack.clone())
-
-                if (itemCycle.size >= targetSize) break
             }
         }
 
-        // 당첨 아이템을 특정 위치에 배치 (12시 방향에 멈추도록)
+        // 당첨 아이템을 정확한 위치에 배치 (애니메이션 종료 시 12시 방향에 오도록)
         val winningItemStack = winningItem?.toItemStack()
-        if (winningItemStack != null) {
-            // 애니메이션이 끝날 때 12시 방향에 오도록 계산
-            // 마지막 2바퀴 정도에서 12시 위치에 오도록
-            val targetPosition = itemCycle.size - (CIRCLE_SLOTS.size * 2) + 3
-            if (targetPosition in itemCycle.indices) {
-                itemCycle[targetPosition] = winningItemStack.clone()
-            }
+        if (winningItemStack != null && itemCycle.isNotEmpty()) {
+            // 총 이동 횟수를 계산하여 정확히 12시 방향(슬롯 0)에 오도록 배치
+            val totalMoves = calculateTotalMoves()
+            val targetPosition = totalMoves % itemCycle.size
+
+            // 해당 위치에 당첨 아이템 배치
+            itemCycle[targetPosition] = winningItemStack.clone()
+
+            plugin.logger.info("[Roulette] 당첨 아이템 배치 - totalMoves: $totalMoves, targetPosition: $targetPosition")
         }
     }
 
@@ -207,8 +238,8 @@ class RouletteGUI(
 
         // 확률 계산
         val totalWeight = manager.getItems().sumOf { it.weight }
-        val probability = if (totalWeight > 0) {
-            (winningItem!!.weight.toDouble() / totalWeight.toDouble()) * 100.0
+        val probability = if (totalWeight > 0.0) {
+            (winningItem!!.weight / totalWeight) * 100.0
         } else {
             0.0
         }
