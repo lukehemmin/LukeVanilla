@@ -266,6 +266,17 @@ class FishMerchantGUI(
         val economyManager = (plugin as com.lukehemmin.lukeVanilla.Main).economyManager
         economyManager.addBalance(player, totalPrice)
 
+        // 판매 기록 저장을 위한 맵 생성
+        val itemsSoldMap = mutableMapOf<String, Int>()
+        fishItems.groupBy { it.second }.forEach { (fishInfo, items) ->
+            val totalAmount = items.sumOf { it.first.amount }
+            val key = "${fishInfo.provider}:${fishInfo.fishId}"
+            itemsSoldMap[key] = (itemsSoldMap[key] ?: 0) + totalAmount
+        }
+
+        // 판매 기록 저장
+        fishMerchantManager.saveSellHistory(player, itemsSoldMap, totalPrice)
+
         // 판매 완료 메시지
         player.sendMessage(Component.text("════════════════════════════", NamedTextColor.GOLD))
         player.sendMessage(Component.text("물고기 판매 완료!", NamedTextColor.GREEN))
@@ -306,6 +317,17 @@ class FishMerchantGUI(
             player.sendMessage(Component.text("인벤토리에 판매 가능한 물고기가 없습니다.", NamedTextColor.RED))
             return
         }
+
+        // 판매 기록 저장을 위한 맵 생성
+        val itemsSoldMap = mutableMapOf<String, Int>()
+        fishItems.groupBy { it.second }.forEach { (fishInfo, items) ->
+            val totalAmount = items.sumOf { it.first.amount }
+            val key = "${fishInfo.provider}:${fishInfo.fishId}"
+            itemsSoldMap[key] = (itemsSoldMap[key] ?: 0) + totalAmount
+        }
+
+        // 판매 기록 저장
+        fishMerchantManager.saveSellHistory(player, itemsSoldMap, totalPrice)
 
         // 확인 메시지
         player.sendMessage(Component.text("════════════════════════════", NamedTextColor.GOLD))

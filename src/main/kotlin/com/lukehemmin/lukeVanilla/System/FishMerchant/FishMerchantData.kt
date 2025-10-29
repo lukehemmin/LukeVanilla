@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.FishMerchant
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import java.util.*
 
 data class FishPrice(
     val itemProvider: String,  // VANILLA, CUSTOMFISHING, NEXO
@@ -9,10 +10,18 @@ data class FishPrice(
     val pricePerCm: Double      // cm당 가격
 )
 
+data class FishSellRecord(
+    val playerUuid: UUID,
+    val playerName: String,
+    val itemsSold: Map<String, Int>,  // "VANILLA:COD" -> 개수
+    val totalAmount: Double
+)
+
 class FishMerchantData(private val database: Database) {
 
     private val TABLE_NPC = "fish_merchant_npc"
     private val TABLE_PRICES = "fish_prices"
+    private val TABLE_SELL_HISTORY = "fish_sell_history"
 
     // NPC 관련 메서드
     /**
@@ -147,5 +156,33 @@ class FishMerchantData(private val database: Database) {
             }
         }
         return prices
+    }
+
+    // 판매 기록 관련 메서드
+
+    /**
+     * 판매 기록 저장
+     * @param record 판매 기록 데이터
+     */
+    fun saveSellHistory(record: FishSellRecord) {
+        val query = """
+            INSERT INTO $TABLE_SELL_HISTORY (player_uuid, player_name, items_sold, total_amount)
+            VALUES (?, ?, ?, ?)
+        """.trimIndent()
+
+        // Map을 JSON 문자열로 변환
+        val itemsSoldJson = record.itemsSold.entries.joinToString(",", "{", "}") { (key, value) ->
+            "\"${key.replace("\"", "\\\"")}\":$value"
+        }
+
+        database.getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, record.playerUuid.toString())
+                statement.setString(2, record.playerName)
+                statement.setString(3, itemsSoldJson)
+                statement.setDouble(4, record.totalAmount)
+                statement.executeUpdate()
+            }
+        }
     }
 }

@@ -66,6 +66,7 @@ class DatabaseInitializer(private val database: Database) {
         // 낚시 상인 시스템 테이블 생성
         createFishMerchantNPCTable()
         createFishPricesTable()
+        createFishSellHistoryTable()
 
         // 룰렛 시스템 테이블 생성
         createRouletteConfigTable()
@@ -1326,6 +1327,30 @@ class DatabaseInitializer(private val database: Database) {
             } catch (e: Exception) {
                 // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
             }
+        }
+    }
+
+    /**
+     * 낚시 상인 판매 기록 테이블 생성
+     * - 플레이어의 물고기 판매 이력 저장
+     */
+    private fun createFishSellHistoryTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS fish_sell_history (
+                    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    `player_uuid` VARCHAR(36) NOT NULL COMMENT '판매자 UUID',
+                    `player_name` VARCHAR(50) NOT NULL COMMENT '판매자 닉네임',
+                    `items_sold` JSON NOT NULL COMMENT '판매한 아이템 맵 (JSON)',
+                    `total_amount` DECIMAL(20, 2) NOT NULL COMMENT '총 판매 금액',
+                    `sold_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '판매 시각',
+                    INDEX `idx_player_uuid` (`player_uuid`),
+                    INDEX `idx_sold_at` (`sold_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='낚시 상인 판매 기록';
+                """.trimIndent()
+            )
         }
     }
 }

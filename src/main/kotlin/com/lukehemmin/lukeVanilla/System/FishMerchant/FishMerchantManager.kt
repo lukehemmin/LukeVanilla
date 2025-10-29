@@ -343,4 +343,20 @@ class FishMerchantManager(
     fun openFishMerchantGUI(player: Player) {
         gui.openGUI(player)
     }
+
+    /**
+     * 판매 기록 저장
+     * @param player 판매자 플레이어
+     * @param itemsSold 판매한 아이템 맵 (key: "PROVIDER:FISH_ID", value: 개수)
+     * @param totalAmount 총 판매 금액
+     */
+    fun saveSellHistory(player: Player, itemsSold: Map<String, Int>, totalAmount: Double) {
+        val record = FishSellRecord(
+            playerUuid = player.uniqueId,
+            playerName = player.name,
+            itemsSold = itemsSold,
+            totalAmount = totalAmount
+        )
+        data.saveSellHistory(record)
+    }
 }
