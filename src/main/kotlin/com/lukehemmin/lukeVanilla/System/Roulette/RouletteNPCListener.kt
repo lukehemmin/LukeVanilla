@@ -33,17 +33,20 @@ class RouletteNPCListener(
         val npc = event.npc
         val npcId = npc.id
 
-        // 룰렛 NPC인지 확인
-        if (manager.getNpcId() != npcId) return
+        // NPC ID로 룰렛 조회
+        val rouletteId = manager.getRouletteIdByNPC(npcId) ?: return
+
+        // 룰렛 설정 조회
+        val roulette = manager.getRouletteById(rouletteId) ?: return
 
         // 룰렛이 활성화되어 있는지 확인
-        if (!manager.isEnabled()) {
+        if (!roulette.enabled) {
             player.sendMessage("§c현재 룰렛이 비활성화되어 있습니다.")
             return
         }
 
         // 룰렛 아이템이 있는지 확인
-        if (manager.getItems().isEmpty()) {
+        if (manager.getItems(rouletteId).isEmpty()) {
             player.sendMessage("§c룰렛에 등록된 아이템이 없습니다.")
             return
         }
@@ -58,14 +61,14 @@ class RouletteNPCListener(
         }
 
         // 룰렛 GUI 열기 (비용은 나중에 차감)
-        openRoulette(player)
+        openRoulette(player, rouletteId)
     }
 
     /**
      * 비용 확인 및 차감
      */
-    private fun checkAndPayCost(player: Player): Boolean {
-        val config = manager.getConfig() ?: return false
+    private fun checkAndPayCost(player: Player, rouletteId: Int): Boolean {
+        val config = manager.getRouletteById(rouletteId) ?: return false
 
         return when (config.costType) {
             CostType.MONEY -> {
@@ -92,14 +95,16 @@ class RouletteNPCListener(
                 // 무료
                 true
             }
+
+            else -> false
         }
     }
 
     /**
      * 룰렛 GUI 열기
      */
-    private fun openRoulette(player: Player) {
-        val gui = RouletteGUI(plugin, manager, player)
+    private fun openRoulette(player: Player, rouletteId: Int) {
+        val gui = RouletteGUI(plugin, manager, player, rouletteId)
         activeGUIs[player] = gui
         gui.open()
     }
@@ -121,7 +126,7 @@ class RouletteNPCListener(
                 val clickedItem = event.currentItem
                 if (clickedItem?.type == org.bukkit.Material.NETHER_STAR) {
                     // 비용 확인 및 차감
-                    if (!checkAndPayCost(player)) {
+                    if (!checkAndPayCost(player, gui.getRouletteId())) {
                         return
                     }
 

@@ -72,6 +72,7 @@ class DatabaseInitializer(private val database: Database) {
         createRouletteConfigTable()
         createRouletteItemsTable()
         createRouletteHistoryTable()
+        createRouletteNPCMappingTable()
 
         // 다른 테이블 생성 코드 추가 가능
     }
@@ -1170,28 +1171,80 @@ class DatabaseInitializer(private val database: Database) {
 
     /**
      * 룰렛 설정 테이블 생성
-     * - 룰렛 NPC ID, 룰렛 비용 등 설정 저장
+     * - 다중 룰렛 지원, 룰렛 이름으로 구분
      */
     private fun createRouletteConfigTable() {
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
+
+            // 1. 기존 테이블에서 npc_id 데이터 백업
+            val oldNpcIds = mutableListOf<Int?>()
+            try {
+                val rsOld = statement.executeQuery("SELECT npc_id FROM roulette_config ORDER BY id")
+                while (rsOld.next()) {
+                    oldNpcIds.add(rsOld.getInt("npc_id").takeIf { !rsOld.wasNull() })
+                }
+                rsOld.close()
+            } catch (e: Exception) {
+                // 테이블이 없는 경우 무시
+            }
+
+            // 2. 테이블 생성 (roulette_name 추가, npc_id 제거)
             statement.executeUpdate(
                 """
                 CREATE TABLE IF NOT EXISTS roulette_config (
                     `id` INT PRIMARY KEY AUTO_INCREMENT,
-                    `npc_id` INT UNIQUE DEFAULT NULL COMMENT 'NPC ID (NULL이면 미설정)',
+                    `roulette_name` VARCHAR(50) NOT NULL UNIQUE COMMENT '룰렛 이름 (고유)',
                     `cost_type` VARCHAR(20) NOT NULL DEFAULT 'MONEY' COMMENT '비용 타입 (MONEY, ITEM 등)',
                     `cost_amount` DECIMAL(20, 2) NOT NULL DEFAULT 1000 COMMENT '비용 (돈의 경우)',
                     `cost_item_type` VARCHAR(100) DEFAULT NULL COMMENT '비용 아이템 타입 (아이템의 경우)',
                     `cost_item_amount` INT DEFAULT 1 COMMENT '비용 아이템 개수',
                     `animation_duration` INT NOT NULL DEFAULT 100 COMMENT '애니메이션 지속 시간 (틱 단위)',
                     `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '룰렛 활성화 여부',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 시스템 설정';
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 시스템 설정 (다중 룰렛 지원)';
                 """.trimIndent()
             )
 
-            // 기본 설정 데이터 삽입
+            // 3. 기존 테이블에 roulette_name 컬럼이 없으면 추가 (마이그레이션)
+            try {
+                val rsColumns = connection.metaData.getColumns(null, null, "roulette_config", "roulette_name")
+                if (!rsColumns.next()) {
+                    // roulette_name 컬럼이 없으면 추가
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_config
+                        ADD COLUMN `roulette_name` VARCHAR(50) NOT NULL UNIQUE COMMENT '룰렛 이름 (고유)' AFTER `id`
+                        """
+                    )
+                    println("[Roulette] roulette_name 컬럼을 추가했습니다.")
+
+                    // 기존 레코드에 기본 이름 설정
+                    statement.executeUpdate(
+                        """
+                        UPDATE roulette_config SET roulette_name = CONCAT('룰렛_', id) WHERE roulette_name = '' OR roulette_name IS NULL
+                        """
+                    )
+                }
+                rsColumns.close()
+            } catch (e: Exception) {
+                println("[Roulette] roulette_name 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 4. npc_id 컬럼이 있으면 제거 (데이터는 roulette_npc_mapping으로 이동 예정)
+            try {
+                val rsNpcId = connection.metaData.getColumns(null, null, "roulette_config", "npc_id")
+                if (rsNpcId.next()) {
+                    println("[Roulette] npc_id 컬럼이 발견되었습니다. 제거 예정입니다.")
+                    // npc_id는 createRouletteNPCMappingTable에서 마이그레이션 후 제거
+                }
+                rsNpcId.close()
+            } catch (e: Exception) {
+                // 무시
+            }
+
+            // 5. 기본 설정 데이터 삽입 (default 룰렛)
             val checkQuery = "SELECT COUNT(*) FROM roulette_config"
             val rs = statement.executeQuery(checkQuery)
             var isEmpty = true
@@ -1203,10 +1256,11 @@ class DatabaseInitializer(private val database: Database) {
             if (isEmpty) {
                 statement.executeUpdate(
                     """
-                    INSERT INTO roulette_config (npc_id, cost_type, cost_amount, animation_duration, enabled)
-                    VALUES (NULL, 'MONEY', 1000, 100, TRUE)
+                    INSERT INTO roulette_config (roulette_name, cost_type, cost_amount, animation_duration, enabled)
+                    VALUES ('기본룰렛', 'MONEY', 1000, 100, TRUE)
                     """
                 )
+                println("[Roulette] 기본 룰렛 '기본룰렛'을 생성했습니다.")
             }
         }
     }
@@ -1214,6 +1268,7 @@ class DatabaseInitializer(private val database: Database) {
     /**
      * 룰렛 아이템 테이블 생성
      * - 룰렛에서 등장할 아이템과 확률 저장
+     * - 다중 룰렛 지원: roulette_id FK 추가
      */
     private fun createRouletteItemsTable() {
         database.getConnection().use { connection ->
@@ -1222,6 +1277,7 @@ class DatabaseInitializer(private val database: Database) {
                 """
                 CREATE TABLE IF NOT EXISTS roulette_items (
                     `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `roulette_id` INT NOT NULL COMMENT '룰렛 ID (FK)',
                     `item_provider` VARCHAR(20) NOT NULL DEFAULT 'VANILLA' COMMENT '아이템 제공자 (VANILLA, NEXO, ORAXEN 등)',
                     `item_identifier` VARCHAR(100) NOT NULL COMMENT '아이템 식별자 (Material 또는 커스텀 아이템 ID)',
                     `item_display_name` VARCHAR(255) DEFAULT NULL COMMENT '아이템 표시 이름',
@@ -1231,13 +1287,15 @@ class DatabaseInitializer(private val database: Database) {
                     `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '활성화 여부',
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX `idx_roulette_id` (`roulette_id`),
                     INDEX `idx_enabled` (`enabled`),
-                    INDEX `idx_weight` (`weight`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 아이템 정보';
+                    INDEX `idx_weight` (`weight`),
+                    FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 아이템 정보 (다중 룰렛 지원)';
                 """.trimIndent()
             )
 
-            // 기존 테이블의 weight 컬럼을 DECIMAL로 마이그레이션
+            // 1. 기존 테이블의 weight 컬럼을 DECIMAL로 마이그레이션
             try {
                 val rsColumns = connection.metaData.getColumns(null, null, "roulette_items", "weight")
                 if (rsColumns.next()) {
@@ -1254,7 +1312,27 @@ class DatabaseInitializer(private val database: Database) {
                 println("[Roulette] weight 컬럼 마이그레이션 중 오류 발생: ${e.message}")
             }
 
-            // 기본 아이템 데이터 삽입 (예시)
+            // 2. roulette_id 컬럼 추가 (마이그레이션)
+            try {
+                val rsRouletteId = connection.metaData.getColumns(null, null, "roulette_items", "roulette_id")
+                if (!rsRouletteId.next()) {
+                    // roulette_id 컬럼이 없으면 추가
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_items
+                        ADD COLUMN `roulette_id` INT NOT NULL DEFAULT 1 COMMENT '룰렛 ID (FK)' AFTER `id`,
+                        ADD INDEX `idx_roulette_id` (`roulette_id`),
+                        ADD FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
+                        """
+                    )
+                    println("[Roulette] roulette_id 컬럼을 추가했습니다. 기존 아이템은 모두 룰렛 ID 1에 할당됩니다.")
+                }
+                rsRouletteId.close()
+            } catch (e: Exception) {
+                println("[Roulette] roulette_id 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 3. 기본 아이템 데이터 삽입 (예시)
             val checkQuery = "SELECT COUNT(*) FROM roulette_items"
             val rs = statement.executeQuery(checkQuery)
             var isEmpty = true
@@ -1264,10 +1342,22 @@ class DatabaseInitializer(private val database: Database) {
             rs.close()
 
             if (isEmpty) {
+                // 기본 룰렛 ID 조회 (roulette_config에서 첫 번째 룰렛)
+                var defaultRouletteId = 1
+                try {
+                    val rsConfig = statement.executeQuery("SELECT id FROM roulette_config ORDER BY id LIMIT 1")
+                    if (rsConfig.next()) {
+                        defaultRouletteId = rsConfig.getInt("id")
+                    }
+                    rsConfig.close()
+                } catch (e: Exception) {
+                    println("[Roulette] 기본 룰렛 ID 조회 실패: ${e.message}")
+                }
+
                 val insertStmt = connection.prepareStatement(
                     """
-                    INSERT INTO roulette_items (item_provider, item_identifier, item_display_name, item_amount, weight, enabled)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO roulette_items (roulette_id, item_provider, item_identifier, item_display_name, item_amount, weight, enabled)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """
                 )
 
@@ -1289,14 +1379,16 @@ class DatabaseInitializer(private val database: Database) {
                 )
 
                 defaultItems.forEach { (provider, identifier, displayName, amount, weight, enabled) ->
-                    insertStmt.setString(1, provider)
-                    insertStmt.setString(2, identifier)
-                    insertStmt.setString(3, displayName)
-                    insertStmt.setInt(4, amount)
-                    insertStmt.setDouble(5, weight)
-                    insertStmt.setBoolean(6, enabled)
+                    insertStmt.setInt(1, defaultRouletteId)
+                    insertStmt.setString(2, provider)
+                    insertStmt.setString(3, identifier)
+                    insertStmt.setString(4, displayName)
+                    insertStmt.setInt(5, amount)
+                    insertStmt.setDouble(6, weight)
+                    insertStmt.setBoolean(7, enabled)
                     insertStmt.executeUpdate()
                 }
+                println("[Roulette] 기본 룰렛(ID=$defaultRouletteId)에 12개의 기본 아이템을 추가했습니다.")
             }
         }
     }
@@ -1304,6 +1396,7 @@ class DatabaseInitializer(private val database: Database) {
     /**
      * 룰렛 플레이 히스토리 테이블 생성
      * - 플레이어의 룰렛 플레이 기록 저장
+     * - 다중 룰렛 지원: roulette_id FK 추가
      */
     private fun createRouletteHistoryTable() {
         database.getConnection().use { connection ->
@@ -1312,6 +1405,7 @@ class DatabaseInitializer(private val database: Database) {
                 """
                 CREATE TABLE IF NOT EXISTS roulette_history (
                     `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    `roulette_id` INT NOT NULL COMMENT '룰렛 ID (FK)',
                     `player_uuid` VARCHAR(36) NOT NULL COMMENT '플레이어 UUID',
                     `player_name` VARCHAR(50) NOT NULL COMMENT '플레이어 닉네임',
                     `item_id` INT NOT NULL COMMENT '획득한 아이템 ID (roulette_items 참조)',
@@ -1320,15 +1414,38 @@ class DatabaseInitializer(private val database: Database) {
                     `cost_paid` DECIMAL(20, 2) NOT NULL COMMENT '지불한 비용',
                     `probability` DECIMAL(5, 2) NOT NULL COMMENT '당첨 확률 (%)',
                     `played_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '플레이 시각',
+                    INDEX `idx_roulette_id` (`roulette_id`),
                     INDEX `idx_player_uuid` (`player_uuid`),
                     INDEX `idx_played_at` (`played_at`),
                     INDEX `idx_item_provider` (`item_provider`),
+                    FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE,
                     FOREIGN KEY (`item_id`) REFERENCES `roulette_items`(`id`) ON DELETE CASCADE
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 플레이 히스토리';
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 플레이 히스토리 (다중 룰렛 지원)';
                 """.trimIndent()
             )
 
             // 기존 테이블에 새 컬럼 추가 (마이그레이션)
+
+            // 1. roulette_id 컬럼 추가
+            try {
+                val rsRouletteId = connection.metaData.getColumns(null, null, "roulette_history", "roulette_id")
+                if (!rsRouletteId.next()) {
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_history
+                        ADD COLUMN `roulette_id` INT NOT NULL DEFAULT 1 COMMENT '룰렛 ID (FK)' AFTER `id`,
+                        ADD INDEX `idx_roulette_id` (`roulette_id`),
+                        ADD FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
+                        """
+                    )
+                    println("[Roulette] roulette_history에 roulette_id 컬럼을 추가했습니다.")
+                }
+                rsRouletteId.close()
+            } catch (e: Exception) {
+                println("[Roulette] roulette_history roulette_id 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 2. item_provider 컬럼 추가
             try {
                 connection.createStatement().use { stmt ->
                     stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `item_provider` VARCHAR(20) NOT NULL DEFAULT 'VANILLA' COMMENT '아이템 제공자' AFTER `item_id`")
@@ -1337,6 +1454,7 @@ class DatabaseInitializer(private val database: Database) {
                 // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
             }
 
+            // 3. item_identifier 컬럼 추가
             try {
                 connection.createStatement().use { stmt ->
                     stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `item_identifier` VARCHAR(100) NOT NULL DEFAULT 'UNKNOWN' COMMENT '아이템 식별자' AFTER `item_provider`")
@@ -1345,12 +1463,80 @@ class DatabaseInitializer(private val database: Database) {
                 // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
             }
 
+            // 4. probability 컬럼 추가
             try {
                 connection.createStatement().use { stmt ->
                     stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `probability` DECIMAL(5, 2) NOT NULL DEFAULT 0.00 COMMENT '당첨 확률 (%)' AFTER `cost_paid`")
                 }
             } catch (e: Exception) {
                 // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
+            }
+        }
+    }
+
+    /**
+     * 룰렛 NPC 매핑 테이블 생성
+     * - NPC ID와 룰렛 ID를 매핑
+     * - 하나의 NPC는 하나의 룰렛에만 연결
+     */
+    private fun createRouletteNPCMappingTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS roulette_npc_mapping (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `npc_id` INT NOT NULL UNIQUE COMMENT 'NPC ID (고유)',
+                    `roulette_id` INT NOT NULL COMMENT '룰렛 ID (FK)',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_roulette_id` (`roulette_id`),
+                    FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='NPC와 룰렛 매핑';
+                """.trimIndent()
+            )
+
+            // 기존 roulette_config의 npc_id 데이터를 마이그레이션
+            try {
+                val rsNpcId = connection.metaData.getColumns(null, null, "roulette_config", "npc_id")
+                if (rsNpcId.next()) {
+                    // npc_id 컬럼이 있으면 데이터 마이그레이션
+                    val rsOldData = statement.executeQuery(
+                        """
+                        SELECT id, npc_id FROM roulette_config WHERE npc_id IS NOT NULL
+                        """
+                    )
+
+                    val migratedCount = mutableListOf<Pair<Int, Int>>()
+                    while (rsOldData.next()) {
+                        val rouletteId = rsOldData.getInt("id")
+                        val npcId = rsOldData.getInt("npc_id")
+                        migratedCount.add(Pair(npcId, rouletteId))
+                    }
+                    rsOldData.close()
+
+                    // roulette_npc_mapping에 데이터 삽입
+                    if (migratedCount.isNotEmpty()) {
+                        val insertStmt = connection.prepareStatement(
+                            """
+                            INSERT IGNORE INTO roulette_npc_mapping (npc_id, roulette_id)
+                            VALUES (?, ?)
+                            """
+                        )
+                        migratedCount.forEach { (npcId, rouletteId) ->
+                            insertStmt.setInt(1, npcId)
+                            insertStmt.setInt(2, rouletteId)
+                            insertStmt.executeUpdate()
+                        }
+                        println("[Roulette] roulette_config의 npc_id 데이터를 roulette_npc_mapping으로 마이그레이션했습니다. (${migratedCount.size}개)")
+                    }
+
+                    // npc_id 컬럼 제거
+                    statement.executeUpdate("ALTER TABLE roulette_config DROP COLUMN npc_id")
+                    println("[Roulette] roulette_config에서 npc_id 컬럼을 제거했습니다.")
+                }
+                rsNpcId.close()
+            } catch (e: Exception) {
+                println("[Roulette] NPC 매핑 마이그레이션 중 오류: ${e.message}")
             }
         }
     }

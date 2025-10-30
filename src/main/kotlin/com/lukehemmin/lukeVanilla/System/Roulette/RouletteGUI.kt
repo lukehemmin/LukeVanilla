@@ -21,7 +21,8 @@ import kotlin.math.min
 class RouletteGUI(
     private val plugin: JavaPlugin,
     private val manager: RouletteManager,
-    private val player: Player
+    private val player: Player,
+    private val rouletteId: Int
 ) {
     private lateinit var inventory: Inventory
     private var animationTask: BukkitTask? = null
@@ -99,7 +100,7 @@ class RouletteGUI(
      * - 정확히 12개의 아이템을 순서대로 반복 배치
      */
     private fun createItemCycle() {
-        val items = manager.getItems()
+        val items = manager.getItems(rouletteId)
         if (items.isEmpty()) return
 
         // 12개 미만일 경우 경고 (12개 정확히 등록되어야 함)
@@ -177,10 +178,10 @@ class RouletteGUI(
         val centerItem = ItemStack(CENTER_INFO_MATERIAL)
         val centerMeta = centerItem.itemMeta
         centerMeta?.setDisplayName("§6§l§n룰렛 시작")
-        val config = manager.getConfig()
+        val config = manager.getRouletteById(rouletteId)
         centerMeta?.lore = listOf(
             "§7비용: §f${config?.costAmount ?: 0}원",
-            "§7아이템 종류: §f${manager.getItems().size}개",
+            "§7아이템 종류: §f${manager.getItems(rouletteId).size}개",
             "",
             "§e§l[ 클릭하여 룰렛 시작! ]"
         )
@@ -230,14 +231,14 @@ class RouletteGUI(
         }
 
         // 당첨 아이템 결정
-        winningItem = manager.selectRandomItem()
+        winningItem = manager.selectRandomItem(rouletteId)
         if (winningItem == null) {
             player.sendMessage("§c룰렛에 등록된 아이템이 없습니다.")
             return
         }
 
         // 확률 계산
-        val totalWeight = manager.getItems().sumOf { it.weight }
+        val totalWeight = manager.getItems(rouletteId).sumOf { it.weight }
         val probability = if (totalWeight > 0.0) {
             (winningItem!!.weight / totalWeight) * 100.0
         } else {
@@ -245,9 +246,10 @@ class RouletteGUI(
         }
 
         // 즉시 DB에 히스토리 기록 (비용 차감 직후)
-        val config = manager.getConfig()
+        val config = manager.getRouletteById(rouletteId)
         val costPaid = config?.costAmount ?: 0.0
         manager.saveHistory(
+            rouletteId = rouletteId,
             playerUuid = player.uniqueId.toString(),
             playerName = player.name,
             itemId = winningItem!!.id,
@@ -424,4 +426,9 @@ class RouletteGUI(
      * 인벤토리 가져오기 (GUI를 다시 열기 위해)
      */
     fun getInventory(): Inventory = inventory
+
+    /**
+     * 룰렛 ID 가져오기
+     */
+    fun getRouletteId(): Int = rouletteId
 }

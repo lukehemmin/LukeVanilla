@@ -33,20 +33,22 @@ class RouletteSystem(
 
             // Command 초기화 및 등록
             command = RouletteCommand(plugin, manager)
-            plugin.getCommand("룰렛설정")?.setExecutor(command)
-            plugin.getCommand("룰렛설정")?.tabCompleter = command
+            plugin.getCommand("룰렛")?.setExecutor(command)
+            plugin.getCommand("룰렛")?.tabCompleter = command
             plugin.logger.info("[Roulette] 명령어 등록 완료")
 
             // 초기 설정 확인
-            val config = manager.getConfig()
-            if (config != null) {
+            val roulettes = manager.getAllRoulettes()
+            if (roulettes.isNotEmpty()) {
                 plugin.logger.info("[Roulette] 시스템이 성공적으로 초기화되었습니다.")
-                plugin.logger.info("[Roulette] - 활성화: ${if (manager.isEnabled()) "예" else "아니오"}")
-                plugin.logger.info("[Roulette] - NPC ID: ${manager.getNpcId() ?: "미설정"}")
-                plugin.logger.info("[Roulette] - 비용: ${config.costAmount}원")
-                plugin.logger.info("[Roulette] - 등록된 아이템: ${manager.getItems().size}개")
+                plugin.logger.info("[Roulette] - 등록된 룰렛: ${roulettes.size}개")
+                roulettes.forEach { roulette ->
+                    val itemCount = manager.getItems(roulette.id).size
+                    val npcMappings = manager.getAllNPCMappings().count { it.value == roulette.id }
+                    plugin.logger.info("[Roulette]   · ${roulette.rouletteName}: 비용 ${roulette.costAmount}원, 아이템 ${itemCount}개, NPC ${npcMappings}개")
+                }
             } else {
-                plugin.logger.warning("[Roulette] 설정을 불러오지 못했습니다. DB 연결을 확인해주세요.")
+                plugin.logger.warning("[Roulette] 등록된 룰렛이 없습니다. /룰렛 생성 명령어로 룰렛을 만드세요.")
             }
 
         } catch (e: Exception) {

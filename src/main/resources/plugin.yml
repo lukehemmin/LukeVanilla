@@ -166,9 +166,9 @@ commands:
     usage: "/낚시상인 [설정|제거|가격설정|가격목록|정보] [인자]"
     permission: "lukevanilla.fishmerchant"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
-  룰렛설정:
-    description: "룰렛 시스템을 관리합니다."
-    usage: "/룰렛설정 [npc지정|npc제거|비용 <금액>|활성화|비활성화|리로드|정보]"
+  룰렛:
+    description: "다중 룰렛 시스템을 관리합니다."
+    usage: "/룰렛 [생성|삭제|목록|정보|아이템|npc지정|npc제거|npc목록|설정|리로드]"
     permission: "lukevanilla.roulette.admin"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
 

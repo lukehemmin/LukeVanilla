@@ -24,25 +24,27 @@ enum class ItemProvider {
 }
 
 /**
- * 룰렛 설정 데이터 클래스
+ * 룰렛 설정 데이터 클래스 (다중 룰렛 지원)
  */
 data class RouletteConfig(
     val id: Int,
-    val npcId: Int?,
+    val rouletteName: String,
     val costType: CostType,
     val costAmount: Double,
     val costItemType: String?,
     val costItemAmount: Int,
     val animationDuration: Int,
     val enabled: Boolean,
+    val createdAt: Timestamp,
     val updatedAt: Timestamp
 )
 
 /**
- * 룰렛 아이템 데이터 클래스
+ * 룰렛 아이템 데이터 클래스 (다중 룰렛 지원)
  */
 data class RouletteItem(
     val id: Int,
+    val rouletteId: Int,
     val itemProvider: ItemProvider,
     val itemIdentifier: String,
     val itemDisplayName: String?,
@@ -130,10 +132,11 @@ data class RouletteItem(
 }
 
 /**
- * 룰렛 플레이 히스토리 데이터 클래스
+ * 룰렛 플레이 히스토리 데이터 클래스 (다중 룰렛 지원)
  */
 data class RouletteHistory(
     val id: Long,
+    val rouletteId: Int,
     val playerUuid: String,
     val playerName: String,
     val itemId: Int,
@@ -142,4 +145,14 @@ data class RouletteHistory(
     val costPaid: Double,
     val probability: Double,
     val playedAt: Timestamp
+)
+
+/**
+ * NPC와 룰렛 매핑 데이터 클래스
+ */
+data class RouletteNPCMapping(
+    val id: Int,
+    val npcId: Int,
+    val rouletteId: Int,
+    val createdAt: Timestamp
 )
