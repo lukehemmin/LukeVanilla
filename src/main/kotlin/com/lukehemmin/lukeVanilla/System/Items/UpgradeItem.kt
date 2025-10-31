@@ -45,7 +45,8 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
     private val upgradedItems = setOf(
         "merry_christmas_greatsword",
         "valentine_greatsword",
-        "firework_greatsword"
+        "firework_greatsword",
+        "plny_halloween_greatsword"
     )
     
     // 업그레이드 가능한 아이템 맵
@@ -67,6 +68,12 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
             "firework_greatsword",
             5000,
             "${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}폭죽 검이 대검으로 바뀌었어요!"
+        ),
+        "plny_halloween_sword" to UpgradeInfo(
+            "plny_halloween_sword",
+            "plny_halloween_greatsword",
+            10000,
+            "${ChatColor.GOLD}${ChatColor.BOLD}할로윈 검이 대검으로 바뀌었어요!"
         )
     )
     
@@ -324,6 +331,7 @@ class UpgradeItem(private val plugin: Main) : Listener, CommandExecutor {
             "merry_christmas_greatsword" -> "크리스마스 대검"
             "valentine_greatsword" -> "발렌타인 대검"
             "firework_greatsword" -> "폭죽 대검"
+            "plny_halloween_greatsword" -> "할로윈 대검"
             else -> itemId
         }
     }
