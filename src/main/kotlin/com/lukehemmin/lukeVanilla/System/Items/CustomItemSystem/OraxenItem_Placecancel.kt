@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.Items.CustomItemSystem
 
 import com.nexomc.nexo.api.NexoItems
+import org.bukkit.Material
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockPlaceEvent
@@ -130,10 +131,15 @@ class OraxenItem_Placecancel : Listener {
         val item = event.itemInHand
 
         // Nexo 아이템 ID 확인
-        val nexoId = NexoItems.idFromItem(item) ?: return
+        val nexoId = NexoItems.idFromItem(item)
 
-        // 설치 불가능 목록에 있는지 확인
-        if (nexoId in nonPlaceableItems) {
+        // 추천 판별 순서:
+        // 1) 먼저 Nexo 아이템인지 확인 (Nexo 아이템이 아니면 기존 코드 기반 차단은 의미가 없으므로 종료)
+        // 2) Nexo 아이템일 때, 재질(Material)이 DEAD_BUSH이면 차단
+        // 3) 또는 Nexo 아이템 ID가 nonPlaceableItems 목록에 포함되어 있으면 차단
+        if (nexoId == null) return
+
+        if (item.type == Material.DEAD_BUSH || nexoId in nonPlaceableItems) {
             event.isCancelled = true
         }
     }
