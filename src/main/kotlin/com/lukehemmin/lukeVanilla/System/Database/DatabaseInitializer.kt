@@ -1734,6 +1734,37 @@ class DatabaseInitializer(private val database: Database) {
             }
         }
     }
+
+    /**
+     * 랜덤 스크롤 플레이 히스토리 테이블 생성
+     * - 플레이어의 랜덤 스크롤 사용 기록 저장
+     */
+    private fun createRandomScrollHistoryTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS random_scroll_history (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `player_uuid` VARCHAR(36) NOT NULL COMMENT '플레이어 UUID',
+                    `player_name` VARCHAR(50) NOT NULL COMMENT '플레이어 닉네임',
+                    `scroll_id` VARCHAR(100) NOT NULL COMMENT '사용한 스크롤 ID',
+                    `scroll_name` VARCHAR(100) NOT NULL COMMENT '스크롤 표시 이름',
+                    `reward_provider` VARCHAR(20) NOT NULL COMMENT '당첨 아이템 제공자',
+                    `reward_code` VARCHAR(100) NOT NULL COMMENT '당첨 아이템 코드',
+                    `reward_name` VARCHAR(100) NOT NULL COMMENT '당첨 아이템 이름',
+                    `probability` DECIMAL(10, 2) NOT NULL COMMENT '당첨 확률 가중치',
+                    `total_weight` DECIMAL(10, 2) NOT NULL COMMENT '전체 확률 합계',
+                    `actual_chance` DECIMAL(10, 4) NOT NULL COMMENT '실제 당첨 확률(%)',
+                    `played_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '플레이 시각',
+                    INDEX `idx_player_uuid` (`player_uuid`),
+                    INDEX `idx_scroll_id` (`scroll_id`),
+                    INDEX `idx_played_at` (`played_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='랜덤 스크롤 플레이 히스토리'
+                """.trimIndent()
+            )
+        }
+    }
 }
 
 // Helper data class for tuples

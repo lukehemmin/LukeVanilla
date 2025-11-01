@@ -412,64 +412,6 @@ class RandomScrollRoulette(
     }
 
     /**
-     * 플레이 히스토리를 DB에 저장
-     */
-    private fun savePlayHistory(player: Player, reward: RewardItem) {
-        try {
-            database.getConnection().use { connection ->
-                // 사용한 스크롤 정보 가져오기
-                val scrollId = playerGuis[player]?.let { gui ->
-                    scrollConfigs.entries.find { it.value.displayName == gui.viewers.firstOrNull()?.let { 
-                        (it as? Player)?.openInventory?.title()?.let { title ->
-                            // Title에서 스크롤 이름 추출하여 매칭
-                            scrollConfigs.values.find { config -> 
-                                gui.viewers.isNotEmpty() 
-                            }?.scrollId
-                        }
-                    } }?.key
-                }
-                
-                // 현재 진행 중인 스크롤의 모든 보상 가져오기 (전체 확률 계산용)
-                val allRewards = scrollRewards.entries.find { entry ->
-                    entry.value.contains(reward)
-                }?.let { it.key to it.value } ?: return@use
-                
-                val currentScrollId = allRewards.first
-                val currentRewards = allRewards.second
-                val totalWeight = currentRewards.sumOf { it.probability }
-                val actualChance = (reward.probability / totalWeight) * 100.0
-                
-                val scrollConfig = scrollConfigs[currentScrollId]
-                
-                val insertQuery = """
-                    INSERT INTO random_scroll_history 
-                    (player_uuid, player_name, scroll_id, scroll_name, 
-                     reward_provider, reward_code, reward_name, probability, 
-                     total_weight, actual_chance) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """.trimIndent()
-                
-                val stmt = connection.prepareStatement(insertQuery)
-                stmt.setString(1, player.uniqueId.toString())
-                stmt.setString(2, player.name)
-                stmt.setString(3, currentScrollId)
-                stmt.setString(4, scrollConfig?.displayName ?: "알 수 없음")
-                stmt.setString(5, reward.itemProvider)
-                stmt.setString(6, reward.itemCode)
-                stmt.setString(7, reward.displayName)
-                stmt.setDouble(8, reward.probability)
-                stmt.setDouble(9, totalWeight)
-                stmt.setDouble(10, actualChance)
-                stmt.executeUpdate()
-                stmt.close()
-            }
-        } catch (e: Exception) {
-            plugin.logger.warning("랜덤 스크롤 히스토리 저장 실패: ${e.message}")
-            e.printStackTrace()
-        }
-    }
-
-    /**
      * 확률에 따라 보상 선택
      */
     private fun selectRewardByProbability(rewards: List<RewardItem>): RewardItem {
