@@ -74,6 +74,11 @@ class DatabaseInitializer(private val database: Database) {
         createRouletteHistoryTable()
         createRouletteNPCMappingTable()
 
+        // 랜덤 스크롤 룰렛 시스템 테이블 생성
+        createRandomScrollConfigTable()
+        createRandomScrollRewardsTable()
+        createRandomScrollHistoryTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -1562,6 +1567,171 @@ class DatabaseInitializer(private val database: Database) {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='낚시 상인 판매 기록';
                 """.trimIndent()
             )
+        }
+    }
+
+    /**
+     * 랜덤 스크롤 설정 테이블 생성
+     * - 스크롤별 기본 설정 (GUI 제목, 활성화 여부)
+     */
+    private fun createRandomScrollConfigTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS random_scroll_config (
+                    `scroll_id` VARCHAR(100) PRIMARY KEY COMMENT '스크롤 Nexo 아이템 ID',
+                    `display_name` VARCHAR(100) NOT NULL COMMENT 'GUI 제목',
+                    `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '활성화 여부',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='랜덤 스크롤 룰렛 설정'
+                """.trimIndent()
+            )
+
+            // 기본 데이터 삽입
+            val checkQuery = "SELECT COUNT(*) FROM random_scroll_config WHERE scroll_id = ?"
+            val insertQuery = "INSERT INTO random_scroll_config (scroll_id, display_name, enabled) VALUES (?, ?, 1)"
+
+            val defaultConfigs = listOf(
+                "christams_2024_rainbow_random_scroll" to "크리스마스 룰렛",
+                "halloween_2024_rainbow_random_scroll" to "할로윈 룰렛"
+            )
+
+            defaultConfigs.forEach { (scrollId, displayName) ->
+                val checkStmt = connection.prepareStatement(checkQuery)
+                checkStmt.setString(1, scrollId)
+                val rs = checkStmt.executeQuery()
+                var exists = false
+                if (rs.next()) {
+                    exists = rs.getInt(1) > 0
+                }
+                rs.close()
+                checkStmt.close()
+
+                if (!exists) {
+                    val insertStmt = connection.prepareStatement(insertQuery)
+                    insertStmt.setString(1, scrollId)
+                    insertStmt.setString(2, displayName)
+                    insertStmt.executeUpdate()
+                    insertStmt.close()
+                }
+            }
+        }
+    }
+
+    /**
+     * 랜덤 스크롤 보상 아이템 테이블 생성
+     * - 각 스크롤별 보상 아이템과 확률 저장
+     */
+    private fun createRandomScrollRewardsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS random_scroll_rewards (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `scroll_id` VARCHAR(100) NOT NULL COMMENT '스크롤 ID (FK)',
+                    `item_provider` ENUM('NEXO', 'VANILLA', 'CUSTOMFISHING', 'MYTHICMOBS') NOT NULL COMMENT '아이템 제공자',
+                    `item_code` VARCHAR(100) NOT NULL COMMENT '아이템 코드',
+                    `display_name` VARCHAR(100) NOT NULL COMMENT '표시될 이름',
+                    `probability` DECIMAL(10, 2) NOT NULL DEFAULT 1.0 COMMENT '확률 가중치',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (`scroll_id`) REFERENCES random_scroll_config(`scroll_id`) ON DELETE CASCADE,
+                    INDEX idx_scroll_id (`scroll_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='랜덤 스크롤 보상 아이템'
+                """.trimIndent()
+            )
+
+            // 기본 보상 데이터 삽입
+            val checkQuery = "SELECT COUNT(*) FROM random_scroll_rewards WHERE scroll_id = ?"
+            val insertQuery = """
+                INSERT INTO random_scroll_rewards (scroll_id, item_provider, item_code, display_name, probability) 
+                VALUES (?, ?, ?, ?, ?)
+            """.trimIndent()
+
+            // 크리스마스 스크롤 보상
+            val christmasRewards = listOf(
+                Triple("NEXO", "c_sword_scroll", "크리스마스 검") to 10.0,
+                Triple("NEXO", "c_pickaxe_scroll", "크리스마스 곡괭이") to 10.0,
+                Triple("NEXO", "c_axe_scroll", "크리스마스 도끼") to 10.0,
+                Triple("NEXO", "c_shovel_scroll", "크리스마스 삽") to 10.0,
+                Triple("NEXO", "c_hoe_scroll", "크리스마스 괭이") to 10.0,
+                Triple("NEXO", "c_bow_scroll", "크리스마스 활") to 8.0,
+                Triple("NEXO", "c_crossbow_scroll", "크리스마스 석궁") to 8.0,
+                Triple("NEXO", "c_fishing_rod_scroll", "크리스마스 낚싯대") to 8.0,
+                Triple("NEXO", "c_hammer_scroll", "크리스마스 철퇴") to 7.0,
+                Triple("NEXO", "c_shield_scroll", "크리스마스 방패") to 7.0,
+                Triple("NEXO", "c_head_scroll", "크리스마스 모자") to 4.0,
+                Triple("NEXO", "c_helmet_scroll", "크리스마스 투구") to 4.0,
+                Triple("NEXO", "c_chestplate_scroll", "크리스마스 흉갑") to 4.0,
+                Triple("NEXO", "c_leggings_scroll", "크리스마스 레깅스") to 4.0,
+                Triple("NEXO", "c_boots_scroll", "크리스마스 부츠") to 4.0
+            )
+
+            // 할로윈 스크롤 보상
+            val halloweenRewards = listOf(
+                Triple("NEXO", "h_sword_scroll", "호박 빛 검") to 12.0,
+                Triple("NEXO", "h_pickaxe_scroll", "호박 곡괭이") to 12.0,
+                Triple("NEXO", "h_axe_scroll", "호박 도끼") to 12.0,
+                Triple("NEXO", "h_shovel_scroll", "호박 삽") to 12.0,
+                Triple("NEXO", "h_hoe_scroll", "호박 괭이") to 12.0,
+                Triple("NEXO", "h_bow_scroll", "호박의 마법 활") to 8.0,
+                Triple("NEXO", "h_rod_scroll", "호박의 낚시대") to 8.0,
+                Triple("NEXO", "h_hammer_scroll", "호박의 철퇴") to 7.0,
+                Triple("NEXO", "h_hat_scroll", "호박의 마법 모자") to 6.0,
+                Triple("NEXO", "h_scythe_scroll", "호박의 낫") to 6.0,
+                Triple("NEXO", "h_spear_scroll", "호박의 창") to 5.0
+            )
+
+            // 크리스마스 데이터 확인 및 삽입
+            val christmasCheckStmt = connection.prepareStatement(checkQuery)
+            christmasCheckStmt.setString(1, "christams_2024_rainbow_random_scroll")
+            val christmasRs = christmasCheckStmt.executeQuery()
+            var christmasExists = false
+            if (christmasRs.next()) {
+                christmasExists = christmasRs.getInt(1) > 0
+            }
+            christmasRs.close()
+            christmasCheckStmt.close()
+
+            if (!christmasExists) {
+                christmasRewards.forEach { (item, probability) ->
+                    val insertStmt = connection.prepareStatement(insertQuery)
+                    insertStmt.setString(1, "christams_2024_rainbow_random_scroll")
+                    insertStmt.setString(2, item.first)
+                    insertStmt.setString(3, item.second)
+                    insertStmt.setString(4, item.third)
+                    insertStmt.setDouble(5, probability)
+                    insertStmt.executeUpdate()
+                    insertStmt.close()
+                }
+            }
+
+            // 할로윈 데이터 확인 및 삽입
+            val halloweenCheckStmt = connection.prepareStatement(checkQuery)
+            halloweenCheckStmt.setString(1, "halloween_2024_rainbow_random_scroll")
+            val halloweenRs = halloweenCheckStmt.executeQuery()
+            var halloweenExists = false
+            if (halloweenRs.next()) {
+                halloweenExists = halloweenRs.getInt(1) > 0
+            }
+            halloweenRs.close()
+            halloweenCheckStmt.close()
+
+            if (!halloweenExists) {
+                halloweenRewards.forEach { (item, probability) ->
+                    val insertStmt = connection.prepareStatement(insertQuery)
+                    insertStmt.setString(1, "halloween_2024_rainbow_random_scroll")
+                    insertStmt.setString(2, item.first)
+                    insertStmt.setString(3, item.second)
+                    insertStmt.setString(4, item.third)
+                    insertStmt.setDouble(5, probability)
+                    insertStmt.executeUpdate()
+                    insertStmt.close()
+                }
+            }
         }
     }
 }

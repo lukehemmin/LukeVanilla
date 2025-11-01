@@ -440,6 +440,12 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(TransparentFrame(), this)
         server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
         //server.pluginManager.registerEvents(hscroll(), this)
+        
+        // 랜덤 스크롤 룰렛 시스템 등록
+        val randomScrollRoulette = RandomScrollRoulette(this, database)
+        server.pluginManager.registerEvents(randomScrollRoulette, this)
+        getCommand("랜덤스크롤")?.setExecutor(randomScrollRoulette)
+        getCommand("랜덤스크롤")?.tabCompleter = randomScrollRoulette
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
