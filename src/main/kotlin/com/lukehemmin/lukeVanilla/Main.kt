@@ -37,6 +37,8 @@ import com.lukehemmin.lukeVanilla.System.Discord.AIassistant.AdminAssistant
 import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerReader
 import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerUpdater
 import com.lukehemmin.lukeVanilla.System.PlayTime.PlayTimeSystem
+import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.AdvancedLandSystem
+import com.lukehemmin.lukeVanilla.System.Roulette.RouletteSystem
 import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
@@ -60,10 +62,13 @@ class Main : JavaPlugin() {
     private var privateLandSystem: PrivateLandSystem? = null
     private var farmVillageSystem: FarmVillageSystem? = null
     private var playTimeSystem: PlayTimeSystem? = null
+    private var fishMerchantManager: com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantManager? = null
+    private var advancedLandSystem: AdvancedLandSystem? = null
     private lateinit var debugManager: DebugManager
     private var luckPerms: LuckPerms? = null
     private var multiServerUpdater: MultiServerUpdater? = null
     private var bookSystem: com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem? = null
+    private var rouletteSystem: RouletteSystem? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -255,6 +260,9 @@ class Main : JavaPlugin() {
         val dbInitializer = DatabaseInitializer(database)
         dbInitializer.createTables()
 
+        // 비동기 DB 매니저 초기화 (테이블 생성 후)
+        database.initializeAsyncManager()
+
         // DebugManager 초기화
         debugManager = DebugManager(this)
 
@@ -317,12 +325,25 @@ class Main : JavaPlugin() {
             
             // 티토커 채팅 리스너 등록 (모든 서버 공통)
             discordBot.jda.addEventListener(TitokerChatListener(this))
-            
+
+            // 연홍 채팅 리스너 등록 (모든 서버 공통)
+            discordBot.jda.addEventListener(YeonhongChatListener(this))
+
             // 서비스 타입이 "Lobby"가 아닐 경우에만 인증코드 처리 시스템 초기화
             if (serviceType != "Lobby") {
-                // DiscordAuth 초기화 및 리스너 등록 (인증코드 처리만 로비에서 비활성화)
-                val discordAuth = DiscordAuth(database, this)
+                // BanEvasionDetector 초기화 (차단 우회 감지 시스템)
+                val banManager = com.lukehemmin.lukeVanilla.System.WarningSystem.BanManager(database, discordBot.jda)
+                val banEvasionDetector = com.lukehemmin.lukeVanilla.System.WarningSystem.BanEvasionDetector(
+                    database = database,
+                    jda = discordBot.jda,
+                    banManager = banManager,
+                    plugin = this
+                )
+
+                // DiscordAuth 초기화 및 리스너 등록 (차단 우회 감지 포함)
+                val discordAuth = DiscordAuth(database, this, banEvasionDetector)
                 discordBot.jda.addEventListener(discordAuth)
+                logger.info("[BanEvasionDetector] 차단 우회 감지 시스템 초기화 완료")
             }
 
             if (serviceType == "Lobby") {
@@ -344,7 +365,8 @@ class Main : JavaPlugin() {
                         openAIApiKey = openAiApiKey, // API 키를 생성자에 전달
                         database = database,
                         warningService = warningService,
-                        multiServerReader = multiServerReader
+                        multiServerReader = multiServerReader,
+                        plugin = this
                     )
                     discordBot.jda.addEventListener(adminAssistant)
                     logger.info("[AdminAssistant] 로비 서버에서 관리자 어시스턴트 초기화 완료.")
@@ -359,20 +381,7 @@ class Main : JavaPlugin() {
             }
         }
 
-        // Discord Bot 초기화 부분 아래에 추가
-        // 고객지원 시스템은 로비 서버에서만 실행
-        if (serviceType == "Lobby") {
-            logger.info("로비 서버에서 고객지원 시스템을 초기화합니다.")
-            discordBot.jda.addEventListener(
-                SupportSystem(discordBot, database),
-                SupportCaseListener(database, discordBot)
-            )
-            // 고객지원 채널 설정 초기화 (로비 서버에서만 수행)
-            val supportSystem = SupportSystem(discordBot, database)
-            supportSystem.setupSupportChannel()
-        } else {
-            logger.info("${serviceType} 서버에서는 고객지원 시스템이 비활성화됩니다.")
-        }
+        // 고객지원 시스템은 PlayTimeSystem 초기화 이후에 초기화됩니다 (아래 참조)
 
         // 로비 서버일 때만 눈싸움 미니게임 초기화
         if (serviceType == "Lobby") {
@@ -388,9 +397,13 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(Player_Join_And_Quit_Message_Listener(serviceType, this, database), this)
         server.pluginManager.registerEvents(PlayerJoinListener(this, database, discordRoleManager), this) 
 
-        // Player_Join_And_Quit_Message 갱신 스케줄러
-        server.scheduler.runTaskTimer(this, Runnable {
-            Player_Join_And_Quit_Message_Listener.updateMessages(database)
+        // Player_Join_And_Quit_Message 갱신 스케줄러 (비동기로 실행하여 메인 스레드 블로킹 방지)
+        server.scheduler.runTaskTimerAsynchronously(this, Runnable {
+            try {
+                Player_Join_And_Quit_Message_Listener.updateMessages(database)
+            } catch (e: Exception) {
+                logger.warning("Join/Quit 메시지 업데이트 중 오류 발생: ${e.message}")
+            }
         }, 0L, 1200L) 
 
         // Nametag System
@@ -427,6 +440,12 @@ class Main : JavaPlugin() {
         server.pluginManager.registerEvents(TransparentFrame(), this)
         server.pluginManager.registerEvents(OraxenItem_Placecancel(), this)
         //server.pluginManager.registerEvents(hscroll(), this)
+        
+        // 랜덤 스크롤 룰렛 시스템 등록
+        val randomScrollRoulette = RandomScrollRoulette(this, database)
+        server.pluginManager.registerEvents(randomScrollRoulette, this)
+        getCommand("랜덤스크롤")?.setExecutor(randomScrollRoulette)
+        getCommand("랜덤스크롤")?.tabCompleter = randomScrollRoulette
 
         // Command System
         getCommand("infomessage")?.setExecutor(infomessage())
@@ -454,6 +473,10 @@ class Main : JavaPlugin() {
         // 티토커 메시지 명령어 등록
         getCommand("티토커메시지")?.setExecutor(TitokerMessageCommand(this))
         getCommand("티토커메시지")?.tabCompleter = TitokerCommandCompleter()
+
+        // 연홍 메시지 명령어 등록
+        getCommand("연홍메시지")?.setExecutor(YeonhongMessageCommand(this))
+        getCommand("연홍메시지")?.tabCompleter = YeonhongCommandCompleter()
 
         // 음성채널 메시지 명령어 등록
         getCommand("음성채널메시지")?.setExecutor(VoiceChannelMessageCommand(this))
@@ -594,6 +617,45 @@ class Main : JavaPlugin() {
             logger.severe("[PlayTime] 플레이타임 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
         }
+        
+        // 고객지원 시스템은 로비 서버에서만 실행 (PlayTimeSystem 초기화 이후)
+        if (serviceType == "Lobby") {
+            try {
+                val playTimeManager = playTimeSystem?.getPlayTimeManager()
+                if (playTimeManager != null) {
+                    logger.info("로비 서버에서 고객지원 시스템을 초기화합니다.")
+                    val supportSystem = SupportSystem(this, discordBot, database, playTimeManager, discordRoleManager)
+                    discordBot.jda.addEventListener(supportSystem)
+                    discordBot.jda.addEventListener(SupportCaseListener(database, discordBot))
+                    // 고객지원 채널 설정 초기화
+                    supportSystem.setupSupportChannel()
+                    logger.info("[SupportSystem] 고객지원 시스템 초기화 완료")
+                } else {
+                    logger.warning("[SupportSystem] PlayTimeManager를 찾을 수 없어 고객지원 시스템을 초기화할 수 없습니다.")
+                }
+            } catch (e: Exception) {
+                logger.severe("[SupportSystem] 고객지원 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        } else {
+            logger.info("[SupportSystem] ${serviceType} 서버에서는 고객지원 시스템이 비활성화됩니다.")
+        }
+
+        // AdvancedLandClaiming 시스템 초기화 (야생서버에서만 실행, PlayTime 시스템 이후)
+        if (serviceType == "Vanilla") {
+            try {
+                val playTimeManager = playTimeSystem?.getPlayTimeManager()
+                if (playTimeManager != null) {
+                    advancedLandSystem = AdvancedLandSystem(this, database, debugManager, playTimeManager)
+                    advancedLandSystem?.enable()
+                } else {
+                    logger.warning("[AdvancedLandClaiming] PlayTime 시스템이 초기화되지 않아 AdvancedLandClaiming을 시작할 수 없습니다.")
+                }
+            } catch (e: Exception) {
+                logger.severe("[AdvancedLandClaiming] 고급 토지 클레이밍 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        }
 
         // 개인 땅 시스템 초기화 (야생서버에서만 실행)
         if (serviceType == "Vanilla") {
@@ -610,6 +672,32 @@ class Main : JavaPlugin() {
                     farmVillageSystem?.let { farmVillage ->
                         privateLand.setFarmVillageManager(farmVillage.getFarmVillageManager())
                     }
+                    
+                    // AdvancedLandClaiming과 LandCommand 통합
+                    advancedLandSystem?.let { advancedLand ->
+                        val landCommand = privateLand.getLandCommand()
+                        val landManager = privateLand.getLandManager()
+                        if (landCommand != null && landManager != null) {
+                            // AdvancedLandSystem의 통합 메서드 호출 (VillageSettingsGUI 포함)
+                            advancedLand.integrateWithLandCommand(landCommand, landManager)
+                            logger.info("[AdvancedLandClaiming] LandCommand와 완전 통합 완료 (VillageSettingsGUI 포함)")
+                        } else {
+                            logger.warning("[AdvancedLandClaiming] LandCommand 또는 LandManager가 null입니다. 통합을 건너뜁니다.")
+                        }
+                    }
+                    
+                    // 마을 관련 독립 명령어 등록
+                    val landCommand = privateLand.getLandCommand()
+                    if (landCommand != null) {
+                        val villageInviteCommand = com.lukehemmin.lukeVanilla.System.MyLand.VillageInviteCommand(landCommand)
+                        getCommand("마을초대")?.setExecutor(villageInviteCommand)
+                        getCommand("마을초대")?.tabCompleter = villageInviteCommand
+                        getCommand("마을")?.setExecutor(landCommand)
+                        getCommand("마을")?.tabCompleter = landCommand
+                        logger.info("[마을 명령어] 마을 관련 독립 명령어 등록 완료")
+                    } else {
+                        logger.warning("[마을 명령어] LandCommand를 가져올 수 없어 마을 명령어 등록을 건너뜁니다.")
+                    }
                 }
 
             } catch (e: Exception) {
@@ -618,6 +706,26 @@ class Main : JavaPlugin() {
             }
         } else {
             logger.info("[MyLand/FarmVillage] ${serviceType} 서버에서는 개인 땅 및 농장마을 시스템이 비활성화됩니다.")
+        }
+
+        // FishMerchant 시스템 초기화 (야생 서버에서만 실행)
+        if (serviceType == "Vanilla") {
+            try {
+                fishMerchantManager = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantManager(this, database, economyManager)
+                val fishMerchantListener = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantListener(fishMerchantManager!!)
+                server.pluginManager.registerEvents(fishMerchantListener, this)
+
+                val fishMerchantCommand = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantCommand(fishMerchantManager!!)
+                getCommand("낚시상인")?.setExecutor(fishMerchantCommand)
+                getCommand("낚시상인")?.tabCompleter = fishMerchantCommand
+
+                logger.info("[FishMerchant] 야생 서버에서 낚시 상인 시스템이 성공적으로 초기화되었습니다.")
+            } catch (e: Exception) {
+                logger.severe("[FishMerchant] 낚시 상인 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        } else {
+            logger.info("[FishMerchant] ${serviceType} 서버에서는 낚시 상인 시스템이 비활성화됩니다.")
         }
 
         // BookSystem 초기화 (야생 서버에서만 실행)
@@ -634,11 +742,24 @@ class Main : JavaPlugin() {
         } else {
             logger.info("[BookSystem] ${serviceType} 서버에서는 책 시스템이 비활성화됩니다.")
         }
+
+        // RouletteSystem 초기화 (모든 서버에서 실행)
+        try {
+            rouletteSystem = RouletteSystem(this, database, economyManager)
+            rouletteSystem?.enable()
+            logger.info("[Roulette] 룰렛 시스템이 성공적으로 초기화되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[Roulette] 룰렛 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
     }
 
     override fun onDisable() {
         // PlayTime 시스템 비활성화
         playTimeSystem?.disable()
+        
+        // AdvancedLandClaiming 시스템 비활성화
+        advancedLandSystem?.disable()
         
         // 농장마을 시스템 비활성화
         farmVillageSystem?.disable()
@@ -660,7 +781,16 @@ class Main : JavaPlugin() {
             logger.severe("[BookSystem] 책 시스템 종료 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
         }
-        
+
+        // RouletteSystem 종료
+        try {
+            rouletteSystem?.disable()
+            logger.info("[Roulette] 룰렛 시스템이 정상적으로 종료되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[Roulette] 룰렛 시스템 종료 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
+
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         try {
             VanillaShutdownNotifier.notifyShutdownImminent(this)

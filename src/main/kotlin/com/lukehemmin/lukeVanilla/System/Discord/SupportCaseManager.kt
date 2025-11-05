@@ -78,50 +78,77 @@ class SupportCaseManager(
         val supportCategory = getSupportCategory(discordBot.jda)
         val guild = supportCategory.guild
 
-        // 채널 생성
-        val supportChannel = supportCategory.createTextChannel("문의-케이스-$fullSupportCaseId")
-            .addMemberPermissionOverride(
-                discordId.toLong(),
-                listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND),
-                null
-            )
-            .addRolePermissionOverride(
-                guild.publicRole.idLong,  // @everyone 역할
-                null,
-                listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)
-            )
-            .complete()
-
-        val buttons = ActionRow.of(
-            Button.danger("close_case:$fullSupportCaseId", "문의 종료")
-        )
-
-        val embedMessage = supportChannel.sendMessageEmbeds(
-            EmbedBuilder()
-                .setTitle("문의 케이스 $fullSupportCaseId")
-                .addField("제목", supportTitle, false)
-                .addField("설명", supportDescription, false)
-                .setTimestamp(java.time.Instant.now())
-                .build()
-        ).setComponents(buttons).complete()
-
-        // 데이터베이스에 정보 저장
-        database.getConnection().use { connection ->
-            val statement = connection.prepareStatement(
+        var supportChannel: TextChannel? = null
+        try {
+            // 데이터베이스에 먼저 정보 저장 (채널 생성 전)
+            database.getConnection().use { connection ->
+                val statement = connection.prepareStatement(
+                    """
+                INSERT INTO SupportChatLink
+                (UUID, SupportID, CaseClose, MessageLink)
+                VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                SupportID = VALUES(SupportID),
+                MessageLink = VALUES(MessageLink)
                 """
-            INSERT INTO SupportChatLink 
-            (UUID, SupportID, CaseClose, MessageLink) 
-            VALUES (?, ?, ?, ?)
-            """
-            )
-            statement.setString(1, uuid)
-            statement.setString(2, fullSupportCaseId)
-            statement.setInt(3, 0)
-            statement.setString(4, supportChannel.jumpUrl)
-            statement.executeUpdate()
-        }
+                )
+                statement.setString(1, uuid)
+                statement.setString(2, fullSupportCaseId)
+                statement.setInt(3, 0)
+                statement.setString(4, "pending")  // 임시값
+                statement.executeUpdate()
+            }
 
-        return supportChannel.jumpUrl
+            // 채널 생성
+            supportChannel = supportCategory.createTextChannel("문의-케이스-$fullSupportCaseId")
+                .addMemberPermissionOverride(
+                    discordId.toLong(),
+                    listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND),
+                    null
+                )
+                .addRolePermissionOverride(
+                    guild.publicRole.idLong,  // @everyone 역할
+                    null,
+                    listOf(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)
+                )
+                .complete()
+
+            val buttons = ActionRow.of(
+                Button.danger("close_case:$fullSupportCaseId", "문의 종료")
+            )
+
+            supportChannel.sendMessageEmbeds(
+                EmbedBuilder()
+                    .setTitle("문의 케이스 $fullSupportCaseId")
+                    .addField("제목", supportTitle, false)
+                    .addField("설명", supportDescription, false)
+                    .setTimestamp(java.time.Instant.now())
+                    .build()
+            ).setComponents(buttons).complete()
+
+            // 채널 URL로 DB 업데이트
+            database.getConnection().use { connection ->
+                val updateStatement = connection.prepareStatement(
+                    "UPDATE SupportChatLink SET MessageLink = ? WHERE SupportID = ?"
+                )
+                updateStatement.setString(1, supportChannel.jumpUrl)
+                updateStatement.setString(2, fullSupportCaseId)
+                updateStatement.executeUpdate()
+            }
+
+            return supportChannel.jumpUrl
+        } catch (e: Exception) {
+            // 오류 발생 시 생성된 채널 삭제 및 DB 롤백
+            supportChannel?.delete()?.queue()
+            database.getConnection().use { connection ->
+                val deleteStatement = connection.prepareStatement(
+                    "DELETE FROM SupportChatLink WHERE SupportID = ?"
+                )
+                deleteStatement.setString(1, fullSupportCaseId)
+                deleteStatement.executeUpdate()
+            }
+            throw IllegalStateException("문의 생성 중 오류가 발생했습니다.", e)
+        }
     }
 
     private fun getSupportCategory(jda: JDA): Category {

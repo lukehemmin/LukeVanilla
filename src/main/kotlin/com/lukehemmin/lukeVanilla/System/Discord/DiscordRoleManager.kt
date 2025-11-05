@@ -7,6 +7,8 @@ import net.dv8tion.jda.api.entities.Role
 import org.bukkit.entity.Player
 
 class DiscordRoleManager(private val database: Database, private val jda: JDA) {
+    
+    private val logger = java.util.logging.Logger.getLogger("DiscordRoleManager")
 
     fun checkAndGrantAuthRole(player: Player) {
         val uuid = player.uniqueId.toString()
@@ -71,6 +73,48 @@ class DiscordRoleManager(private val database: Database, private val jda: JDA) {
             }
         } catch (e: Exception) {
             println("Error while managing Discord role: ${e.message}")
+        }
+    }
+    
+    /**
+     * 디스코드 인증 역할을 제거합니다
+     * @param discordId 디스코드 사용자 ID
+     */
+    fun removeAuthRole(discordId: String) {
+        val serverId = database.getSettingValue("DiscordServerID") ?: run {
+            logger.warning("Discord 서버 ID를 찾을 수 없습니다.")
+            return
+        }
+        
+        val roleId = database.getSettingValue("DiscordAuthRole") ?: run {
+            logger.warning("Discord 인증 역할 ID를 찾을 수 없습니다.")
+            return
+        }
+
+        val guild = jda.getGuildById(serverId) ?: run {
+            logger.warning("Discord 서버를 찾을 수 없습니다: $serverId")
+            return
+        }
+        
+        val role = guild.getRoleById(roleId) ?: run {
+            logger.warning("역할을 찾을 수 없습니다: $roleId")
+            return
+        }
+
+        val member = try {
+            guild.retrieveMemberById(discordId).complete()
+        } catch (e: Exception) {
+            logger.warning("멤버 조회 실패: ${e.message}")
+            return
+        }
+
+        if (member.roles.contains(role)) {
+            guild.removeRoleFromMember(member, role).queue(
+                { logger.info("역할 제거 성공: $discordId") },
+                { error -> logger.severe("역할 제거 실패: ${error.message}") }
+            )
+        } else {
+            logger.info("멤버가 해당 역할을 가지고 있지 않습니다: $discordId")
         }
     }
 }

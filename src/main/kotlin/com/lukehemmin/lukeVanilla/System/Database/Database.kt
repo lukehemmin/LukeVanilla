@@ -16,9 +16,21 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     private val dataSource: HikariDataSource
     private val gson = Gson()
 
+    // 비동기 DB 매니저 (지연 초기화)
+    private var asyncManager: AsyncDatabaseManager? = null
+
     // 데이터 클래스 추가
-    data class AuthRecord(val uuid: String, val isAuth: Boolean)
+    data class AuthRecord(val uuid: String, val isAuth: Boolean, val authCode: String)
     data class PlayerData(val nickname: String, val uuid: String, val discordId: String?) // discordId 추가
+    data class AccountLinkInfo(val primaryUuid: String, val secondaryUuid: String?, val linkedAt: Long)
+    data class PlayerInfo(
+        val uuid: String,
+        val nickname: String,
+        val discordId: String?,
+        val lastestIp: String?,
+        val isAuth: Boolean,
+        val tag: String?
+    )
     
     // MultiServer 시스템 데이터 클래스들
     data class ServerHeartbeat(
@@ -67,7 +79,7 @@ class Database(private val plugin: Main, config: FileConfiguration) {
         val user = config.getString("database.user") ?: throw IllegalArgumentException("Database user not specified in config.")
         val password = config.getString("database.password") ?: throw IllegalArgumentException("Database password not specified in config.")
 
-        hikariConfig.jdbcUrl = "jdbc:mysql://$host:$port/$dbName?useSSL=false&serverTimezone=UTC"
+        hikariConfig.jdbcUrl = "jdbc:mysql://$host:$port/$dbName?useSSL=false&serverTimezone=UTC&connectTimeout=5000&socketTimeout=10000&autoReconnect=true"
         hikariConfig.username = user
         hikariConfig.password = password
         hikariConfig.addDataSourceProperty("cachePrepStmts", "true")
@@ -77,6 +89,9 @@ class Database(private val plugin: Main, config: FileConfiguration) {
         hikariConfig.minimumIdle = 5
         hikariConfig.idleTimeout = 30000
         hikariConfig.maxLifetime = 1800000
+        hikariConfig.connectionTimeout = 5000L  // 5초 연결 타임아웃
+        hikariConfig.validationTimeout = 3000L  // 3초 검증 타임아웃
+        hikariConfig.leakDetectionThreshold = 60000L  // 1분 누수 감지
 
         dataSource = HikariDataSource(hikariConfig)
     }
@@ -117,7 +132,7 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     }
 
     fun getAuthRecord(authCode: String): AuthRecord? {
-        val query = "SELECT UUID, IsAuth FROM Player_Auth WHERE AuthCode = ?"
+        val query = "SELECT UUID, IsAuth, AuthCode FROM Player_Auth WHERE AuthCode = ?"
         getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setString(1, authCode)
@@ -125,7 +140,8 @@ class Database(private val plugin: Main, config: FileConfiguration) {
                     return if (resultSet.next()) {
                         AuthRecord(
                             uuid = resultSet.getString("UUID"),
-                            isAuth = resultSet.getBoolean("IsAuth")
+                            isAuth = resultSet.getBoolean("IsAuth"),
+                            authCode = resultSet.getString("AuthCode")
                         )
                     } else {
                         null
@@ -315,6 +331,38 @@ class Database(private val plugin: Main, config: FileConfiguration) {
         }
     }
 
+    fun setYeonhongMessageEnabled(uuid: String, enabled: Boolean) {
+        val query = """
+            INSERT INTO Yeonhong_Message_Setting (UUID, IsEnabled)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE IsEnabled = ?
+        """
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, uuid)
+                statement.setBoolean(2, enabled)
+                statement.setBoolean(3, enabled)
+                statement.executeUpdate()
+            }
+        }
+    }
+
+    fun isYeonhongMessageEnabled(uuid: String): Boolean {
+        val query = "SELECT IsEnabled FROM Yeonhong_Message_Setting WHERE UUID = ?"
+        getConnection().use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, uuid)
+                statement.executeQuery().use { resultSet ->
+                    return if (resultSet.next()) {
+                        resultSet.getBoolean("IsEnabled")
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
+    }
+
     fun setVoiceChannelMessageEnabled(uuid: String, enabled: Boolean) {
         val query = """
             INSERT INTO Voice_Channel_Message_Setting (UUID, IsEnabled) 
@@ -441,7 +489,42 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     /**
      * 데이터베이스를 닫는 메서드
      */
+    /**
+     * 비동기 DB 매니저 초기화 (플러그인 활성화 후 호출)
+     */
+    fun initializeAsyncManager() {
+        if (asyncManager == null) {
+            asyncManager = AsyncDatabaseManager(plugin, this)
+            plugin.logger.info("[Database] AsyncDatabaseManager 초기화 완료")
+
+            // 5분마다 캐시 정리
+            plugin.server.scheduler.runTaskTimerAsynchronously(plugin, Runnable {
+                asyncManager?.cleanupCache()
+            }, 6000L, 6000L) // 5분 간격
+
+            // 30초마다 통계 로그 (디버그 모드에서만)
+            plugin.server.scheduler.runTaskTimerAsynchronously(plugin, Runnable {
+                if (plugin.logger.isLoggable(java.util.logging.Level.FINE)) {
+                    val stats = asyncManager?.getStats()
+                    plugin.logger.fine("[AsyncDatabaseManager] 통계: $stats")
+                }
+            }, 600L, 600L) // 30초 간격
+        }
+    }
+
+    /**
+     * 비동기 DB 매니저 반환
+     */
+    fun getAsyncManager(): AsyncDatabaseManager? = asyncManager
+
+    /**
+     * 데이터베이스를 닫는 메서드
+     */
     fun close() {
+        // 비동기 매니저 종료
+        asyncManager?.shutdown()
+        asyncManager = null
+
         if (!dataSource.isClosed) {
             dataSource.close()
         }
@@ -754,7 +837,7 @@ class Database(private val plugin: Main, config: FileConfiguration) {
     fun markCrossServerCommandExecuted(commandId: Int, success: Boolean, errorMessage: String? = null) {
         val status = if (success) "executed" else "failed"
         val query = """
-            UPDATE cross_server_commands 
+            UPDATE cross_server_commands
             SET status = ?, executed_at = NOW(), error_message = ?
             WHERE id = ?
         """.trimIndent()
@@ -766,6 +849,216 @@ class Database(private val plugin: Main, config: FileConfiguration) {
                 statement.setInt(3, commandId)
                 statement.executeUpdate()
             }
+        }
+    }
+    
+    // ===== Discord_Account_Link 관련 메서드들 =====
+    
+    /**
+     * primary_uuid로 계정 연동 정보를 조회합니다
+     */
+    fun getAccountLinkByPrimaryUuid(primaryUuid: String): AccountLinkInfo? {
+                val query = """
+                    SELECT primary_uuid, secondary_uuid, UNIX_TIMESTAMP(linked_at) as linked_at_unix
+                    FROM Discord_Account_Link
+                    WHERE primary_uuid = ?
+                """.trimIndent()
+                
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, primaryUuid)
+                        statement.executeQuery().use { resultSet ->
+                            if (resultSet.next()) {
+                                return AccountLinkInfo(
+                                    primaryUuid = resultSet.getString("primary_uuid"),
+                                    secondaryUuid = resultSet.getString("secondary_uuid"),
+                                    linkedAt = resultSet.getLong("linked_at_unix") * 1000L
+                                )
+                            }
+                        }
+                    }
+                }
+        return null
+    }
+    
+    /**
+     * Discord ID로 기본 계정 UUID를 조회합니다
+     */
+    fun getPrimaryUuidByDiscordId(discordId: String): String? {
+                // 먼저 Discord_Account_Link에서 조회
+                val query = """
+                    SELECT dal.primary_uuid
+                    FROM Discord_Account_Link dal
+                    INNER JOIN Player_Data pd ON dal.primary_uuid COLLATE utf8mb4_unicode_ci = pd.UUID COLLATE utf8mb4_unicode_ci
+                    WHERE pd.DiscordID = ?
+                """.trimIndent()
+
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, discordId)
+                        statement.executeQuery().use { resultSet ->
+                            if (resultSet.next()) {
+                                return resultSet.getString("primary_uuid")
+                            }
+                        }
+                    }
+                }
+
+                // Discord_Account_Link에 없으면 Player_Data에서 조회 후 자동 생성
+                val uuid = getPlayerUUIDByDiscordID(discordId)
+                if (uuid != null) {
+                    insertAccountLink(uuid)
+                    return uuid
+                }
+
+        return null
+    }
+    
+    /**
+     * Discord_Account_Link에 기본 계정을 삽입합니다
+     */
+    fun insertAccountLink(primaryUuid: String): Boolean {
+                val query = """
+                    INSERT IGNORE INTO Discord_Account_Link (primary_uuid, secondary_uuid)
+                    VALUES (?, NULL)
+                """.trimIndent()
+
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, primaryUuid)
+                        statement.executeUpdate()
+                        return true
+                    }
+        }
+    }
+    
+    /**
+     * Discord_Account_Link의 secondary_uuid를 업데이트합니다
+     */
+    fun updateSecondaryUuid(primaryUuid: String, secondaryUuid: String): Boolean {
+                val query = """
+                    UPDATE Discord_Account_Link
+                    SET secondary_uuid = ?
+                    WHERE primary_uuid = ?
+                """.trimIndent()
+                
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, secondaryUuid)
+                        statement.setString(2, primaryUuid)
+                        return statement.executeUpdate() > 0
+                    }
+        }
+    }
+    
+    /**
+     * Discord_Account_Link의 secondary_uuid를 NULL로 설정합니다
+     */
+    fun clearSecondaryUuid(primaryUuid: String): Boolean {
+                val query = """
+                    UPDATE Discord_Account_Link
+                    SET secondary_uuid = NULL
+                    WHERE primary_uuid = ?
+                """.trimIndent()
+                
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, primaryUuid)
+                        return statement.executeUpdate() > 0
+                    }
+        }
+    }
+    
+    /**
+     * Discord_Account_Link에서 레코드를 삭제합니다
+     */
+    fun deleteAccountLink(primaryUuid: String): Boolean {
+                val query = "DELETE FROM Discord_Account_Link WHERE primary_uuid = ?"
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, primaryUuid)
+                        return statement.executeUpdate() > 0
+                    }
+        }
+    }
+    
+    /**
+     * UUID가 부계정으로 등록되어 있는지 확인합니다
+     */
+    fun isSecondaryAccount(uuid: String): Boolean {
+                val query = "SELECT COUNT(*) as count FROM Discord_Account_Link WHERE secondary_uuid = ?"
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, uuid)
+                        statement.executeQuery().use { resultSet ->
+                            if (resultSet.next()) {
+                                return resultSet.getInt("count") > 0
+                            }
+                        }
+                    }
+                }
+        return false
+    }
+    
+    /**
+     * 플레이어의 상세 정보를 조회합니다 (닉네임, UUID, DiscordID, 마지막 IP, 인증 상태, 칭호)
+     */
+    fun getPlayerInfo(uuid: String): PlayerInfo? {
+                val query = """
+                    SELECT
+                        pd.UUID, pd.NickName, pd.DiscordID, pd.Lastest_IP,
+                        pa.IsAuth,
+                        pn.Tag
+                    FROM Player_Data pd
+                    LEFT JOIN Player_Auth pa ON pd.UUID = pa.UUID
+                    LEFT JOIN Player_NameTag pn ON pd.UUID = pn.UUID
+                    WHERE pd.UUID = ?
+                """.trimIndent()
+                
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, uuid)
+                        statement.executeQuery().use { resultSet ->
+                            if (resultSet.next()) {
+                                return PlayerInfo(
+                                    uuid = resultSet.getString("UUID"),
+                                    nickname = resultSet.getString("NickName"),
+                                    discordId = resultSet.getString("DiscordID"),
+                                    lastestIp = resultSet.getString("Lastest_IP"),
+                                    isAuth = resultSet.getBoolean("IsAuth"),
+                                    tag = resultSet.getString("Tag")
+                                )
+                            }
+                        }
+                    }
+                }
+        return null
+    }
+    
+    /**
+     * Player_Data의 DiscordID를 NULL로 설정합니다
+     */
+    fun clearDiscordId(uuid: String): Boolean {
+                val query = "UPDATE Player_Data SET DiscordID = NULL WHERE UUID = ?"
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setString(1, uuid)
+                        return statement.executeUpdate() > 0
+                    }
+        }
+    }
+    
+    /**
+     * Player_Auth의 IsAuth를 UUID로 업데이트합니다
+     */
+    fun updateAuthStatusByUuid(uuid: String, isAuth: Boolean): Boolean {
+                val query = "UPDATE Player_Auth SET IsAuth = ? WHERE UUID = ?"
+                getConnection().use { connection ->
+                    connection.prepareStatement(query).use { statement ->
+                        statement.setBoolean(1, isAuth)
+                        statement.setString(2, uuid)
+                        return statement.executeUpdate() > 0
+                    }
         }
     }
 }

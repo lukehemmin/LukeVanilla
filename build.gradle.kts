@@ -68,7 +68,7 @@ dependencies {
 
     // Custom-Crops API 의존성 추가
     compileOnly("net.momirealms:custom-crops:3.6.41")
-    
+
     // Velocity API 의존성 - 버전 수정
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
     // Netty buffer for PluginMessageEvent data

@@ -45,6 +45,9 @@ commands:
   티토커메시지:
     description: "티토커 채팅 메시지를 활성화/비활성화합니다."
     usage: "/티토커메시지 <보기|끄기>"
+  연홍메시지:
+    description: "연홍 채팅 메시지를 활성화/비활성화합니다."
+    usage: "/연홍메시지 <보기|끄기>"
   음성채널메시지:
     description: "음성채널 채팅 메시지를 활성화/비활성화합니다."
     usage: "/음성채널메시지 <보기|끄기>"
@@ -116,14 +119,16 @@ commands:
     usage: "/serverconnection <status|test|clear|reset>"
     permission: "lukevanilla.admin"
     permission-message: "You do not have permission to use this command."
-  blockprot:
-    description: "블록 보호 시스템 명령어"
-    usage: "/blockprot <help|settings|info|permissions|stats|reload>"
-    aliases: [ 블록보호 ]
   땅:
     description: 개인 땅 정보를 확인합니다.
     usage: /<command> 정보
     aliases: [land, myland]
+  마을초대:
+    description: 마을 초대 관련 명령어입니다.
+    usage: /<command> [수락|거절]
+  마을:
+    description: 마을 관리 명령어입니다.
+    usage: /<command> [생성|정보|초대|멤버|탈퇴|해체]
   블록위치:
     description: 블록 위치 확인 모드를 활성화/비활성화합니다.
     usage: /블록위치
@@ -144,6 +149,10 @@ commands:
     usage: "/주차스크롤 [상태|다음주|이전주|해제|GUI]"
     permission: "lukevanilla.admin.weeklyscroll"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  플레이타임:
+    description: "플레이어의 플레이타임을 조회합니다."
+    usage: "/플레이타임 [확인 <플레이어>|순위|통계]"
+    aliases: [playtime, pt]
   책:
     description: "마인크래프트에서 작성한 책을 관리합니다."
     usage: "/책 [목록|공개|비공개|삭제|정보|웹사이트|토큰|통계] [인자]"
@@ -152,10 +161,21 @@ commands:
     description: "Manage books written in Minecraft."
     usage: "/book [list|public|private|delete|info|website|token|stats] [args]"
     aliases: [ 책 ]
-  플레이타임:
-    description: "플레이어의 플레이타임을 조회합니다."
-    usage: "/플레이타임 [확인 <플레이어>|순위|통계]"
-    aliases: [playtime, pt]
+  낚시상인:
+    description: "낚시 상인 시스템을 관리합니다."
+    usage: "/낚시상인 [설정|제거|가격설정|가격목록|정보] [인자]"
+    permission: "lukevanilla.fishmerchant"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
+  룰렛:
+    description: "다중 룰렛 시스템을 관리합니다."
+    usage: "/룰렛 [생성|삭제|목록|정보|아이템|npc지정|npc제거|npc목록|설정|리로드]"
+    permission: "lukevanilla.roulette.admin"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
+  랜덤스크롤:
+    description: "랜덤 스크롤 룰렛 시스템을 관리합니다."
+    usage: "/랜덤스크롤 [리로드]"
+    permission: "lukevanilla.randomscroll.reload"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -265,4 +285,13 @@ permissions:
     default: op
   playtime.admin.stats:
     description: "플레이타임 통계 확인 권한"
+    default: op
+  lukevanilla.fishmerchant:
+    description: "낚시 상인 시스템 관리 권한"
+    default: op
+  lukevanilla.roulette.admin:
+    description: "룰렛 시스템 관리 권한"
+    default: op
+  lukevanilla.randomscroll.reload:
+    description: "랜덤 스크롤 시스템 리로드 권한"
     default: op

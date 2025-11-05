@@ -94,12 +94,6 @@ class ItemViewSystem {
     }
     
     fun viewItems(player: Player, eventTypeArg: String? = null): Boolean {
-        // 권한 체크
-        if (!player.hasPermission("lukevanilla.item.view")) {
-            player.sendMessage("§c이 명령어를 사용할 권한이 없습니다.")
-            return true
-        }
-        
         // 비동기로 처리
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             try {

@@ -18,6 +18,7 @@ class DatabaseInitializer(private val database: Database) {
         createSpringItemOwnerTable()
         createSpringItemReceiveTable()
         createTitokerMessageSettingTable()
+        createYeonhongMessageSettingTable()
         createVoiceChannelMessageSettingTable()
         createDynamicVoiceChannelTable()
         createSupportChatLinkTable()
@@ -37,6 +38,11 @@ class DatabaseInitializer(private val database: Database) {
         createMyLandClaimsTable()
         createMyLandMembersTable()
         createMyLandClaimHistoryTable()
+        
+        // 마을 시스템 테이블 추가
+        createVillagesTable()
+        createVillageMembersTable()
+        createVillagePermissionsTable()
 
         // FarmVillage에서 관리 (농사마을 토지 시스템)
         createFarmVillagePlotsTable()
@@ -53,6 +59,25 @@ class DatabaseInitializer(private val database: Database) {
         createBookSessionsTable()
         // PlayTime 시스템 테이블 생성
         createPlayTimeTable()
+        
+        // Discord 계정 연동 테이블 생성
+        createDiscordAccountLinkTable()
+
+        // 낚시 상인 시스템 테이블 생성
+        createFishMerchantNPCTable()
+        createFishPricesTable()
+        createFishSellHistoryTable()
+
+        // 룰렛 시스템 테이블 생성
+        createRouletteConfigTable()
+        createRouletteItemsTable()
+        createRouletteHistoryTable()
+        createRouletteNPCMappingTable()
+
+        // 랜덤 스크롤 룰렛 시스템 테이블 생성
+        createRandomScrollConfigTable()
+        createRandomScrollRewardsTable()
+        createRandomScrollHistoryTable()
 
         // 다른 테이블 생성 코드 추가 가능
     }
@@ -380,6 +405,20 @@ class DatabaseInitializer(private val database: Database) {
         }
     }
 
+    private fun createYeonhongMessageSettingTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+            CREATE TABLE IF NOT EXISTS Yeonhong_Message_Setting (
+                `UUID` VARCHAR(36) PRIMARY KEY,
+                `IsEnabled` BOOLEAN DEFAULT false
+            )
+            """
+            )
+        }
+    }
+
     private fun createVoiceChannelMessageSettingTable() {
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
@@ -601,12 +640,57 @@ class DatabaseInitializer(private val database: Database) {
                     `chunk_x` INT NOT NULL,
                     `chunk_z` INT NOT NULL,
                     `owner_uuid` VARCHAR(36) NOT NULL,
+                    `owner_name` VARCHAR(50) NOT NULL DEFAULT 'Unknown',
                     `claim_type` VARCHAR(50) NOT NULL DEFAULT 'GENERAL',
+                    `resource_type` ENUM('FREE', 'IRON_INGOT', 'DIAMOND', 'NETHERITE_INGOT') NULL,
+                    `resource_amount` INT NOT NULL DEFAULT 0,
+                    `used_free_slots` INT NOT NULL DEFAULT 0,
+                    `playtime_days` INT NOT NULL DEFAULT 0,
+                    `village_id` INT NULL,
                     `claimed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (`world`, `chunk_x`, `chunk_z`)
+                    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`world`, `chunk_x`, `chunk_z`),
+                    INDEX `idx_owner` (`owner_uuid`),
+                    INDEX `idx_claim_type` (`claim_type`),
+                    INDEX `idx_village` (`village_id`),
+                    INDEX `idx_resource_type` (`resource_type`)
                 );
                 """.trimIndent()
             )
+            
+            // 기존 테이블에 새 컬럼 추가 (이미 테이블이 존재할 경우)
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `owner_name` VARCHAR(50) NOT NULL DEFAULT 'Unknown'")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `resource_type` ENUM('FREE', 'IRON_INGOT', 'DIAMOND', 'NETHERITE_INGOT') NULL")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            // 기존 컬럼의 기본값 제거 (NOT NULL -> NULL로 변경)
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims MODIFY COLUMN `resource_type` ENUM('FREE', 'IRON_INGOT', 'DIAMOND', 'NETHERITE_INGOT') NULL")
+            } catch (e: Exception) { /* 이미 변경됨 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `resource_amount` INT NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `used_free_slots` INT NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `playtime_days` INT NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `village_id` INT NULL")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+            
+            try {
+                statement.executeUpdate("ALTER TABLE myland_claims ADD COLUMN `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
         }
     }
 
@@ -883,4 +967,805 @@ class DatabaseInitializer(private val database: Database) {
             )
         }
     }
+
+    
+    /**
+     * 마을 정보 테이블 생성
+     * - 마을 기본 정보 및 이장 관리
+     */
+    private fun createVillagesTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS `villages` (
+                    `village_id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `village_name` VARCHAR(100) NOT NULL,
+                    `mayor_uuid` VARCHAR(36) NOT NULL,
+                    `mayor_name` VARCHAR(50) NOT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+                    UNIQUE KEY `unique_name_active` (`village_name`, `is_active`),
+                    INDEX `idx_mayor` (`mayor_uuid`),
+                    INDEX `idx_active` (`is_active`),
+                    INDEX `idx_created` (`created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='마을 정보';
+                """.trimIndent()
+            )
+        }
+    }
+    
+    /**
+     * 마을 구성원 테이블 생성
+     * - 마을 구성원 및 역할 관리
+     */
+    private fun createVillageMembersTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS `village_members` (
+                    `village_id` INT NOT NULL,
+                    `member_uuid` VARCHAR(36) NOT NULL,
+                    `member_name` VARCHAR(50) NOT NULL,
+                    `role` ENUM('MAYOR', 'DEPUTY_MAYOR', 'MEMBER') NOT NULL DEFAULT 'MEMBER',
+                    `joined_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `last_seen` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+                    PRIMARY KEY (`village_id`, `member_uuid`),
+                    INDEX `idx_member` (`member_uuid`),
+                    INDEX `idx_role` (`role`),
+                    INDEX `idx_active` (`is_active`),
+                    INDEX `idx_joined` (`joined_at`),
+                    FOREIGN KEY (`village_id`) REFERENCES `villages`(`village_id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='마을 구성원';
+                """.trimIndent()
+            )
+        }
+    }
+    
+    /**
+     * 마을 권한 테이블 생성
+     * - 구성원별 세부 권한 관리
+     */
+    private fun createVillagePermissionsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS `village_permissions` (
+                    `village_id` INT NOT NULL,
+                    `member_uuid` VARCHAR(36) NOT NULL,
+                    `permission_type` VARCHAR(50) NOT NULL,
+                    `granted_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `granted_by_uuid` VARCHAR(36) NOT NULL,
+                    `granted_by_name` VARCHAR(50) NOT NULL,
+                    `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+                    PRIMARY KEY (`village_id`, `member_uuid`, `permission_type`),
+                    INDEX `idx_member` (`member_uuid`),
+                    INDEX `idx_permission` (`permission_type`),
+                    INDEX `idx_granted_by` (`granted_by_uuid`),
+                    INDEX `idx_active` (`is_active`),
+                    FOREIGN KEY (`village_id`) REFERENCES `villages`(`village_id`) ON DELETE CASCADE,
+                    FOREIGN KEY (`village_id`, `member_uuid`) REFERENCES `village_members`(`village_id`, `member_uuid`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='마을 구성원 권한';
+                """.trimIndent()
+            )
+        }
+    }
+    
+    /**
+     * Discord 계정 연동 테이블 생성
+     * - 디스코드 사용자 기준으로 기본 계정과 부계정을 관리
+     */
+    private fun createDiscordAccountLinkTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS Discord_Account_Link (
+                    `primary_uuid` VARCHAR(36) NOT NULL,
+                    `secondary_uuid` VARCHAR(36) UNIQUE,
+                    `linked_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`primary_uuid`),
+                    INDEX `idx_primary` (`primary_uuid`),
+                    INDEX `idx_secondary` (`secondary_uuid`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Discord 계정 연동 정보';
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 낚시 상인 NPC 테이블 생성
+     * - 낚시 상인으로 지정된 NPC ID를 저장 (단일)
+     */
+    private fun createFishMerchantNPCTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS fish_merchant_npc (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `npc_id` INT UNIQUE NOT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='낚시 상인 NPC 정보';
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 물고기 가격 테이블 생성
+     * - 물고기 아이템별 구매 가격 저장
+     * - VANILLA, CUSTOMFISHING, NEXO 제공자별로 관리
+     */
+    private fun createFishPricesTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+
+            // 새로운 테이블 구조 생성 (price 컬럼 제거)
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS fish_prices (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `item_provider` VARCHAR(20) NOT NULL,
+                    `fish_type` VARCHAR(100) NOT NULL,
+                    `base_price` DECIMAL(20, 2) NOT NULL DEFAULT 0,
+                    `price_per_cm` DECIMAL(20, 2) NOT NULL DEFAULT 0,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY `unique_fish` (`item_provider`, `fish_type`),
+                    INDEX `idx_provider` (`item_provider`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='물고기 가격 정보';
+                """.trimIndent()
+            )
+
+            // 기존 테이블에 새 컬럼 추가 (테이블이 이미 존재하고 컬럼이 없을 경우)
+            try {
+                statement.executeUpdate("ALTER TABLE fish_prices ADD COLUMN `base_price` DECIMAL(20, 2) NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+
+            try {
+                statement.executeUpdate("ALTER TABLE fish_prices ADD COLUMN `price_per_cm` DECIMAL(20, 2) NOT NULL DEFAULT 0")
+            } catch (e: Exception) { /* 컬럼이 이미 존재함 */ }
+
+            // 레거시 price 컬럼에서 base_price로 데이터 마이그레이션 (한 번만 실행)
+            try {
+                // price 컬럼이 존재하는지 확인
+                val rsColumns = connection.metaData.getColumns(null, null, "fish_prices", "price")
+                if (rsColumns.next()) {
+                    // price 컬럼이 존재하면 데이터 복사 후 제거
+                    statement.executeUpdate("UPDATE fish_prices SET base_price = price WHERE base_price = 0 AND price > 0")
+                    statement.executeUpdate("ALTER TABLE fish_prices DROP COLUMN `price`")
+                }
+                rsColumns.close()
+            } catch (e: Exception) {
+                // price 컬럼이 없거나 이미 삭제됨
+            }
+
+            // 기본 바닐라 물고기 가격 초기화
+            val checkQuery = "SELECT COUNT(*) FROM fish_prices WHERE item_provider = ? AND fish_type = ?"
+            val insertQuery = "INSERT INTO fish_prices (item_provider, fish_type, base_price, price_per_cm) VALUES (?, ?, ?, 0)"
+
+            val defaultPrices = listOf(
+                Triple("VANILLA", "COD", 10.0),
+                Triple("VANILLA", "SALMON", 15.0),
+                Triple("VANILLA", "TROPICAL_FISH", 20.0),
+                Triple("VANILLA", "PUFFERFISH", 25.0)
+            )
+
+            defaultPrices.forEach { (provider, fishType, price) ->
+                connection.prepareStatement(checkQuery).use { checkStmt ->
+                    checkStmt.setString(1, provider)
+                    checkStmt.setString(2, fishType)
+                    checkStmt.executeQuery().use { rs ->
+                        if (rs.next() && rs.getInt(1) == 0) {
+                            connection.prepareStatement(insertQuery).use { insertStmt ->
+                                insertStmt.setString(1, provider)
+                                insertStmt.setString(2, fishType)
+                                insertStmt.setDouble(3, price)
+                                insertStmt.executeUpdate()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 룰렛 설정 테이블 생성
+     * - 다중 룰렛 지원, 룰렛 이름으로 구분
+     */
+    private fun createRouletteConfigTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+
+            // 1. 기존 테이블에서 npc_id 데이터 백업
+            val oldNpcIds = mutableListOf<Int?>()
+            try {
+                val rsOld = statement.executeQuery("SELECT npc_id FROM roulette_config ORDER BY id")
+                while (rsOld.next()) {
+                    oldNpcIds.add(rsOld.getInt("npc_id").takeIf { !rsOld.wasNull() })
+                }
+                rsOld.close()
+            } catch (e: Exception) {
+                // 테이블이 없는 경우 무시
+            }
+
+            // 2. 테이블 생성 (roulette_name 추가, npc_id 제거)
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS roulette_config (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `roulette_name` VARCHAR(50) NOT NULL UNIQUE COMMENT '룰렛 이름 (고유)',
+                    `cost_type` VARCHAR(20) NOT NULL DEFAULT 'MONEY' COMMENT '비용 타입 (MONEY, ITEM 등)',
+                    `cost_amount` DECIMAL(20, 2) NOT NULL DEFAULT 1000 COMMENT '비용 (돈의 경우)',
+                    `cost_item_type` VARCHAR(100) DEFAULT NULL COMMENT '비용 아이템 타입 (아이템의 경우)',
+                    `cost_item_amount` INT DEFAULT 1 COMMENT '비용 아이템 개수',
+                    `animation_duration` INT NOT NULL DEFAULT 100 COMMENT '애니메이션 지속 시간 (틱 단위)',
+                    `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '룰렛 활성화 여부',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 시스템 설정 (다중 룰렛 지원)';
+                """.trimIndent()
+            )
+
+            // 3. 기존 테이블에 roulette_name 컬럼이 없으면 추가 (마이그레이션)
+            try {
+                val rsColumns = connection.metaData.getColumns(null, null, "roulette_config", "roulette_name")
+                if (!rsColumns.next()) {
+                    // roulette_name 컬럼이 없으면 추가
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_config
+                        ADD COLUMN `roulette_name` VARCHAR(50) NOT NULL UNIQUE COMMENT '룰렛 이름 (고유)' AFTER `id`
+                        """
+                    )
+                    println("[Roulette] roulette_name 컬럼을 추가했습니다.")
+
+                    // 기존 레코드에 기본 이름 설정
+                    statement.executeUpdate(
+                        """
+                        UPDATE roulette_config SET roulette_name = CONCAT('룰렛_', id) WHERE roulette_name = '' OR roulette_name IS NULL
+                        """
+                    )
+                }
+                rsColumns.close()
+            } catch (e: Exception) {
+                println("[Roulette] roulette_name 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 4. npc_id 컬럼이 있으면 제거 (데이터는 roulette_npc_mapping으로 이동 예정)
+            try {
+                val rsNpcId = connection.metaData.getColumns(null, null, "roulette_config", "npc_id")
+                if (rsNpcId.next()) {
+                    println("[Roulette] npc_id 컬럼이 발견되었습니다. 제거 예정입니다.")
+                    // npc_id는 createRouletteNPCMappingTable에서 마이그레이션 후 제거
+                }
+                rsNpcId.close()
+            } catch (e: Exception) {
+                // 무시
+            }
+
+            // 5. 기본 설정 데이터 삽입 (default 룰렛)
+            val checkQuery = "SELECT COUNT(*) FROM roulette_config"
+            val rs = statement.executeQuery(checkQuery)
+            var isEmpty = true
+            if (rs.next()) {
+                isEmpty = rs.getInt(1) == 0
+            }
+            rs.close()
+
+            if (isEmpty) {
+                statement.executeUpdate(
+                    """
+                    INSERT INTO roulette_config (roulette_name, cost_type, cost_amount, animation_duration, enabled)
+                    VALUES ('기본룰렛', 'MONEY', 1000, 100, TRUE)
+                    """
+                )
+                println("[Roulette] 기본 룰렛 '기본룰렛'을 생성했습니다.")
+            }
+        }
+    }
+
+    /**
+     * 룰렛 아이템 테이블 생성
+     * - 룰렛에서 등장할 아이템과 확률 저장
+     * - 다중 룰렛 지원: roulette_id FK 추가
+     */
+    private fun createRouletteItemsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS roulette_items (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `roulette_id` INT NOT NULL COMMENT '룰렛 ID (FK)',
+                    `item_provider` VARCHAR(20) NOT NULL DEFAULT 'VANILLA' COMMENT '아이템 제공자 (VANILLA, NEXO, ORAXEN 등)',
+                    `item_identifier` VARCHAR(100) NOT NULL COMMENT '아이템 식별자 (Material 또는 커스텀 아이템 ID)',
+                    `item_display_name` VARCHAR(255) DEFAULT NULL COMMENT '아이템 표시 이름',
+                    `item_amount` INT NOT NULL DEFAULT 1 COMMENT '지급할 아이템 개수',
+                    `item_data` JSON DEFAULT NULL COMMENT '아이템 추가 데이터 (NBT, 로어 등)',
+                    `weight` DECIMAL(10,2) NOT NULL DEFAULT 100.00 COMMENT '가중치 (확률 계산용, 소수점 2자리 지원)',
+                    `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '활성화 여부',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX `idx_roulette_id` (`roulette_id`),
+                    INDEX `idx_enabled` (`enabled`),
+                    INDEX `idx_weight` (`weight`),
+                    FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 아이템 정보 (다중 룰렛 지원)';
+                """.trimIndent()
+            )
+
+            // 1. 기존 테이블의 weight 컬럼을 DECIMAL로 마이그레이션
+            try {
+                val rsColumns = connection.metaData.getColumns(null, null, "roulette_items", "weight")
+                if (rsColumns.next()) {
+                    val columnType = rsColumns.getString("TYPE_NAME")
+                    // INT 타입이면 DECIMAL로 변경
+                    if (columnType.uppercase().contains("INT")) {
+                        statement.executeUpdate("ALTER TABLE roulette_items MODIFY COLUMN `weight` DECIMAL(10,2) NOT NULL DEFAULT 100.00 COMMENT '가중치 (확률 계산용, 소수점 2자리 지원)'")
+                        println("[Roulette] weight 컬럼을 INT에서 DECIMAL(10,2)로 변경했습니다.")
+                    }
+                }
+                rsColumns.close()
+            } catch (e: Exception) {
+                // 마이그레이션 실패 시 경고만 출력
+                println("[Roulette] weight 컬럼 마이그레이션 중 오류 발생: ${e.message}")
+            }
+
+            // 2. roulette_id 컬럼 추가 (마이그레이션)
+            try {
+                val rsRouletteId = connection.metaData.getColumns(null, null, "roulette_items", "roulette_id")
+                if (!rsRouletteId.next()) {
+                    // roulette_id 컬럼이 없으면 추가
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_items
+                        ADD COLUMN `roulette_id` INT NOT NULL DEFAULT 1 COMMENT '룰렛 ID (FK)' AFTER `id`,
+                        ADD INDEX `idx_roulette_id` (`roulette_id`),
+                        ADD FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
+                        """
+                    )
+                    println("[Roulette] roulette_id 컬럼을 추가했습니다. 기존 아이템은 모두 룰렛 ID 1에 할당됩니다.")
+                }
+                rsRouletteId.close()
+            } catch (e: Exception) {
+                println("[Roulette] roulette_id 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 3. 기본 아이템 데이터 삽입 (예시)
+            val checkQuery = "SELECT COUNT(*) FROM roulette_items"
+            val rs = statement.executeQuery(checkQuery)
+            var isEmpty = true
+            if (rs.next()) {
+                isEmpty = rs.getInt(1) == 0
+            }
+            rs.close()
+
+            if (isEmpty) {
+                // 기본 룰렛 ID 조회 (roulette_config에서 첫 번째 룰렛)
+                var defaultRouletteId = 1
+                try {
+                    val rsConfig = statement.executeQuery("SELECT id FROM roulette_config ORDER BY id LIMIT 1")
+                    if (rsConfig.next()) {
+                        defaultRouletteId = rsConfig.getInt("id")
+                    }
+                    rsConfig.close()
+                } catch (e: Exception) {
+                    println("[Roulette] 기본 룰렛 ID 조회 실패: ${e.message}")
+                }
+
+                val insertStmt = connection.prepareStatement(
+                    """
+                    INSERT INTO roulette_items (roulette_id, item_provider, item_identifier, item_display_name, item_amount, weight, enabled)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """
+                )
+
+                // 정확히 12개의 기본 아이템 (원형 슬롯에 맞춤, 소수점 가중치 지원)
+                val defaultItems = listOf(
+                    Tuple6("VANILLA", "DIAMOND", "§b다이아몬드", 1, 5.00, true),              // 1번 슬롯 - 5%
+                    Tuple6("VANILLA", "EMERALD", "§a에메랄드", 3, 10.00, true),              // 2번 슬롯 - 10%
+                    Tuple6("VANILLA", "IRON_INGOT", "§f철 주괴", 5, 15.00, true),           // 3번 슬롯 - 15%
+                    Tuple6("VANILLA", "GOLD_INGOT", "§e금 주괴", 3, 12.00, true),           // 4번 슬롯 - 12%
+                    Tuple6("VANILLA", "COAL", "§8석탄", 10, 20.00, true),                   // 5번 슬롯 - 20%
+                    Tuple6("VANILLA", "EXPERIENCE_BOTTLE", "§d경험치 병", 5, 13.00, true),   // 6번 슬롯 - 13%
+                    Tuple6("VANILLA", "REDSTONE", "§c레드스톤", 8, 11.00, true),             // 7번 슬롯 - 11%
+                    Tuple6("VANILLA", "LAPIS_LAZULI", "§9청금석", 6, 8.00, true),          // 8번 슬롯 - 8%
+                    Tuple6("VANILLA", "QUARTZ", "§f석영", 4, 7.00, true),                  // 9번 슬롯 - 7%
+                    Tuple6("VANILLA", "NETHERITE_SCRAP", "§4네더라이트 파편", 1, 1.00, true), // 10번 슬롯 - 1%
+                    Tuple6("VANILLA", "ENDER_PEARL", "§5엔더 진주", 2, 4.00, true),        // 11번 슬롯 - 4%
+                    Tuple6("VANILLA", "BLAZE_ROD", "§6블레이즈 막대", 3, 6.00, true)       // 12번 슬롯 - 6%
+                    // 총합: 100.00
+                )
+
+                defaultItems.forEach { (provider, identifier, displayName, amount, weight, enabled) ->
+                    insertStmt.setInt(1, defaultRouletteId)
+                    insertStmt.setString(2, provider)
+                    insertStmt.setString(3, identifier)
+                    insertStmt.setString(4, displayName)
+                    insertStmt.setInt(5, amount)
+                    insertStmt.setDouble(6, weight)
+                    insertStmt.setBoolean(7, enabled)
+                    insertStmt.executeUpdate()
+                }
+                println("[Roulette] 기본 룰렛(ID=$defaultRouletteId)에 12개의 기본 아이템을 추가했습니다.")
+            }
+        }
+    }
+
+    /**
+     * 룰렛 플레이 히스토리 테이블 생성
+     * - 플레이어의 룰렛 플레이 기록 저장
+     * - 다중 룰렛 지원: roulette_id FK 추가
+     */
+    private fun createRouletteHistoryTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS roulette_history (
+                    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    `roulette_id` INT NOT NULL COMMENT '룰렛 ID (FK)',
+                    `player_uuid` VARCHAR(36) NOT NULL COMMENT '플레이어 UUID',
+                    `player_name` VARCHAR(50) NOT NULL COMMENT '플레이어 닉네임',
+                    `item_id` INT NOT NULL COMMENT '획득한 아이템 ID (roulette_items 참조)',
+                    `item_provider` VARCHAR(20) NOT NULL COMMENT '아이템 제공자 (VANILLA/NEXO/ORAXEN)',
+                    `item_identifier` VARCHAR(100) NOT NULL COMMENT '아이템 식별자 (코드)',
+                    `cost_paid` DECIMAL(20, 2) NOT NULL COMMENT '지불한 비용',
+                    `probability` DECIMAL(5, 2) NOT NULL COMMENT '당첨 확률 (%)',
+                    `played_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '플레이 시각',
+                    INDEX `idx_roulette_id` (`roulette_id`),
+                    INDEX `idx_player_uuid` (`player_uuid`),
+                    INDEX `idx_played_at` (`played_at`),
+                    INDEX `idx_item_provider` (`item_provider`),
+                    FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE,
+                    FOREIGN KEY (`item_id`) REFERENCES `roulette_items`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 플레이 히스토리 (다중 룰렛 지원)';
+                """.trimIndent()
+            )
+
+            // 기존 테이블에 새 컬럼 추가 (마이그레이션)
+
+            // 1. roulette_id 컬럼 추가
+            try {
+                val rsRouletteId = connection.metaData.getColumns(null, null, "roulette_history", "roulette_id")
+                if (!rsRouletteId.next()) {
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_history
+                        ADD COLUMN `roulette_id` INT NOT NULL DEFAULT 1 COMMENT '룰렛 ID (FK)' AFTER `id`,
+                        ADD INDEX `idx_roulette_id` (`roulette_id`),
+                        ADD FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
+                        """
+                    )
+                    println("[Roulette] roulette_history에 roulette_id 컬럼을 추가했습니다.")
+                }
+                rsRouletteId.close()
+            } catch (e: Exception) {
+                println("[Roulette] roulette_history roulette_id 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 2. item_provider 컬럼 추가
+            try {
+                connection.createStatement().use { stmt ->
+                    stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `item_provider` VARCHAR(20) NOT NULL DEFAULT 'VANILLA' COMMENT '아이템 제공자' AFTER `item_id`")
+                }
+            } catch (e: Exception) {
+                // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
+            }
+
+            // 3. item_identifier 컬럼 추가
+            try {
+                connection.createStatement().use { stmt ->
+                    stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `item_identifier` VARCHAR(100) NOT NULL DEFAULT 'UNKNOWN' COMMENT '아이템 식별자' AFTER `item_provider`")
+                }
+            } catch (e: Exception) {
+                // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
+            }
+
+            // 4. probability 컬럼 추가
+            try {
+                connection.createStatement().use { stmt ->
+                    stmt.executeUpdate("ALTER TABLE roulette_history ADD COLUMN IF NOT EXISTS `probability` DECIMAL(5, 2) NOT NULL DEFAULT 0.00 COMMENT '당첨 확률 (%)' AFTER `cost_paid`")
+                }
+            } catch (e: Exception) {
+                // 이미 컬럼이 존재하거나 다른 이유로 실패한 경우 무시
+            }
+        }
+    }
+
+    /**
+     * 룰렛 NPC 매핑 테이블 생성
+     * - NPC ID와 룰렛 ID를 매핑
+     * - 하나의 NPC는 하나의 룰렛에만 연결
+     */
+    private fun createRouletteNPCMappingTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS roulette_npc_mapping (
+                    `id` INT PRIMARY KEY AUTO_INCREMENT,
+                    `npc_id` INT NOT NULL UNIQUE COMMENT 'NPC ID (고유)',
+                    `roulette_id` INT NOT NULL COMMENT '룰렛 ID (FK)',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_roulette_id` (`roulette_id`),
+                    FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='NPC와 룰렛 매핑';
+                """.trimIndent()
+            )
+
+            // 기존 roulette_config의 npc_id 데이터를 마이그레이션
+            try {
+                val rsNpcId = connection.metaData.getColumns(null, null, "roulette_config", "npc_id")
+                if (rsNpcId.next()) {
+                    // npc_id 컬럼이 있으면 데이터 마이그레이션
+                    val rsOldData = statement.executeQuery(
+                        """
+                        SELECT id, npc_id FROM roulette_config WHERE npc_id IS NOT NULL
+                        """
+                    )
+
+                    val migratedCount = mutableListOf<Pair<Int, Int>>()
+                    while (rsOldData.next()) {
+                        val rouletteId = rsOldData.getInt("id")
+                        val npcId = rsOldData.getInt("npc_id")
+                        migratedCount.add(Pair(npcId, rouletteId))
+                    }
+                    rsOldData.close()
+
+                    // roulette_npc_mapping에 데이터 삽입
+                    if (migratedCount.isNotEmpty()) {
+                        val insertStmt = connection.prepareStatement(
+                            """
+                            INSERT IGNORE INTO roulette_npc_mapping (npc_id, roulette_id)
+                            VALUES (?, ?)
+                            """
+                        )
+                        migratedCount.forEach { (npcId, rouletteId) ->
+                            insertStmt.setInt(1, npcId)
+                            insertStmt.setInt(2, rouletteId)
+                            insertStmt.executeUpdate()
+                        }
+                        println("[Roulette] roulette_config의 npc_id 데이터를 roulette_npc_mapping으로 마이그레이션했습니다. (${migratedCount.size}개)")
+                    }
+
+                    // npc_id 컬럼 제거
+                    statement.executeUpdate("ALTER TABLE roulette_config DROP COLUMN npc_id")
+                    println("[Roulette] roulette_config에서 npc_id 컬럼을 제거했습니다.")
+                }
+                rsNpcId.close()
+            } catch (e: Exception) {
+                println("[Roulette] NPC 매핑 마이그레이션 중 오류: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * 낚시 상인 판매 기록 테이블 생성
+     * - 플레이어의 물고기 판매 이력 저장
+     */
+    private fun createFishSellHistoryTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS fish_sell_history (
+                    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    `player_uuid` VARCHAR(36) NOT NULL COMMENT '판매자 UUID',
+                    `player_name` VARCHAR(50) NOT NULL COMMENT '판매자 닉네임',
+                    `items_sold` JSON NOT NULL COMMENT '판매한 아이템 맵 (JSON)',
+                    `total_amount` DECIMAL(20, 2) NOT NULL COMMENT '총 판매 금액',
+                    `sold_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '판매 시각',
+                    INDEX `idx_player_uuid` (`player_uuid`),
+                    INDEX `idx_sold_at` (`sold_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='낚시 상인 판매 기록';
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 랜덤 스크롤 설정 테이블 생성
+     * - 스크롤별 기본 설정 (GUI 제목, 활성화 여부)
+     */
+    private fun createRandomScrollConfigTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS random_scroll_config (
+                    `scroll_id` VARCHAR(100) PRIMARY KEY COMMENT '스크롤 Nexo 아이템 ID',
+                    `display_name` VARCHAR(100) NOT NULL COMMENT 'GUI 제목',
+                    `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '활성화 여부',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='랜덤 스크롤 룰렛 설정'
+                """.trimIndent()
+            )
+
+            // 기본 데이터 삽입
+            val checkQuery = "SELECT COUNT(*) FROM random_scroll_config WHERE scroll_id = ?"
+            val insertQuery = "INSERT INTO random_scroll_config (scroll_id, display_name, enabled) VALUES (?, ?, 1)"
+
+            val defaultConfigs = listOf(
+                "christams_2024_rainbow_random_scroll" to "크리스마스 룰렛",
+                "halloween_2024_rainbow_random_scroll" to "할로윈 룰렛"
+            )
+
+            defaultConfigs.forEach { (scrollId, displayName) ->
+                val checkStmt = connection.prepareStatement(checkQuery)
+                checkStmt.setString(1, scrollId)
+                val rs = checkStmt.executeQuery()
+                var exists = false
+                if (rs.next()) {
+                    exists = rs.getInt(1) > 0
+                }
+                rs.close()
+                checkStmt.close()
+
+                if (!exists) {
+                    val insertStmt = connection.prepareStatement(insertQuery)
+                    insertStmt.setString(1, scrollId)
+                    insertStmt.setString(2, displayName)
+                    insertStmt.executeUpdate()
+                    insertStmt.close()
+                }
+            }
+        }
+    }
+
+    /**
+     * 랜덤 스크롤 보상 아이템 테이블 생성
+     * - 각 스크롤별 보상 아이템과 확률 저장
+     */
+    private fun createRandomScrollRewardsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS random_scroll_rewards (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `scroll_id` VARCHAR(100) NOT NULL COMMENT '스크롤 ID (FK)',
+                    `item_provider` ENUM('NEXO', 'VANILLA', 'CUSTOMFISHING', 'MYTHICMOBS') NOT NULL COMMENT '아이템 제공자',
+                    `item_code` VARCHAR(100) NOT NULL COMMENT '아이템 코드',
+                    `display_name` VARCHAR(100) NOT NULL COMMENT '표시될 이름',
+                    `probability` DECIMAL(10, 2) NOT NULL DEFAULT 1.0 COMMENT '확률 가중치',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (`scroll_id`) REFERENCES random_scroll_config(`scroll_id`) ON DELETE CASCADE,
+                    INDEX idx_scroll_id (`scroll_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='랜덤 스크롤 보상 아이템'
+                """.trimIndent()
+            )
+
+            // 기본 보상 데이터 삽입
+            val checkQuery = "SELECT COUNT(*) FROM random_scroll_rewards WHERE scroll_id = ?"
+            val insertQuery = """
+                INSERT INTO random_scroll_rewards (scroll_id, item_provider, item_code, display_name, probability) 
+                VALUES (?, ?, ?, ?, ?)
+            """.trimIndent()
+
+            // 크리스마스 스크롤 보상
+            val christmasRewards = listOf(
+                Triple("NEXO", "c_sword_scroll", "크리스마스 검") to 10.0,
+                Triple("NEXO", "c_pickaxe_scroll", "크리스마스 곡괭이") to 10.0,
+                Triple("NEXO", "c_axe_scroll", "크리스마스 도끼") to 10.0,
+                Triple("NEXO", "c_shovel_scroll", "크리스마스 삽") to 10.0,
+                Triple("NEXO", "c_hoe_scroll", "크리스마스 괭이") to 10.0,
+                Triple("NEXO", "c_bow_scroll", "크리스마스 활") to 8.0,
+                Triple("NEXO", "c_crossbow_scroll", "크리스마스 석궁") to 8.0,
+                Triple("NEXO", "c_fishing_rod_scroll", "크리스마스 낚싯대") to 8.0,
+                Triple("NEXO", "c_hammer_scroll", "크리스마스 철퇴") to 7.0,
+                Triple("NEXO", "c_shield_scroll", "크리스마스 방패") to 7.0,
+                Triple("NEXO", "c_head_scroll", "크리스마스 모자") to 4.0,
+                Triple("NEXO", "c_helmet_scroll", "크리스마스 투구") to 4.0,
+                Triple("NEXO", "c_chestplate_scroll", "크리스마스 흉갑") to 4.0,
+                Triple("NEXO", "c_leggings_scroll", "크리스마스 레깅스") to 4.0,
+                Triple("NEXO", "c_boots_scroll", "크리스마스 부츠") to 4.0
+            )
+
+            // 할로윈 스크롤 보상
+            val halloweenRewards = listOf(
+                Triple("NEXO", "h_sword_scroll", "호박 빛 검") to 12.0,
+                Triple("NEXO", "h_pickaxe_scroll", "호박 곡괭이") to 12.0,
+                Triple("NEXO", "h_axe_scroll", "호박 도끼") to 12.0,
+                Triple("NEXO", "h_shovel_scroll", "호박 삽") to 12.0,
+                Triple("NEXO", "h_hoe_scroll", "호박 괭이") to 12.0,
+                Triple("NEXO", "h_bow_scroll", "호박의 마법 활") to 8.0,
+                Triple("NEXO", "h_rod_scroll", "호박의 낚시대") to 8.0,
+                Triple("NEXO", "h_hammer_scroll", "호박의 철퇴") to 7.0,
+                Triple("NEXO", "h_hat_scroll", "호박의 마법 모자") to 6.0,
+                Triple("NEXO", "h_scythe_scroll", "호박의 낫") to 6.0,
+                Triple("NEXO", "h_spear_scroll", "호박의 창") to 5.0
+            )
+
+            // 크리스마스 데이터 확인 및 삽입
+            val christmasCheckStmt = connection.prepareStatement(checkQuery)
+            christmasCheckStmt.setString(1, "christams_2024_rainbow_random_scroll")
+            val christmasRs = christmasCheckStmt.executeQuery()
+            var christmasExists = false
+            if (christmasRs.next()) {
+                christmasExists = christmasRs.getInt(1) > 0
+            }
+            christmasRs.close()
+            christmasCheckStmt.close()
+
+            if (!christmasExists) {
+                christmasRewards.forEach { (item, probability) ->
+                    val insertStmt = connection.prepareStatement(insertQuery)
+                    insertStmt.setString(1, "christams_2024_rainbow_random_scroll")
+                    insertStmt.setString(2, item.first)
+                    insertStmt.setString(3, item.second)
+                    insertStmt.setString(4, item.third)
+                    insertStmt.setDouble(5, probability)
+                    insertStmt.executeUpdate()
+                    insertStmt.close()
+                }
+            }
+
+            // 할로윈 데이터 확인 및 삽입
+            val halloweenCheckStmt = connection.prepareStatement(checkQuery)
+            halloweenCheckStmt.setString(1, "halloween_2024_rainbow_random_scroll")
+            val halloweenRs = halloweenCheckStmt.executeQuery()
+            var halloweenExists = false
+            if (halloweenRs.next()) {
+                halloweenExists = halloweenRs.getInt(1) > 0
+            }
+            halloweenRs.close()
+            halloweenCheckStmt.close()
+
+            if (!halloweenExists) {
+                halloweenRewards.forEach { (item, probability) ->
+                    val insertStmt = connection.prepareStatement(insertQuery)
+                    insertStmt.setString(1, "halloween_2024_rainbow_random_scroll")
+                    insertStmt.setString(2, item.first)
+                    insertStmt.setString(3, item.second)
+                    insertStmt.setString(4, item.third)
+                    insertStmt.setDouble(5, probability)
+                    insertStmt.executeUpdate()
+                    insertStmt.close()
+                }
+            }
+        }
+    }
+
+    /**
+     * 랜덤 스크롤 플레이 히스토리 테이블 생성
+     * - 플레이어의 랜덤 스크롤 사용 기록 저장
+     */
+    private fun createRandomScrollHistoryTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS random_scroll_history (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `player_uuid` VARCHAR(36) NOT NULL COMMENT '플레이어 UUID',
+                    `player_name` VARCHAR(50) NOT NULL COMMENT '플레이어 닉네임',
+                    `scroll_id` VARCHAR(100) NOT NULL COMMENT '사용한 스크롤 ID',
+                    `scroll_name` VARCHAR(100) NOT NULL COMMENT '스크롤 표시 이름',
+                    `reward_provider` VARCHAR(20) NOT NULL COMMENT '당첨 아이템 제공자',
+                    `reward_code` VARCHAR(100) NOT NULL COMMENT '당첨 아이템 코드',
+                    `reward_name` VARCHAR(100) NOT NULL COMMENT '당첨 아이템 이름',
+                    `probability` DECIMAL(10, 2) NOT NULL COMMENT '당첨 확률 가중치',
+                    `total_weight` DECIMAL(10, 2) NOT NULL COMMENT '전체 확률 합계',
+                    `actual_chance` DECIMAL(10, 4) NOT NULL COMMENT '실제 당첨 확률(%)',
+                    `played_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '플레이 시각',
+                    INDEX `idx_player_uuid` (`player_uuid`),
+                    INDEX `idx_scroll_id` (`scroll_id`),
+                    INDEX `idx_played_at` (`played_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='랜덤 스크롤 플레이 히스토리'
+                """.trimIndent()
+            )
+        }
+    }
 }
+
+// Helper data class for tuples
+private data class Tuple6<A, B, C, D, E, F>(val a: A, val b: B, val c: C, val d: D, val e: E, val f: F)

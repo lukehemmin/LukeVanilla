@@ -284,6 +284,7 @@ class MultiServerUpdater(
                 "unban" -> processUnbanCommand(command, commandData)
                 "kick" -> processKickCommand(command, commandData)
                 "warning" -> processWarningCommand(command, commandData)
+                "broadcast" -> processBroadcastCommand(command, commandData)
                 else -> {
                     plugin.logger.warning("[MultiServerUpdater] 알 수 없는 명령어 타입: ${command.commandType}")
                     false
@@ -402,6 +403,27 @@ class MultiServerUpdater(
     private fun processWarningCommand(command: Database.CrossServerCommand, commandData: Map<String, Any>): Boolean {
         plugin.logger.info("[MultiServerUpdater] 경고 명령어 확인: ${command.targetPlayerName}")
         return true // 경고는 이미 DB에 저장되어 있으므로 성공으로 처리
+    }
+
+    /**
+     * 전체 공지 명령어 처리
+     */
+    private fun processBroadcastCommand(command: Database.CrossServerCommand, commandData: Map<String, Any>): Boolean {
+        return try {
+            val message = commandData["message"] as? String ?: return false
+            val prefix = commandData["prefix"] as? String ?: "§c[공지]"
+
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                // 전체 채팅에 공지 메시지 전송
+                Bukkit.broadcastMessage("$prefix $message")
+                plugin.logger.info("[MultiServerUpdater] 전체 공지 전송 완료: $message")
+            })
+
+            true
+        } catch (e: Exception) {
+            plugin.logger.warning("[MultiServerUpdater] 전체 공지 처리 실패: ${e.message}")
+            false
+        }
     }
 
     /**
