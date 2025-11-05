@@ -422,12 +422,19 @@ class RouletteManager(
         enabled: Boolean = true
     ): Boolean {
         return try {
+            // Nexo 아이템이고 displayName이 비어있으면 자동으로 가져오기
+            val finalDisplayName = if (itemProvider == ItemProvider.NEXO && displayName.isNullOrBlank()) {
+                getNexoItemDisplayName(itemIdentifier) ?: displayName
+            } else {
+                displayName
+            }
+
             database.getConnection().use { connection ->
                 val stmt = connection.prepareStatement(QUERY_INSERT_ITEM)
                 stmt.setInt(1, rouletteId)
                 stmt.setString(2, itemProvider.name)
                 stmt.setString(3, itemIdentifier)
-                stmt.setString(4, displayName)
+                stmt.setString(4, finalDisplayName)
                 stmt.setInt(5, amount)
                 stmt.setDouble(6, weight)
                 stmt.setBoolean(7, enabled)
@@ -439,6 +446,28 @@ class RouletteManager(
         } catch (e: Exception) {
             plugin.logger.warning("[Roulette] 아이템 추가 실패: ${e.message}")
             false
+        }
+    }
+
+    /**
+     * Nexo 아이템의 display name 가져오기
+     */
+    private fun getNexoItemDisplayName(itemId: String): String? {
+        return try {
+            val nexoClass = Class.forName("com.nexomc.nexo.api.NexoItems")
+            val method = nexoClass.getMethod("itemFromId", String::class.java)
+            val itemBuilder = method.invoke(null, itemId)
+
+            if (itemBuilder != null) {
+                val buildMethod = itemBuilder.javaClass.getMethod("build")
+                val itemStack = buildMethod.invoke(itemBuilder) as? org.bukkit.inventory.ItemStack
+                itemStack?.itemMeta?.displayName
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            plugin.logger.warning("[Roulette] Nexo 아이템 이름 가져오기 실패 ($itemId): ${e.message}")
+            null
         }
     }
 
