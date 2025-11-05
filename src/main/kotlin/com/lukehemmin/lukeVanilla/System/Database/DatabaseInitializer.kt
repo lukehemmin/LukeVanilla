@@ -1480,31 +1480,83 @@ class DatabaseInitializer(private val database: Database) {
     }
 
     /**
-     * 룰렛 NPC 매핑 테이블 생성
-     * - NPC ID와 룰렛 ID를 매핑
-     * - 하나의 NPC는 하나의 룰렛에만 연결
+     * 룰렛 트리거 매핑 테이블 생성 (NPC + Nexo 가구 통합)
+     * - NPC ID 또는 Nexo 아이템 코드와 룰렛 ID를 연결
+     * - type: 'NPC' 또는 'NEXO'
+     * - identifier: NPC ID(숫자) 또는 Nexo 아이템 코드(문자열)
      */
     private fun createRouletteNPCMappingTable() {
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
+
+            // 1. 새로운 테이블 생성
             statement.executeUpdate(
                 """
-                CREATE TABLE IF NOT EXISTS roulette_npc_mapping (
+                CREATE TABLE IF NOT EXISTS roulette_trigger_mapping (
                     `id` INT PRIMARY KEY AUTO_INCREMENT,
-                    `npc_id` INT NOT NULL UNIQUE COMMENT 'NPC ID (고유)',
+                    `type` ENUM('NPC', 'NEXO') NOT NULL COMMENT '트리거 타입',
+                    `identifier` VARCHAR(255) NOT NULL COMMENT 'NPC ID 또는 Nexo 아이템 코드',
                     `roulette_id` INT NOT NULL COMMENT '룰렛 ID (FK)',
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY `unique_trigger` (`type`, `identifier`),
                     INDEX `idx_roulette_id` (`roulette_id`),
+                    INDEX `idx_type_identifier` (`type`, `identifier`),
                     FOREIGN KEY (`roulette_id`) REFERENCES `roulette_config`(`id`) ON DELETE CASCADE
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='NPC와 룰렛 매핑';
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='룰렛 트리거 매핑 (NPC + Nexo)';
                 """.trimIndent()
             )
 
-            // 기존 roulette_config의 npc_id 데이터를 마이그레이션
+            // 2. 기존 roulette_npc_mapping 테이블에서 데이터 마이그레이션
+            try {
+                val rsOldTable = connection.metaData.getTables(null, null, "roulette_npc_mapping", null)
+                if (rsOldTable.next()) {
+                    println("[Roulette] 기존 roulette_npc_mapping 테이블 발견. 데이터를 마이그레이션합니다.")
+
+                    // 기존 데이터 조회
+                    val rsOldData = statement.executeQuery(
+                        """
+                        SELECT npc_id, roulette_id FROM roulette_npc_mapping
+                        """
+                    )
+
+                    val migratedData = mutableListOf<Pair<Int, Int>>()
+                    while (rsOldData.next()) {
+                        val npcId = rsOldData.getInt("npc_id")
+                        val rouletteId = rsOldData.getInt("roulette_id")
+                        migratedData.add(Pair(npcId, rouletteId))
+                    }
+                    rsOldData.close()
+
+                    // 새 테이블에 데이터 삽입
+                    if (migratedData.isNotEmpty()) {
+                        val insertStmt = connection.prepareStatement(
+                            """
+                            INSERT IGNORE INTO roulette_trigger_mapping (type, identifier, roulette_id)
+                            VALUES ('NPC', ?, ?)
+                            """
+                        )
+                        migratedData.forEach { (npcId, rouletteId) ->
+                            insertStmt.setString(1, npcId.toString())
+                            insertStmt.setInt(2, rouletteId)
+                            insertStmt.executeUpdate()
+                        }
+                        println("[Roulette] roulette_npc_mapping 데이터를 roulette_trigger_mapping으로 마이그레이션했습니다. (${migratedData.size}개)")
+                    }
+
+                    // 기존 테이블 삭제
+                    statement.executeUpdate("DROP TABLE IF EXISTS roulette_npc_mapping")
+                    println("[Roulette] 기존 roulette_npc_mapping 테이블을 삭제했습니다.")
+                }
+                rsOldTable.close()
+            } catch (e: Exception) {
+                println("[Roulette] 트리거 매핑 마이그레이션 중 오류: ${e.message}")
+                e.printStackTrace()
+            }
+
+            // 3. 기존 roulette_config의 npc_id 컬럼에서 데이터 마이그레이션 (하위 호환성)
             try {
                 val rsNpcId = connection.metaData.getColumns(null, null, "roulette_config", "npc_id")
                 if (rsNpcId.next()) {
-                    // npc_id 컬럼이 있으면 데이터 마이그레이션
                     val rsOldData = statement.executeQuery(
                         """
                         SELECT id, npc_id FROM roulette_config WHERE npc_id IS NOT NULL
@@ -1519,20 +1571,19 @@ class DatabaseInitializer(private val database: Database) {
                     }
                     rsOldData.close()
 
-                    // roulette_npc_mapping에 데이터 삽입
                     if (migratedCount.isNotEmpty()) {
                         val insertStmt = connection.prepareStatement(
                             """
-                            INSERT IGNORE INTO roulette_npc_mapping (npc_id, roulette_id)
-                            VALUES (?, ?)
+                            INSERT IGNORE INTO roulette_trigger_mapping (type, identifier, roulette_id)
+                            VALUES ('NPC', ?, ?)
                             """
                         )
                         migratedCount.forEach { (npcId, rouletteId) ->
-                            insertStmt.setInt(1, npcId)
+                            insertStmt.setString(1, npcId.toString())
                             insertStmt.setInt(2, rouletteId)
                             insertStmt.executeUpdate()
                         }
-                        println("[Roulette] roulette_config의 npc_id 데이터를 roulette_npc_mapping으로 마이그레이션했습니다. (${migratedCount.size}개)")
+                        println("[Roulette] roulette_config의 npc_id 데이터를 roulette_trigger_mapping으로 마이그레이션했습니다. (${migratedCount.size}개)")
                     }
 
                     // npc_id 컬럼 제거
@@ -1541,7 +1592,7 @@ class DatabaseInitializer(private val database: Database) {
                 }
                 rsNpcId.close()
             } catch (e: Exception) {
-                println("[Roulette] NPC 매핑 마이그레이션 중 오류: ${e.message}")
+                println("[Roulette] roulette_config 마이그레이션 중 오류: ${e.message}")
             }
         }
     }

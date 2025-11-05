@@ -752,6 +752,7 @@ class Main : JavaPlugin() {
             logger.severe("[Roulette] 룰렛 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
         }
+
     }
 
     override fun onDisable() {

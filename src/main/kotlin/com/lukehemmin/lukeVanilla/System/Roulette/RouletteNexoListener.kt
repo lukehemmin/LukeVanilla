@@ -1,7 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.Roulette
 
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
-import net.citizensnpcs.api.event.NPCRightClickEvent
+import com.nexomc.nexo.api.events.furniture.NexoFurnitureInteractEvent
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -10,31 +10,30 @@ import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.plugin.java.JavaPlugin
 
 /**
- * 룰렛 NPC 우클릭 이벤트 리스너
- * - Citizens NPC 우클릭 감지
- * - 비용 확인 및 차감
- * - 룰렛 GUI 열기
+ * Nexo 가구 우클릭 룰렛 리스너
+ * - Nexo 가구를 우클릭했을 때 룰렛 GUI 열기
+ * - RouletteManager에서 Nexo 아이템 ID로 룰렛 조회
  */
-class RouletteNPCListener(
+class RouletteNexoListener(
     private val plugin: JavaPlugin,
     private val manager: RouletteManager,
     private val economyManager: EconomyManager
 ) : Listener {
 
-    // 현재 열려있는 룰렛 GUI 추적
+    // 현재 열려있는 룰렛 GUI 추적 (Nexo 트리거)
     private val activeGUIs = mutableMapOf<Player, RouletteGUI>()
 
     /**
-     * NPC 우클릭 이벤트 처리
+     * Nexo 가구 우클릭 이벤트 처리
      */
     @EventHandler
-    fun onNPCRightClick(event: NPCRightClickEvent) {
-        val player = event.clicker
-        val npc = event.npc
-        val npcId = npc.id
+    fun onNexoFurnitureInteract(event: NexoFurnitureInteractEvent) {
+        val player = event.player
+        val mechanic = event.mechanic
+        val itemId = mechanic?.itemID ?: return
 
-        // NPC ID로 룰렛 조회
-        val rouletteId = manager.getRouletteIdByNPC(npcId) ?: return
+        // Nexo 아이템 ID로 룰렛 조회
+        val rouletteId = manager.getRouletteIdByNexo(itemId) ?: return
 
         // 룰렛 설정 조회
         val roulette = manager.getRouletteById(rouletteId) ?: return
@@ -60,7 +59,7 @@ class RouletteNPCListener(
             return
         }
 
-        // 룰렛 GUI 열기 (비용은 나중에 차감)
+        // 룰렛 GUI 열기
         openRoulette(player, rouletteId)
     }
 
@@ -151,14 +150,13 @@ class RouletteNPCListener(
             gui.onClose()
 
             // 애니메이션이 진행 중이면 activeGUIs에서 제거하지 않음
-            // 나중에 NPC를 다시 우클릭하면 진행 중인 화면을 다시 볼 수 있음
             if (!gui.isAnimating()) {
                 // 애니메이션이 끝났거나 시작하지 않았으면 제거
                 activeGUIs.remove(player)
             } else {
                 // 애니메이션 중이면 메시지 출력
                 player.sendMessage("§7룰렛이 백그라운드에서 계속 돌아가고 있습니다.")
-                player.sendMessage("§7NPC를 다시 우클릭하면 화면을 볼 수 있습니다!")
+                player.sendMessage("§7가구를 다시 우클릭하면 화면을 볼 수 있습니다!")
             }
         }
     }

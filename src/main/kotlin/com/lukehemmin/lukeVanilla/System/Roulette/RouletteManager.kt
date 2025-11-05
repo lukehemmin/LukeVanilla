@@ -19,7 +19,10 @@ class RouletteManager(
     // 다중 룰렛 관리
     private val configs: MutableMap<Int, RouletteConfig> = mutableMapOf()
     private val itemsMap: MutableMap<Int, List<RouletteItem>> = mutableMapOf()
+
+    // 트리거 매핑 관리 (NPC + Nexo 통합)
     private val npcRouletteMap: MutableMap<Int, Int> = mutableMapOf() // NPC ID -> Roulette ID
+    private val nexoRouletteMap: MutableMap<String, Int> = mutableMapOf() // Nexo 아이템 코드 -> Roulette ID
 
     companion object {
         // DB 쿼리 상수
@@ -27,10 +30,12 @@ class RouletteManager(
         private const val QUERY_SELECT_CONFIG_BY_ID = "SELECT * FROM roulette_config WHERE id = ?"
         private const val QUERY_SELECT_CONFIG_BY_NAME = "SELECT * FROM roulette_config WHERE roulette_name = ?"
         private const val QUERY_SELECT_ITEMS_BY_ROULETTE = "SELECT * FROM roulette_items WHERE roulette_id = ? AND enabled = true ORDER BY weight DESC"
-        private const val QUERY_SELECT_ALL_NPC_MAPPINGS = "SELECT * FROM roulette_npc_mapping"
-        private const val QUERY_SELECT_NPC_MAPPING = "SELECT * FROM roulette_npc_mapping WHERE npc_id = ?"
-        private const val QUERY_INSERT_NPC_MAPPING = "INSERT INTO roulette_npc_mapping (npc_id, roulette_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE roulette_id = ?"
-        private const val QUERY_DELETE_NPC_MAPPING = "DELETE FROM roulette_npc_mapping WHERE npc_id = ?"
+
+        // 트리거 매핑 쿼리 (통합)
+        private const val QUERY_SELECT_ALL_TRIGGER_MAPPINGS = "SELECT * FROM roulette_trigger_mapping"
+        private const val QUERY_SELECT_TRIGGER_MAPPING = "SELECT * FROM roulette_trigger_mapping WHERE type = ? AND identifier = ?"
+        private const val QUERY_INSERT_TRIGGER_MAPPING = "INSERT INTO roulette_trigger_mapping (type, identifier, roulette_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE roulette_id = ?"
+        private const val QUERY_DELETE_TRIGGER_MAPPING = "DELETE FROM roulette_trigger_mapping WHERE type = ? AND identifier = ?"
         private const val QUERY_INSERT_CONFIG = "INSERT INTO roulette_config (roulette_name, cost_type, cost_amount, animation_duration, enabled) VALUES (?, ?, ?, ?, ?)"
         private const val QUERY_UPDATE_CONFIG = "UPDATE roulette_config SET cost_type = ?, cost_amount = ?, animation_duration = ?, enabled = ? WHERE id = ?"
         private const val QUERY_DELETE_CONFIG = "DELETE FROM roulette_config WHERE id = ?"
@@ -49,7 +54,7 @@ class RouletteManager(
     init {
         loadAllConfigs()
         loadAllItems()
-        loadAllNPCMappings()
+        loadAllTriggerMappings()
     }
 
     /**
@@ -127,23 +132,36 @@ class RouletteManager(
     }
 
     /**
-     * DB에서 모든 NPC 매핑 로드
+     * DB에서 모든 트리거 매핑 로드 (NPC + Nexo 통합)
      */
-    fun loadAllNPCMappings() {
+    fun loadAllTriggerMappings() {
         npcRouletteMap.clear()
+        nexoRouletteMap.clear()
 
         database.getConnection().use { connection ->
             val statement = connection.createStatement()
-            val rs = statement.executeQuery(QUERY_SELECT_ALL_NPC_MAPPINGS)
+            val rs = statement.executeQuery(QUERY_SELECT_ALL_TRIGGER_MAPPINGS)
 
             while (rs.next()) {
-                val npcId = rs.getInt("npc_id")
+                val type = TriggerType.valueOf(rs.getString("type"))
+                val identifier = rs.getString("identifier")
                 val rouletteId = rs.getInt("roulette_id")
-                npcRouletteMap[npcId] = rouletteId
+
+                when (type) {
+                    TriggerType.NPC -> {
+                        val npcId = identifier.toIntOrNull()
+                        if (npcId != null) {
+                            npcRouletteMap[npcId] = rouletteId
+                        }
+                    }
+                    TriggerType.NEXO -> {
+                        nexoRouletteMap[identifier] = rouletteId
+                    }
+                }
             }
         }
 
-        plugin.logger.info("[Roulette] ${npcRouletteMap.size}개의 NPC 매핑을 로드했습니다.")
+        plugin.logger.info("[Roulette] ${npcRouletteMap.size}개의 NPC 매핑, ${nexoRouletteMap.size}개의 Nexo 매핑을 로드했습니다.")
     }
 
     /**
@@ -152,7 +170,7 @@ class RouletteManager(
     fun reload() {
         loadAllConfigs()
         loadAllItems()
-        loadAllNPCMappings()
+        loadAllTriggerMappings()
         plugin.logger.info("[Roulette] 모든 룰렛 설정이 리로드되었습니다.")
     }
 
@@ -275,25 +293,51 @@ class RouletteManager(
      */
     fun getItems(rouletteId: Int): List<RouletteItem> = itemsMap[rouletteId] ?: emptyList()
 
-    // ==================== NPC 매핑 ====================
+    // ==================== 트리거 매핑 (NPC + Nexo) ====================
 
     /**
      * NPC를 룰렛에 매핑
      */
     fun setNPCMapping(npcId: Int, rouletteId: Int): Boolean {
+        return setTriggerMapping(TriggerType.NPC, npcId.toString(), rouletteId)
+    }
+
+    /**
+     * Nexo 아이템을 룰렛에 매핑
+     */
+    fun setNexoMapping(nexoItemId: String, rouletteId: Int): Boolean {
+        return setTriggerMapping(TriggerType.NEXO, nexoItemId, rouletteId)
+    }
+
+    /**
+     * 트리거 매핑 설정 (통합)
+     */
+    private fun setTriggerMapping(type: TriggerType, identifier: String, rouletteId: Int): Boolean {
         return try {
             database.getConnection().use { connection ->
-                val stmt = connection.prepareStatement(QUERY_INSERT_NPC_MAPPING)
-                stmt.setInt(1, npcId)
-                stmt.setInt(2, rouletteId)
+                val stmt = connection.prepareStatement(QUERY_INSERT_TRIGGER_MAPPING)
+                stmt.setString(1, type.name)
+                stmt.setString(2, identifier)
                 stmt.setInt(3, rouletteId)
+                stmt.setInt(4, rouletteId)
                 stmt.executeUpdate()
 
-                npcRouletteMap[npcId] = rouletteId
+                // 메모리 맵 업데이트
+                when (type) {
+                    TriggerType.NPC -> {
+                        val npcId = identifier.toIntOrNull()
+                        if (npcId != null) {
+                            npcRouletteMap[npcId] = rouletteId
+                        }
+                    }
+                    TriggerType.NEXO -> {
+                        nexoRouletteMap[identifier] = rouletteId
+                    }
+                }
                 true
             }
         } catch (e: Exception) {
-            plugin.logger.warning("[Roulette] NPC 매핑 실패: ${e.message}")
+            plugin.logger.warning("[Roulette] ${type.name} 매핑 실패: ${e.message}")
             false
         }
     }
@@ -302,17 +346,43 @@ class RouletteManager(
      * NPC 매핑 제거
      */
     fun removeNPCMapping(npcId: Int): Boolean {
+        return removeTriggerMapping(TriggerType.NPC, npcId.toString())
+    }
+
+    /**
+     * Nexo 매핑 제거
+     */
+    fun removeNexoMapping(nexoItemId: String): Boolean {
+        return removeTriggerMapping(TriggerType.NEXO, nexoItemId)
+    }
+
+    /**
+     * 트리거 매핑 제거 (통합)
+     */
+    private fun removeTriggerMapping(type: TriggerType, identifier: String): Boolean {
         return try {
             database.getConnection().use { connection ->
-                val stmt = connection.prepareStatement(QUERY_DELETE_NPC_MAPPING)
-                stmt.setInt(1, npcId)
+                val stmt = connection.prepareStatement(QUERY_DELETE_TRIGGER_MAPPING)
+                stmt.setString(1, type.name)
+                stmt.setString(2, identifier)
                 stmt.executeUpdate()
 
-                npcRouletteMap.remove(npcId)
+                // 메모리 맵 업데이트
+                when (type) {
+                    TriggerType.NPC -> {
+                        val npcId = identifier.toIntOrNull()
+                        if (npcId != null) {
+                            npcRouletteMap.remove(npcId)
+                        }
+                    }
+                    TriggerType.NEXO -> {
+                        nexoRouletteMap.remove(identifier)
+                    }
+                }
                 true
             }
         } catch (e: Exception) {
-            plugin.logger.warning("[Roulette] NPC 매핑 제거 실패: ${e.message}")
+            plugin.logger.warning("[Roulette] ${type.name} 매핑 제거 실패: ${e.message}")
             false
         }
     }
@@ -323,9 +393,19 @@ class RouletteManager(
     fun getRouletteIdByNPC(npcId: Int): Int? = npcRouletteMap[npcId]
 
     /**
+     * Nexo 아이템에 매핑된 룰렛 ID 가져오기
+     */
+    fun getRouletteIdByNexo(nexoItemId: String): Int? = nexoRouletteMap[nexoItemId]
+
+    /**
      * 모든 NPC 매핑 가져오기
      */
     fun getAllNPCMappings(): Map<Int, Int> = npcRouletteMap.toMap()
+
+    /**
+     * 모든 Nexo 매핑 가져오기
+     */
+    fun getAllNexoMappings(): Map<String, Int> = nexoRouletteMap.toMap()
 
     // ==================== 아이템 관리 ====================
 

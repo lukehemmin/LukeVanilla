@@ -46,6 +46,9 @@ class RouletteCommand(
             "npc지정" -> handleNPCSet(sender, args)
             "npc제거" -> handleNPCRemove(sender, args)
             "npc목록" -> handleNPCList(sender)
+            "nexo지정" -> handleNexoSet(sender, args)
+            "nexo제거" -> handleNexoRemove(sender, args)
+            "nexo목록" -> handleNexoList(sender)
             "설정" -> handleSettings(sender, args)
             "리로드" -> handleReload(sender)
             else -> sendUsage(sender)
@@ -364,6 +367,63 @@ class RouletteCommand(
         }
     }
 
+    // ==================== Nexo 매핑 ====================
+
+    private fun handleNexoSet(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 3) {
+            sender.sendMessage("§c사용법: /룰렛 nexo지정 <룰렛이름> <Nexo아이템ID>")
+            sender.sendMessage("§7예시: /룰렛 nexo지정 할로윈룰렛 plny_halloween_chest")
+            return
+        }
+
+        val rouletteName = args[1]
+        val nexoItemId = args[2]
+
+        val roulette = manager.getRouletteByName(rouletteName)
+        if (roulette == null) {
+            sender.sendMessage("§c'$rouletteName' 룰렛을 찾을 수 없습니다.")
+            return
+        }
+
+        if (manager.setNexoMapping(nexoItemId, roulette.id)) {
+            sender.sendMessage("§aNexo 아이템 '§e$nexoItemId§a'을(를) '§b$rouletteName§a' 룰렛에 연결했습니다.")
+            sender.sendMessage("§7이제 이 Nexo 가구를 우클릭하면 룰렛이 열립니다.")
+        } else {
+            sender.sendMessage("§cNexo 매핑에 실패했습니다.")
+        }
+    }
+
+    private fun handleNexoRemove(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendMessage("§c사용법: /룰렛 nexo제거 <Nexo아이템ID>")
+            return
+        }
+
+        val nexoItemId = args[1]
+
+        if (manager.removeNexoMapping(nexoItemId)) {
+            sender.sendMessage("§aNexo 아이템 '§e$nexoItemId§a'의 연결을 제거했습니다.")
+        } else {
+            sender.sendMessage("§cNexo 매핑 제거에 실패했습니다.")
+        }
+    }
+
+    private fun handleNexoList(sender: CommandSender) {
+        val mappings = manager.getAllNexoMappings()
+
+        if (mappings.isEmpty()) {
+            sender.sendMessage("§c연결된 Nexo 아이템이 없습니다.")
+            return
+        }
+
+        sender.sendMessage("§e§l=== Nexo 룰렛 매핑 목록 (${mappings.size}개) ===")
+        mappings.forEach { (nexoItemId, rouletteId) ->
+            val roulette = manager.getRouletteById(rouletteId)
+            val rouletteName = roulette?.rouletteName ?: "알 수 없음"
+            sender.sendMessage("§f  Nexo §e$nexoItemId §f→ §b$rouletteName §7(ID: $rouletteId)")
+        }
+    }
+
     // ==================== 설정 ====================
 
     private fun handleSettings(sender: CommandSender, args: Array<out String>) {
@@ -450,6 +510,9 @@ class RouletteCommand(
         sender.sendMessage("§f/룰렛 npc지정 <룰렛이름> §7- NPC에 룰렛 연결 (바라보기)")
         sender.sendMessage("§f/룰렛 npc제거 <NPC_ID> §7- NPC 연결 제거")
         sender.sendMessage("§f/룰렛 npc목록 §7- NPC 매핑 목록")
+        sender.sendMessage("§f/룰렛 nexo지정 <룰렛이름> <Nexo아이템ID> §7- Nexo 가구에 룰렛 연결")
+        sender.sendMessage("§f/룰렛 nexo제거 <Nexo아이템ID> §7- Nexo 연결 제거")
+        sender.sendMessage("§f/룰렛 nexo목록 §7- Nexo 매핑 목록")
         sender.sendMessage("§f/룰렛 설정 비용 <룰렛> <금액> §7- 비용 설정")
         sender.sendMessage("§f/룰렛 설정 활성화 <룰렛> §7- 룰렛 활성화")
         sender.sendMessage("§f/룰렛 설정 비활성화 <룰렛> §7- 룰렛 비활성화")
@@ -467,13 +530,13 @@ class RouletteCommand(
         if (!sender.hasPermission(PERMISSION)) return emptyList()
 
         return when (args.size) {
-            1 -> listOf("생성", "삭제", "목록", "정보", "아이템", "npc지정", "npc제거", "npc목록", "설정", "리로드")
+            1 -> listOf("생성", "삭제", "목록", "정보", "아이템", "npc지정", "npc제거", "npc목록", "nexo지정", "nexo제거", "nexo목록", "설정", "리로드")
                 .filter { it.startsWith(args[0], ignoreCase = true) }
 
             2 -> when (args[0].lowercase()) {
                 "삭제", "정보" -> getRouletteNames().filter { it.startsWith(args[1], ignoreCase = true) }
                 "아이템" -> listOf("목록", "추가", "수정", "삭제").filter { it.startsWith(args[1], ignoreCase = true) }
-                "npc지정" -> getRouletteNames().filter { it.startsWith(args[1], ignoreCase = true) }
+                "npc지정", "nexo지정" -> getRouletteNames().filter { it.startsWith(args[1], ignoreCase = true) }
                 "설정" -> listOf("비용", "활성화", "비활성화").filter { it.startsWith(args[1], ignoreCase = true) }
                 else -> emptyList()
             }
