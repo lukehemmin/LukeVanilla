@@ -477,7 +477,7 @@ class RandomScrollRoulette(
      */
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (args.isEmpty()) {
-            sender.sendMessage(Component.text("사용법: /랜덤스크롤 리로드", NamedTextColor.RED))
+            sendUsage(sender)
             return true
         }
 
@@ -513,8 +513,10 @@ class RandomScrollRoulette(
                     e.printStackTrace()
                 }
             }
+            "확률", "probability" -> handleProbability(sender, args)
+            "내기록", "myhistory" -> handleMyHistory(sender, args)
             else -> {
-                sender.sendMessage(Component.text("알 수 없는 명령어입니다. /랜덤스크롤 리로드", NamedTextColor.RED))
+                sendUsage(sender)
             }
         }
 
@@ -522,13 +524,280 @@ class RandomScrollRoulette(
     }
 
     /**
+     * 확률 표시 명령어 처리
+     */
+    private fun handleProbability(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendMessage(Component.text("사용법: /랜덤스크롤 확률 <스크롤ID>", NamedTextColor.RED))
+            sender.sendMessage(Component.text("예시: /랜덤스크롤 확률 random_scroll_1", NamedTextColor.GRAY))
+            return
+        }
+
+        val scrollId = args[1]
+        val config = scrollConfigs[scrollId]
+
+        if (config == null) {
+            sender.sendMessage(Component.text("'$scrollId' 스크롤을 찾을 수 없습니다.", NamedTextColor.RED))
+            return
+        }
+
+        val rewards = scrollRewards[scrollId]
+        if (rewards.isNullOrEmpty()) {
+            sender.sendMessage(Component.text("'${config.displayName}' 스크롤에 등록된 아이템이 없습니다.", NamedTextColor.RED))
+            return
+        }
+
+        val totalWeight = rewards.sumOf { it.probability }
+
+        sender.sendMessage(
+            Component.text("━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.GOLD, TextDecoration.BOLD)
+        )
+        sender.sendMessage(
+            Component.text("  ${config.displayName} 확률표", NamedTextColor.YELLOW, TextDecoration.BOLD)
+        )
+        sender.sendMessage(
+            Component.text("  전체 아이템: ${rewards.size}개", NamedTextColor.GRAY)
+        )
+        sender.sendMessage(Component.empty())
+
+        // 확률 높은 순으로 정렬
+        val sortedRewards = rewards.sortedByDescending { it.probability }
+
+        sortedRewards.forEachIndexed { index, reward ->
+            val probability = if (totalWeight > 0) (reward.probability / totalWeight * 100) else 0.0
+            val percentStr = "%.4f".format(probability)
+
+            sender.sendMessage(
+                Component.text("  ${index + 1}. ", NamedTextColor.GRAY)
+                    .append(Component.text(reward.displayName, NamedTextColor.YELLOW))
+                    .append(Component.text(" - ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text("${percentStr}%", NamedTextColor.GREEN))
+            )
+        }
+
+        sender.sendMessage(
+            Component.text("━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.GOLD, TextDecoration.BOLD)
+        )
+    }
+
+    /**
+     * 개인 기록 명령어 처리
+     */
+    private fun handleMyHistory(sender: CommandSender, args: Array<out String>) {
+        if (sender !is Player) {
+            sender.sendMessage(Component.text("플레이어만 사용 가능한 명령어입니다.", NamedTextColor.RED))
+            return
+        }
+
+        val scrollId = args.getOrNull(1)
+
+        try {
+            database.getConnection().use { connection ->
+                if (scrollId != null) {
+                    // 특정 스크롤의 기록 조회
+                    val config = scrollConfigs[scrollId]
+                    if (config == null) {
+                        sender.sendMessage(Component.text("'$scrollId' 스크롤을 찾을 수 없습니다.", NamedTextColor.RED))
+                        return
+                    }
+
+                    showScrollHistory(sender, connection, scrollId, config.displayName)
+                } else {
+                    // 전체 스크롤 플레이 통계
+                    showAllScrollsHistory(sender, connection)
+                }
+            }
+        } catch (e: Exception) {
+            sender.sendMessage(Component.text("기록 조회 중 오류가 발생했습니다: ${e.message}", NamedTextColor.RED))
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * 특정 스크롤의 플레이 히스토리 표시
+     */
+    private fun showScrollHistory(player: Player, connection: java.sql.Connection, scrollId: String, scrollName: String) {
+        val query = """
+            SELECT reward_name, reward_provider, reward_code, actual_chance, COUNT(*) as count
+            FROM random_scroll_history
+            WHERE player_uuid = ? AND scroll_id = ?
+            GROUP BY reward_name, reward_provider, reward_code, actual_chance
+            ORDER BY count DESC
+        """.trimIndent()
+
+        val stmt = connection.prepareStatement(query)
+        stmt.setString(1, player.uniqueId.toString())
+        stmt.setString(2, scrollId)
+        val rs = stmt.executeQuery()
+
+        val results = mutableListOf<HistoryEntry>()
+        var totalCount = 0
+
+        while (rs.next()) {
+            val count = rs.getInt("count")
+            totalCount += count
+            results.add(
+                HistoryEntry(
+                    rs.getString("reward_name"),
+                    rs.getDouble("actual_chance"),
+                    count
+                )
+            )
+        }
+        rs.close()
+        stmt.close()
+
+        if (results.isEmpty()) {
+            player.sendMessage(Component.text("'$scrollName' 스크롤 플레이 기록이 없습니다.", NamedTextColor.YELLOW))
+            return
+        }
+
+        player.sendMessage(
+            Component.text("━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.AQUA, TextDecoration.BOLD)
+        )
+        player.sendMessage(
+            Component.text("  $scrollName 내 기록", NamedTextColor.YELLOW, TextDecoration.BOLD)
+        )
+        player.sendMessage(
+            Component.text("  총 플레이 횟수: ${totalCount}회", NamedTextColor.GRAY)
+        )
+        player.sendMessage(Component.empty())
+
+        results.forEach { entry ->
+            val percentStr = "%.4f".format(entry.probability)
+            player.sendMessage(
+                Component.text("  • ", NamedTextColor.GRAY)
+                    .append(Component.text(entry.itemName, NamedTextColor.YELLOW))
+                    .append(Component.text(" x${entry.count}회", NamedTextColor.WHITE))
+                    .append(Component.text(" (당첨확률: ${percentStr}%)", NamedTextColor.GREEN))
+            )
+        }
+
+        player.sendMessage(
+            Component.text("━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.AQUA, TextDecoration.BOLD)
+        )
+    }
+
+    /**
+     * 모든 스크롤의 플레이 통계 표시
+     */
+    private fun showAllScrollsHistory(player: Player, connection: java.sql.Connection) {
+        val query = """
+            SELECT scroll_name, COUNT(*) as count
+            FROM random_scroll_history
+            WHERE player_uuid = ?
+            GROUP BY scroll_name
+            ORDER BY count DESC
+        """.trimIndent()
+
+        val stmt = connection.prepareStatement(query)
+        stmt.setString(1, player.uniqueId.toString())
+        val rs = stmt.executeQuery()
+
+        val results = mutableListOf<Pair<String, Int>>()
+        var totalCount = 0
+
+        while (rs.next()) {
+            val scrollName = rs.getString("scroll_name")
+            val count = rs.getInt("count")
+            totalCount += count
+            results.add(scrollName to count)
+        }
+        rs.close()
+        stmt.close()
+
+        if (results.isEmpty()) {
+            player.sendMessage(Component.text("랜덤 스크롤 플레이 기록이 없습니다.", NamedTextColor.YELLOW))
+            return
+        }
+
+        player.sendMessage(
+            Component.text("━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.AQUA, TextDecoration.BOLD)
+        )
+        player.sendMessage(
+            Component.text("  랜덤 스크롤 전체 기록", NamedTextColor.YELLOW, TextDecoration.BOLD)
+        )
+        player.sendMessage(
+            Component.text("  총 플레이 횟수: ${totalCount}회", NamedTextColor.GRAY)
+        )
+        player.sendMessage(Component.empty())
+
+        results.forEach { (scrollName, count) ->
+            player.sendMessage(
+                Component.text("  • ", NamedTextColor.GRAY)
+                    .append(Component.text(scrollName, NamedTextColor.YELLOW))
+                    .append(Component.text(": ${count}회", NamedTextColor.WHITE))
+            )
+        }
+
+        player.sendMessage(Component.empty())
+        player.sendMessage(
+            Component.text("  💡 특정 스크롤의 상세 기록을 보려면:", NamedTextColor.GRAY)
+        )
+        player.sendMessage(
+            Component.text("     /랜덤스크롤 내기록 <스크롤ID>", NamedTextColor.GRAY)
+        )
+        player.sendMessage(
+            Component.text("━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.AQUA, TextDecoration.BOLD)
+        )
+    }
+
+    /**
+     * 사용법 표시
+     */
+    private fun sendUsage(sender: CommandSender) {
+        sender.sendMessage(Component.text("━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.GOLD, TextDecoration.BOLD))
+        sender.sendMessage(Component.text("  랜덤 스크롤 명령어", NamedTextColor.YELLOW, TextDecoration.BOLD))
+        sender.sendMessage(Component.empty())
+        sender.sendMessage(
+            Component.text("  /랜덤스크롤 확률 <스크롤ID>", NamedTextColor.WHITE)
+                .append(Component.text(" - 확률표 보기", NamedTextColor.GRAY))
+        )
+        sender.sendMessage(
+            Component.text("  /랜덤스크롤 내기록 [스크롤ID]", NamedTextColor.WHITE)
+                .append(Component.text(" - 내 플레이 기록", NamedTextColor.GRAY))
+        )
+        if (sender.hasPermission("lukevanilla.randomscroll.reload")) {
+            sender.sendMessage(
+                Component.text("  /랜덤스크롤 리로드", NamedTextColor.WHITE)
+                    .append(Component.text(" - 데이터 리로드", NamedTextColor.GRAY))
+            )
+        }
+        sender.sendMessage(Component.text("━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.GOLD, TextDecoration.BOLD))
+    }
+
+    /**
+     * 히스토리 엔트리 데이터 클래스
+     */
+    private data class HistoryEntry(
+        val itemName: String,
+        val probability: Double,
+        val count: Int
+    )
+
+    /**
      * 탭 완성
      */
     override fun onTabComplete(sender: CommandSender, command: Command, label: String, args: Array<out String>): List<String> {
-        if (args.size == 1) {
-            return listOf("리로드", "reload").filter { it.startsWith(args[0].lowercase()) }
+        return when (args.size) {
+            1 -> {
+                val commands = mutableListOf("확률", "probability", "내기록", "myhistory")
+                if (sender.hasPermission("lukevanilla.randomscroll.reload")) {
+                    commands.addAll(listOf("리로드", "reload"))
+                }
+                commands.filter { it.startsWith(args[0].lowercase()) }
+            }
+            2 -> {
+                when (args[0].lowercase()) {
+                    "확률", "probability", "내기록", "myhistory" -> {
+                        // 스크롤 ID 목록 제공
+                        scrollConfigs.keys.filter { it.startsWith(args[1].lowercase()) }
+                    }
+                    else -> emptyList()
+                }
+            }
+            else -> emptyList()
         }
-        return emptyList()
     }
 
     /**

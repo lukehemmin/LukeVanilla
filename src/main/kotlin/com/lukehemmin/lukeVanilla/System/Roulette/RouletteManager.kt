@@ -623,4 +623,9 @@ class RouletteManager(
             false
         }
     }
+
+    /**
+     * Database 연결 가져오기 (히스토리 조회용)
+     */
+    fun getConnection(): java.sql.Connection = database.getConnection()
 }

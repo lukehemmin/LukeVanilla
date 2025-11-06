@@ -17,7 +17,9 @@ import net.dv8tion.jda.api.interactions.modals.Modal
 import java.awt.Color
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import org.bukkit.Bukkit
 
 class SupportSystem(
     private val plugin: Main,
@@ -124,56 +126,62 @@ class SupportSystem(
                 return
             }
 
-            // 플레이타임 조회 (하이브리드 방식)
+            // 플레이타임 조회 (비동기, Bukkit 메인 스레드에서 실행)
             val uuid = UUID.fromString(primaryUuid)
-            val playTimeSeconds = if (playTimeManager.isPlayerOnline(uuid)) {
-                val player = plugin.server.getPlayer(uuid)
-                if (player != null) {
-                    playTimeManager.getCurrentTotalPlayTime(player)
-                } else {
-                    playTimeManager.getSavedTotalPlayTime(uuid)
+            getPlayTimeAsync(uuid).thenAccept { (playTimeSeconds, isOnline) ->
+                try {
+                    val playTimeFormatted = formatPlayTime(playTimeSeconds)
+
+                    // 부계정 정보 확인
+                    val accountLink = database.getAccountLinkByPrimaryUuid(primaryUuid)
+                    val hasSecondary = accountLink?.secondaryUuid != null
+
+                    // 임베드 생성
+                    val embed = EmbedBuilder()
+                        .setTitle("⚙ 내 계정 정보")
+                        .addField("닉네임", playerInfo.nickname, true)
+                        .addField("UUID", primaryUuid, false)
+                        .addField("칭호", playerInfo.tag ?: "없음", true)
+                        .addField("누적 플레이타임", if (isOnline) "$playTimeFormatted *현재 세션 포함" else playTimeFormatted, true)
+                        .addField("마지막 접속 IP", playerInfo.lastestIp ?: "없음", true)
+                        .addField("인증 상태", if (playerInfo.isAuth) "✅ 인증됨" else "❌ 미인증", true)
+                        .setThumbnail("https://mc-heads.net/avatar/$primaryUuid/128")
+                        .setFooter("최근 갱신: ${dateFormat.format(Date())}")
+                        .setColor(Color.BLUE)
+                        .build()
+
+                    // 버튼 구성
+                    val buttons = mutableListOf<Button>()
+                    buttons.add(Button.danger("auth_unlink_primary", "인증 해제"))
+
+                    if (hasSecondary) {
+                        buttons.add(Button.secondary("show_secondary_account", "부계정 정보"))
+                    } else {
+                        buttons.add(Button.primary("link_secondary_account", "부계정 연결"))
+                    }
+
+                    buttons.add(Button.success("season_items_from_profile", "아이템 등록 보기"))
+
+                    event.hook.sendMessageEmbeds(embed)
+                        .setComponents(ActionRow.of(buttons))
+                        .setEphemeral(true)
+                        .queue()
+
+                } catch (e: Exception) {
+                    logger.severe("내 정보 표시 중 오류: ${e.message}")
+                    e.printStackTrace()
+                    event.hook.sendMessage("정보를 조회하는 중 오류가 발생했습니다.")
+                        .setEphemeral(true)
+                        .queue()
                 }
-            } else {
-                playTimeManager.getSavedTotalPlayTime(uuid)
+            }.exceptionally { e ->
+                logger.severe("플레이타임 조회 중 오류: ${e.message}")
+                e.printStackTrace()
+                event.hook.sendMessage("정보를 조회하는 중 오류가 발생했습니다.")
+                    .setEphemeral(true)
+                    .queue()
+                null
             }
-
-            val playTimeFormatted = formatPlayTime(playTimeSeconds)
-            val isOnline = playTimeManager.isPlayerOnline(uuid)
-
-            // 부계정 정보 확인
-            val accountLink = database.getAccountLinkByPrimaryUuid(primaryUuid)
-            val hasSecondary = accountLink?.secondaryUuid != null
-
-            // 임베드 생성
-            val embed = EmbedBuilder()
-                .setTitle("⚙ 내 계정 정보")
-                .addField("닉네임", playerInfo.nickname, true)
-                .addField("UUID", primaryUuid, false)
-                .addField("칭호", playerInfo.tag ?: "없음", true)
-                .addField("누적 플레이타임", if (isOnline) "$playTimeFormatted *현재 세션 포함" else playTimeFormatted, true)
-                .addField("마지막 접속 IP", playerInfo.lastestIp ?: "없음", true)
-                .addField("인증 상태", if (playerInfo.isAuth) "✅ 인증됨" else "❌ 미인증", true)
-                .setThumbnail("https://mc-heads.net/avatar/$primaryUuid/128")
-                .setFooter("최근 갱신: ${dateFormat.format(Date())}")
-                .setColor(Color.BLUE)
-                .build()
-
-            // 버튼 구성
-            val buttons = mutableListOf<Button>()
-            buttons.add(Button.danger("auth_unlink_primary", "인증 해제"))
-            
-            if (hasSecondary) {
-                buttons.add(Button.secondary("show_secondary_account", "부계정 정보"))
-            } else {
-                buttons.add(Button.primary("link_secondary_account", "부계정 연결"))
-            }
-            
-            buttons.add(Button.success("season_items_from_profile", "아이템 등록 보기"))
-
-            event.hook.sendMessageEmbeds(embed)
-                .setComponents(ActionRow.of(buttons))
-                .setEphemeral(true)
-                .queue()
 
         } catch (e: Exception) {
             logger.severe("내 정보 조회 중 오류: ${e.message}")
@@ -321,51 +329,58 @@ class SupportSystem(
                 return
             }
 
-            // 플레이타임 조회
+            // 플레이타임 조회 (비동기, Bukkit 메인 스레드에서 실행)
             val uuid = UUID.fromString(primaryUuid)
-            val playTimeSeconds = if (playTimeManager.isPlayerOnline(uuid)) {
-                val player = plugin.server.getPlayer(uuid)
-                if (player != null) {
-                    playTimeManager.getCurrentTotalPlayTime(player)
-                } else {
-                    playTimeManager.getSavedTotalPlayTime(uuid)
+            getPlayTimeAsync(uuid).thenAccept { (playTimeSeconds, _) ->
+                try {
+                    // 부계정 확인
+                    val accountLink = database.getAccountLinkByPrimaryUuid(primaryUuid)
+                    val hasSecondary = accountLink?.secondaryUuid != null
+
+                    // 임베드 생성
+                    val embed = EmbedBuilder()
+                        .setTitle("📊 내 정보")
+                        .setColor(Color.GREEN)
+                        .addField("닉네임", playerInfo.nickname, true)
+                        .addField("UUID", primaryUuid, false)
+                        .addField("플레이 시간", formatPlayTime(playTimeSeconds), true)
+                        .addField("부계정", if (hasSecondary) "연결됨" else "미연결", true)
+                        .setFooter("디스코드 ID: ${playerInfo.discordId ?: "없음"}")
+                        .build()
+
+                    // 버튼 구성
+                    val buttons = mutableListOf<Button>()
+                    buttons.add(Button.danger("auth_unlink_primary", "인증 해제"))
+
+                    if (hasSecondary) {
+                        buttons.add(Button.secondary("show_secondary_account", "부계정 정보"))
+                    } else {
+                        buttons.add(Button.primary("link_secondary_account", "부계정 연결"))
+                    }
+
+                    buttons.add(Button.success("season_items_from_profile", "아이템 등록 보기"))
+
+                    hook.sendMessage(prefixMessage)
+                        .setEmbeds(embed)
+                        .setComponents(ActionRow.of(buttons))
+                        .setEphemeral(true)
+                        .queue()
+
+                } catch (e: Exception) {
+                    logger.severe("내 정보 표시 중 오류: ${e.message}")
+                    e.printStackTrace()
+                    hook.sendMessage("${prefixMessage}정보를 조회하는 중 오류가 발생했습니다.")
+                        .setEphemeral(true)
+                        .queue()
                 }
-            } else {
-                playTimeManager.getSavedTotalPlayTime(uuid)
+            }.exceptionally { e ->
+                logger.severe("플레이타임 조회 중 오류: ${e.message}")
+                e.printStackTrace()
+                hook.sendMessage("${prefixMessage}정보를 조회하는 중 오류가 발생했습니다.")
+                    .setEphemeral(true)
+                    .queue()
+                null
             }
-
-            // 부계정 확인
-            val accountLink = database.getAccountLinkByPrimaryUuid(primaryUuid)
-            val hasSecondary = accountLink?.secondaryUuid != null
-
-            // 임베드 생성
-            val embed = EmbedBuilder()
-                .setTitle("📊 내 정보")
-                .setColor(Color.GREEN)
-                .addField("닉네임", playerInfo.nickname, true)
-                .addField("UUID", primaryUuid, false)
-                .addField("플레이 시간", formatPlayTime(playTimeSeconds), true)
-                .addField("부계정", if (hasSecondary) "연결됨" else "미연결", true)
-                .setFooter("디스코드 ID: ${playerInfo.discordId ?: "없음"}")
-                .build()
-
-            // 버튼 구성
-            val buttons = mutableListOf<Button>()
-            buttons.add(Button.danger("auth_unlink_primary", "인증 해제"))
-
-            if (hasSecondary) {
-                buttons.add(Button.secondary("show_secondary_account", "부계정 정보"))
-            } else {
-                buttons.add(Button.primary("link_secondary_account", "부계정 연결"))
-            }
-
-            buttons.add(Button.success("season_items_from_profile", "아이템 등록 보기"))
-
-            hook.sendMessage(prefixMessage)
-                .setEmbeds(embed)
-                .setComponents(ActionRow.of(buttons))
-                .setEphemeral(true)
-                .queue()
 
         } catch (e: Exception) {
             logger.severe("내 정보 표시 중 오류: ${e.message}")
@@ -409,46 +424,51 @@ class SupportSystem(
                 return
             }
 
-            // 플레이타임 조회
+            // 플레이타임 조회 (비동기, Bukkit 메인 스레드에서 실행)
             val uuid = UUID.fromString(secondaryUuid)
-            val playTimeSeconds = if (playTimeManager.isPlayerOnline(uuid)) {
-                val player = discordBot.jda.registeredListeners.firstOrNull()
-                    ?.let { (it as? com.lukehemmin.lukeVanilla.Main)?.server?.getPlayer(uuid) }
-                if (player != null) {
-                    playTimeManager.getCurrentTotalPlayTime(player)
-                } else {
-                    playTimeManager.getSavedTotalPlayTime(uuid)
+            getPlayTimeAsync(uuid).thenAccept { (playTimeSeconds, isOnline) ->
+                try {
+                    val playTimeFormatted = formatPlayTime(playTimeSeconds)
+
+                    // 임베드 생성
+                    val embed = EmbedBuilder()
+                        .setTitle("👥 부계정 정보")
+                        .addField("닉네임", playerInfo.nickname, true)
+                        .addField("UUID", secondaryUuid, false)
+                        .addField("칭호", playerInfo.tag ?: "없음", true)
+                        .addField("누적 플레이타임", if (isOnline) "$playTimeFormatted *현재 세션 포함" else playTimeFormatted, true)
+                        .addField("마지막 접속 IP", playerInfo.lastestIp ?: "없음", true)
+                        .addField("인증 상태", if (playerInfo.isAuth) "✅ 인증됨" else "❌ 미인증", true)
+                        .setThumbnail("https://mc-heads.net/avatar/$secondaryUuid/128")
+                        .setFooter("최근 갱신: ${dateFormat.format(Date())}")
+                        .setColor(Color.CYAN)
+                        .build()
+
+                    val buttons = listOf(
+                        Button.danger("unlink_secondary_account", "부계정 연결 해제"),
+                        Button.success("season_items_from_secondary", "아이템 등록 보기")
+                    )
+
+                    event.hook.sendMessageEmbeds(embed)
+                        .setComponents(ActionRow.of(buttons))
+                        .setEphemeral(true)
+                        .queue()
+
+                } catch (e: Exception) {
+                    logger.severe("부계정 정보 표시 중 오류: ${e.message}")
+                    e.printStackTrace()
+                    event.hook.sendMessage("정보를 조회하는 중 오류가 발생했습니다.")
+                        .setEphemeral(true)
+                        .queue()
                 }
-            } else {
-                playTimeManager.getSavedTotalPlayTime(uuid)
+            }.exceptionally { e ->
+                logger.severe("플레이타임 조회 중 오류: ${e.message}")
+                e.printStackTrace()
+                event.hook.sendMessage("정보를 조회하는 중 오류가 발생했습니다.")
+                    .setEphemeral(true)
+                    .queue()
+                null
             }
-
-            val playTimeFormatted = formatPlayTime(playTimeSeconds)
-            val isOnline = playTimeManager.isPlayerOnline(uuid)
-
-            // 임베드 생성
-            val embed = EmbedBuilder()
-                .setTitle("👥 부계정 정보")
-                .addField("닉네임", playerInfo.nickname, true)
-                .addField("UUID", secondaryUuid, false)
-                .addField("칭호", playerInfo.tag ?: "없음", true)
-                .addField("누적 플레이타임", if (isOnline) "$playTimeFormatted *현재 세션 포함" else playTimeFormatted, true)
-                .addField("마지막 접속 IP", playerInfo.lastestIp ?: "없음", true)
-                .addField("인증 상태", if (playerInfo.isAuth) "✅ 인증됨" else "❌ 미인증", true)
-                .setThumbnail("https://mc-heads.net/avatar/$secondaryUuid/128")
-                .setFooter("최근 갱신: ${dateFormat.format(Date())}")
-                .setColor(Color.CYAN)
-                .build()
-
-            val buttons = listOf(
-                Button.danger("unlink_secondary_account", "부계정 연결 해제"),
-                Button.success("season_items_from_secondary", "아이템 등록 보기")
-            )
-
-            event.hook.sendMessageEmbeds(embed)
-                .setComponents(ActionRow.of(buttons))
-                .setEphemeral(true)
-                .queue()
 
         } catch (e: Exception) {
             logger.severe("부계정 정보 조회 중 오류: ${e.message}")
@@ -712,5 +732,35 @@ class SupportSystem(
             if (hours > 0) append("${hours}시간 ")
             if (minutes > 0 || isEmpty()) append("${minutes}분")
         }.trim()
+    }
+
+    /**
+     * Bukkit 메인 스레드에서 플레이타임을 안전하게 조회하는 비동기 헬퍼 함수
+     * @param uuid 조회할 플레이어의 UUID
+     * @return CompletableFuture<Pair<플레이타임(초), 온라인 여부>>
+     */
+    private fun getPlayTimeAsync(uuid: UUID): CompletableFuture<Pair<Long, Boolean>> {
+        val future = CompletableFuture<Pair<Long, Boolean>>()
+
+        Bukkit.getScheduler().runTask(plugin, Runnable {
+            try {
+                val isOnline = playTimeManager.isPlayerOnline(uuid)
+                val playTimeSeconds = if (isOnline) {
+                    val player = plugin.server.getPlayer(uuid)
+                    if (player != null) {
+                        playTimeManager.getCurrentTotalPlayTime(player)
+                    } else {
+                        playTimeManager.getSavedTotalPlayTime(uuid)
+                    }
+                } else {
+                    playTimeManager.getSavedTotalPlayTime(uuid)
+                }
+                future.complete(playTimeSeconds to isOnline)
+            } catch (e: Exception) {
+                future.completeExceptionally(e)
+            }
+        })
+
+        return future
     }
 }

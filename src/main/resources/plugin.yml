@@ -168,14 +168,10 @@ commands:
     permission-message: "이 명령어를 사용할 권한이 없습니다."
   룰렛:
     description: "다중 룰렛 시스템을 관리합니다."
-    usage: "/룰렛 [생성|삭제|목록|정보|아이템|npc지정|npc제거|npc목록|설정|리로드]"
-    permission: "lukevanilla.roulette.admin"
-    permission-message: "이 명령어를 사용할 권한이 없습니다."
+    usage: "/룰렛 [확률|내기록]"
   랜덤스크롤:
     description: "랜덤 스크롤 룰렛 시스템을 관리합니다."
-    usage: "/랜덤스크롤 [리로드]"
-    permission: "lukevanilla.randomscroll.reload"
-    permission-message: "이 명령어를 사용할 권한이 없습니다."
+    usage: "/랜덤스크롤 [확률|내기록]"
 
 permissions:
   lukevanilla.nametag:
