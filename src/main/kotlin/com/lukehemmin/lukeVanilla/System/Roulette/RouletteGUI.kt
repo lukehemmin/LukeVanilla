@@ -336,13 +336,21 @@ class RouletteGUI(
      * 최종 당첨 아이템 강조 표시
      */
     private fun showWinningItem() {
-        val winItem = winningItem?.toItemStack() ?: return
+        val winning = winningItem ?: return
+        val winItem = winning.toItemStack() ?: return
 
-        // 당첨 아이템에 반짝이는 효과 추가
+        // 꽝 체크
+        val isLose = winning.itemProvider == ItemProvider.VANILLA && winning.itemIdentifier == "BARRIER"
+
+        // 당첨 아이템에 효과 추가
         val meta = winItem.itemMeta
         val originalLore = meta?.lore?.toMutableList() ?: mutableListOf()
         originalLore.add("")
-        originalLore.add("§e§l★ 당첨! ★")
+        if (isLose) {
+            originalLore.add("§c§l✕ 꽝! ✕")
+        } else {
+            originalLore.add("§e§l★ 당첨! ★")
+        }
         originalLore.add("")
         meta?.lore = originalLore
         winItem.itemMeta = meta
@@ -356,15 +364,28 @@ class RouletteGUI(
         }
 
         // 플레이어에게 메시지 전송
-        val itemName = winningItem?.itemDisplayName ?: winItem.type.name
-        player.sendMessage("§e§l[ 룰렛 ] §a당첨! §f$itemName §ax${winItem.amount}")
+        if (isLose) {
+            player.sendMessage("§e§l[ 룰렛 ] §c꽝! §7아쉽지만 다음 기회에!")
+        } else {
+            val itemName = winning.itemDisplayName ?: winItem.type.name
+            player.sendMessage("§e§l[ 룰렛 ] §a당첨! §f$itemName §ax${winItem.amount}")
+        }
     }
 
     /**
      * 당첨 아이템 지급
      */
     private fun giveWinningItem() {
-        val winItem = winningItem?.toItemStack() ?: return
+        val winning = winningItem ?: return
+
+        // 꽝 체크 (VANILLA + BARRIER)
+        if (winning.itemProvider == ItemProvider.VANILLA && winning.itemIdentifier == "BARRIER") {
+            player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
+            player.playSound(player.location, Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f)
+            return
+        }
+
+        val winItem = winning.toItemStack() ?: return
 
         // 인벤토리에 공간이 있는지 확인
         val emptySlot = player.inventory.firstEmpty()
@@ -395,21 +416,29 @@ class RouletteGUI(
             animationTask = null
             isAnimating = false
 
-            // 당첨 아이템 즉시 지급 (히스토리는 이미 네더별 클릭 시 기록됨)
-            val winItem = winningItem?.toItemStack()
-            if (winItem != null) {
-                // 플레이어가 온라인인지 확인
-                if (player.isOnline) {
+            val winning = winningItem
+
+            // 플레이어가 온라인인지 확인
+            if (winning != null && player.isOnline) {
+                player.sendMessage("§e[룰렛] 서버 리로드로 인해 룰렛이 중단되었습니다.")
+
+                // 꽝 체크 (VANILLA + BARRIER)
+                if (winning.itemProvider == ItemProvider.VANILLA && winning.itemIdentifier == "BARRIER") {
+                    player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
+                    return
+                }
+
+                // 당첨 아이템 즉시 지급 (히스토리는 이미 네더별 클릭 시 기록됨)
+                val winItem = winning.toItemStack()
+                if (winItem != null) {
                     // 인벤토리에 공간이 있는지 확인
                     val emptySlot = player.inventory.firstEmpty()
                     if (emptySlot == -1) {
-                        player.sendMessage("§c[룰렛] 서버 리로드로 인해 룰렛이 중단되었습니다.")
                         player.sendMessage("§c인벤토리에 공간이 없어 아이템이 바닥에 떨어졌습니다!")
                         player.world.dropItem(player.location, winItem)
                     } else {
                         player.inventory.addItem(winItem)
-                        player.sendMessage("§e[룰렛] 서버 리로드로 인해 룰렛이 중단되었습니다.")
-                        val itemName = winningItem?.itemDisplayName ?: winItem.type.name
+                        val itemName = winning.itemDisplayName ?: winItem.type.name
                         player.sendMessage("§a당첨 아이템이 지급되었습니다! §f$itemName §ax${winItem.amount}")
                     }
                 }

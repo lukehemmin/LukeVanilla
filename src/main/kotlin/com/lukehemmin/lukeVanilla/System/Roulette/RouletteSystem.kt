@@ -15,6 +15,7 @@ class RouletteSystem(
 ) {
     private lateinit var manager: RouletteManager
     private lateinit var npcListener: RouletteNPCListener
+    private lateinit var nexoListener: RouletteNexoListener
     private lateinit var command: RouletteCommand
 
     /**
@@ -31,6 +32,11 @@ class RouletteSystem(
             plugin.server.pluginManager.registerEvents(npcListener, plugin)
             plugin.logger.info("[Roulette] NPC Listener 등록 완료")
 
+            // Nexo Listener 초기화 및 등록
+            nexoListener = RouletteNexoListener(plugin, manager, economyManager)
+            plugin.server.pluginManager.registerEvents(nexoListener, plugin)
+            plugin.logger.info("[Roulette] Nexo Listener 등록 완료")
+
             // Command 초기화 및 등록
             command = RouletteCommand(plugin, manager)
             plugin.getCommand("룰렛")?.setExecutor(command)
@@ -45,7 +51,8 @@ class RouletteSystem(
                 roulettes.forEach { roulette ->
                     val itemCount = manager.getItems(roulette.id).size
                     val npcMappings = manager.getAllNPCMappings().count { it.value == roulette.id }
-                    plugin.logger.info("[Roulette]   · ${roulette.rouletteName}: 비용 ${roulette.costAmount}원, 아이템 ${itemCount}개, NPC ${npcMappings}개")
+                    val nexoMappings = manager.getAllNexoMappings().count { it.value == roulette.id }
+                    plugin.logger.info("[Roulette]   · ${roulette.rouletteName}: 비용 ${roulette.costAmount}원, 아이템 ${itemCount}개, NPC ${npcMappings}개, Nexo ${nexoMappings}개")
                 }
             } else {
                 plugin.logger.warning("[Roulette] 등록된 룰렛이 없습니다. /룰렛 생성 명령어로 룰렛을 만드세요.")
@@ -62,10 +69,11 @@ class RouletteSystem(
      */
     fun disable() {
         try {
-            // 활성 GUI 정리
-            plugin.server.onlinePlayers.forEach { player ->
-                npcListener.removeActiveGUI(player)
-            }
+            // 활성 GUI 정리 (NPC)
+            npcListener.cleanup()
+
+            // 활성 GUI 정리 (Nexo)
+            nexoListener.cleanup()
 
             plugin.logger.info("[Roulette] 룰렛 시스템이 비활성화되었습니다.")
         } catch (e: Exception) {
@@ -83,6 +91,11 @@ class RouletteSystem(
      * NPC Listener 가져오기
      */
     fun getNPCListener(): RouletteNPCListener = npcListener
+
+    /**
+     * Nexo Listener 가져오기
+     */
+    fun getNexoListener(): RouletteNexoListener = nexoListener
 
     /**
      * Command 가져오기

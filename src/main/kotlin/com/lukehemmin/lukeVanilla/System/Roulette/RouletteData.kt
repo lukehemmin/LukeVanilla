@@ -148,11 +148,20 @@ data class RouletteHistory(
 )
 
 /**
- * NPC와 룰렛 매핑 데이터 클래스
+ * 트리거 타입 (NPC 또는 Nexo 가구)
  */
-data class RouletteNPCMapping(
+enum class TriggerType {
+    NPC,
+    NEXO
+}
+
+/**
+ * 룰렛 트리거 매핑 데이터 클래스 (NPC + Nexo 통합)
+ */
+data class RouletteTriggerMapping(
     val id: Int,
-    val npcId: Int,
+    val type: TriggerType,
+    val identifier: String, // NPC ID(숫자 문자열) 또는 Nexo 아이템 코드
     val rouletteId: Int,
     val createdAt: Timestamp
 )
