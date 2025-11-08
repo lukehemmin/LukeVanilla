@@ -22,7 +22,8 @@ class RouletteGUI(
     private val plugin: JavaPlugin,
     private val manager: RouletteManager,
     private val player: Player,
-    private val rouletteId: Int
+    private val rouletteId: Int,
+    private val paidWithKey: Boolean = false
 ) {
     private lateinit var inventory: Inventory
     private var animationTask: BukkitTask? = null
@@ -179,8 +180,26 @@ class RouletteGUI(
         val centerMeta = centerItem.itemMeta
         centerMeta?.setDisplayName("§6§l§n룰렛 시작")
         val config = manager.getRouletteById(rouletteId)
+
+        // 비용 표시 (열쇠로 지불했으면 "무료")
+        val costText = if (paidWithKey) {
+            "§7비용: §a무료 (열쇠 사용됨)"
+        } else {
+            when (config?.costType) {
+                CostType.MONEY -> "§7비용: §f${config.costAmount}원"
+                CostType.ITEM -> {
+                    val provider = config.costItemProvider?.name ?: "UNKNOWN"
+                    val itemType = config.costItemType ?: "UNKNOWN"
+                    val itemAmount = config.costItemAmount
+                    "§7비용: §f$itemType §7x$itemAmount §8($provider)"
+                }
+                CostType.FREE -> "§7비용: §a무료"
+                else -> "§7비용: §c설정 오류"
+            }
+        }
+
         centerMeta?.lore = listOf(
-            "§7비용: §f${config?.costAmount ?: 0}원",
+            costText,
             "§7아이템 종류: §f${manager.getItems(rouletteId).size}개",
             "",
             "§e§l[ 클릭하여 룰렛 시작! ]"
@@ -460,4 +479,9 @@ class RouletteGUI(
      * 룰렛 ID 가져오기
      */
     fun getRouletteId(): Int = rouletteId
+
+    /**
+     * 열쇠로 비용을 지불했는지 확인
+     */
+    fun isPaidWithKey(): Boolean = paidWithKey
 }

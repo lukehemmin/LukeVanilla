@@ -1204,6 +1204,8 @@ class DatabaseInitializer(private val database: Database) {
                     `cost_amount` DECIMAL(20, 2) NOT NULL DEFAULT 1000 COMMENT '비용 (돈의 경우)',
                     `cost_item_type` VARCHAR(100) DEFAULT NULL COMMENT '비용 아이템 타입 (아이템의 경우)',
                     `cost_item_amount` INT DEFAULT 1 COMMENT '비용 아이템 개수',
+                    `key_item_provider` VARCHAR(20) DEFAULT NULL COMMENT '열쇠 아이템 제공자 (VANILLA, NEXO 등)',
+                    `key_item_type` VARCHAR(100) DEFAULT NULL COMMENT '열쇠 아이템 ID',
                     `animation_duration` INT NOT NULL DEFAULT 100 COMMENT '애니메이션 지속 시간 (틱 단위)',
                     `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '룰렛 활성화 여부',
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1237,7 +1239,41 @@ class DatabaseInitializer(private val database: Database) {
                 println("[Roulette] roulette_name 컬럼 마이그레이션 중 오류: ${e.message}")
             }
 
-            // 4. npc_id 컬럼이 있으면 제거 (데이터는 roulette_npc_mapping으로 이동 예정)
+            // 4. 기존 테이블에 key_item_provider 컬럼이 없으면 추가 (마이그레이션)
+            try {
+                val rsKeyProvider = connection.metaData.getColumns(null, null, "roulette_config", "key_item_provider")
+                if (!rsKeyProvider.next()) {
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_config
+                        ADD COLUMN `key_item_provider` VARCHAR(20) DEFAULT NULL COMMENT '열쇠 아이템 제공자 (VANILLA, NEXO 등)' AFTER `cost_item_amount`
+                        """
+                    )
+                    println("[Roulette] key_item_provider 컬럼을 추가했습니다.")
+                }
+                rsKeyProvider.close()
+            } catch (e: Exception) {
+                println("[Roulette] key_item_provider 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 5. 기존 테이블에 key_item_type 컬럼이 없으면 추가 (마이그레이션)
+            try {
+                val rsKeyType = connection.metaData.getColumns(null, null, "roulette_config", "key_item_type")
+                if (!rsKeyType.next()) {
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_config
+                        ADD COLUMN `key_item_type` VARCHAR(100) DEFAULT NULL COMMENT '열쇠 아이템 ID' AFTER `key_item_provider`
+                        """
+                    )
+                    println("[Roulette] key_item_type 컬럼을 추가했습니다.")
+                }
+                rsKeyType.close()
+            } catch (e: Exception) {
+                println("[Roulette] key_item_type 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 6. npc_id 컬럼이 있으면 제거 (데이터는 roulette_npc_mapping으로 이동 예정)
             try {
                 val rsNpcId = connection.metaData.getColumns(null, null, "roulette_config", "npc_id")
                 if (rsNpcId.next()) {
@@ -1249,7 +1285,7 @@ class DatabaseInitializer(private val database: Database) {
                 // 무시
             }
 
-            // 5. 기본 설정 데이터 삽입 (default 룰렛)
+            // 7. 기본 설정 데이터 삽입 (default 룰렛)
             val checkQuery = "SELECT COUNT(*) FROM roulette_config"
             val rs = statement.executeQuery(checkQuery)
             var isEmpty = true

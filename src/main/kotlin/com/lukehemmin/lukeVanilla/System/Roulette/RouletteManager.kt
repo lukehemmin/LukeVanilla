@@ -68,13 +68,19 @@ class RouletteManager(
             val rs = statement.executeQuery(QUERY_SELECT_ALL_CONFIGS)
 
             while (rs.next()) {
+                val costItemProviderStr = rs.getString("cost_item_provider")
+                val keyItemProviderStr = rs.getString("key_item_provider")
+
                 val config = RouletteConfig(
                     id = rs.getInt("id"),
                     rouletteName = rs.getString("roulette_name"),
                     costType = CostType.valueOf(rs.getString("cost_type")),
                     costAmount = rs.getDouble("cost_amount"),
+                    costItemProvider = costItemProviderStr?.let { ItemProvider.valueOf(it) },
                     costItemType = rs.getString("cost_item_type"),
                     costItemAmount = rs.getInt("cost_item_amount"),
+                    keyItemProvider = keyItemProviderStr?.let { ItemProvider.valueOf(it) },
+                    keyItemType = rs.getString("key_item_type"),
                     animationDuration = rs.getInt("animation_duration"),
                     enabled = rs.getBoolean("enabled"),
                     createdAt = rs.getTimestamp("created_at"),
@@ -622,6 +628,43 @@ class RouletteManager(
             plugin.logger.warning("[Roulette] 활성화 설정 실패: ${e.message}")
             false
         }
+    }
+
+    // ==================== 열쇠 아이템 관리 ====================
+
+    /**
+     * 룰렛에 열쇠 아이템 설정
+     */
+    fun setKeyItem(rouletteId: Int, provider: ItemProvider?, itemType: String?): Boolean {
+        return try {
+            database.getConnection().use { connection ->
+                val query = """
+                    UPDATE roulette_config
+                    SET key_item_provider = ?, key_item_type = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """.trimIndent()
+
+                val stmt = connection.prepareStatement(query)
+                stmt.setString(1, provider?.name)
+                stmt.setString(2, itemType)
+                stmt.setInt(3, rouletteId)
+                stmt.executeUpdate()
+
+                loadAllConfigs()
+                true
+            }
+        } catch (e: Exception) {
+            plugin.logger.warning("[Roulette] 열쇠 아이템 설정 실패: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * 룰렛의 열쇠 아이템 정보 가져오기
+     */
+    fun getKeyItemInfo(rouletteId: Int): Pair<ItemProvider?, String?>? {
+        val config = configs[rouletteId] ?: return null
+        return Pair(config.keyItemProvider, config.keyItemType)
     }
 
     /**

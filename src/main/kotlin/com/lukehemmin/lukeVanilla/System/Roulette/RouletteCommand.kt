@@ -444,7 +444,9 @@ class RouletteCommand(
             "비용" -> handleSettingsCost(sender, args)
             "활성화" -> handleSettingsEnable(sender, args, true)
             "비활성화" -> handleSettingsEnable(sender, args, false)
-            else -> sender.sendMessage("§c사용법: /룰렛 설정 <비용|활성화|비활성화> [인자들...]")
+            "열쇠" -> handleSettingsKey(sender, args)
+            "열쇠제거" -> handleSettingsKeyRemove(sender, args)
+            else -> sender.sendMessage("§c사용법: /룰렛 설정 <비용|활성화|비활성화|열쇠|열쇠제거> [인자들...]")
         }
     }
 
@@ -493,6 +495,58 @@ class RouletteCommand(
             sender.sendMessage("§a'$rouletteName' 룰렛을 ${action}했습니다.")
         } else {
             sender.sendMessage("§c룰렛 ${action}에 실패했습니다.")
+        }
+    }
+
+    private fun handleSettingsKey(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 5) {
+            sender.sendMessage("§c사용법: /룰렛 설정 열쇠 <룰렛이름> <VANILLA|NEXO> <아이템ID>")
+            return
+        }
+
+        val rouletteName = args[2]
+        val roulette = manager.getRouletteByName(rouletteName)
+        if (roulette == null) {
+            sender.sendMessage("§c'$rouletteName' 룰렛을 찾을 수 없습니다.")
+            return
+        }
+
+        val providerStr = args[3].uppercase()
+        val provider = try {
+            ItemProvider.valueOf(providerStr)
+        } catch (e: IllegalArgumentException) {
+            sender.sendMessage("§c잘못된 아이템 제공자입니다. (VANILLA, NEXO 중 선택)")
+            return
+        }
+
+        val itemType = args[4]
+
+        if (manager.setKeyItem(roulette.id, provider, itemType)) {
+            sender.sendMessage("§a'$rouletteName' 룰렛의 열쇠 아이템을 설정했습니다.")
+            sender.sendMessage("§7- 제공자: §f$providerStr")
+            sender.sendMessage("§7- 아이템: §f$itemType")
+        } else {
+            sender.sendMessage("§c열쇠 아이템 설정에 실패했습니다.")
+        }
+    }
+
+    private fun handleSettingsKeyRemove(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 3) {
+            sender.sendMessage("§c사용법: /룰렛 설정 열쇠제거 <룰렛이름>")
+            return
+        }
+
+        val rouletteName = args[2]
+        val roulette = manager.getRouletteByName(rouletteName)
+        if (roulette == null) {
+            sender.sendMessage("§c'$rouletteName' 룰렛을 찾을 수 없습니다.")
+            return
+        }
+
+        if (manager.setKeyItem(roulette.id, null, null)) {
+            sender.sendMessage("§a'$rouletteName' 룰렛의 열쇠 아이템을 제거했습니다.")
+        } else {
+            sender.sendMessage("§c열쇠 아이템 제거에 실패했습니다.")
         }
     }
 
@@ -768,7 +822,7 @@ class RouletteCommand(
                 "삭제", "정보", "확률", "probability", "내기록", "myhistory" -> getRouletteNames().filter { it.startsWith(args[1], ignoreCase = true) }
                 "아이템" -> listOf("목록", "추가", "수정", "삭제").filter { it.startsWith(args[1], ignoreCase = true) }
                 "npc지정", "nexo지정" -> getRouletteNames().filter { it.startsWith(args[1], ignoreCase = true) }
-                "설정" -> listOf("비용", "활성화", "비활성화").filter { it.startsWith(args[1], ignoreCase = true) }
+                "설정" -> listOf("비용", "활성화", "비활성화", "열쇠", "열쇠제거").filter { it.startsWith(args[1], ignoreCase = true) }
                 else -> emptyList()
             }
 
@@ -778,7 +832,7 @@ class RouletteCommand(
                     else -> emptyList()
                 }
                 "설정" -> when (args[1].lowercase()) {
-                    "비용", "활성화", "비활성화" -> getRouletteNames().filter { it.startsWith(args[2], ignoreCase = true) }
+                    "비용", "활성화", "비활성화", "열쇠", "열쇠제거" -> getRouletteNames().filter { it.startsWith(args[2], ignoreCase = true) }
                     else -> emptyList()
                 }
                 else -> emptyList()
@@ -787,6 +841,10 @@ class RouletteCommand(
             4 -> when (args[0].lowercase()) {
                 "아이템" -> when (args[1].lowercase()) {
                     "추가" -> listOf("VANILLA", "NEXO", "ORAXEN", "ITEMSADDER").filter { it.startsWith(args[3], ignoreCase = true) }
+                    else -> emptyList()
+                }
+                "설정" -> when (args[1].lowercase()) {
+                    "열쇠" -> listOf("VANILLA", "NEXO").filter { it.startsWith(args[3], ignoreCase = true) }
                     else -> emptyList()
                 }
                 else -> emptyList()

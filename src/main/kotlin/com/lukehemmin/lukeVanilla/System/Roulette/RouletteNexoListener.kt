@@ -59,8 +59,31 @@ class RouletteNexoListener(
             return
         }
 
-        // 룰렛 GUI 열기
-        openRoulette(player, rouletteId)
+        // 플레이어가 손에 들고 있는 아이템 확인
+        val itemInHand = player.inventory.itemInMainHand
+        var isPaidWithKey = false
+
+        // 열쇠 아이템이 설정되어 있는지 확인
+        val keyItemInfo = manager.getKeyItemInfo(rouletteId)
+        if (keyItemInfo != null && keyItemInfo.first != null && keyItemInfo.second != null) {
+            val (keyProvider, keyType) = keyItemInfo
+
+            // 손에 든 아이템이 열쇠인지 확인
+            if (isKeyItem(itemInHand, keyProvider!!, keyType!!)) {
+                // 열쇠 1개 소모
+                if (itemInHand.amount > 1) {
+                    itemInHand.amount--
+                } else {
+                    player.inventory.setItemInMainHand(null)
+                }
+
+                player.sendMessage("§a열쇠를 사용하여 무료로 룰렛을 이용합니다!")
+                isPaidWithKey = true
+            }
+        }
+
+        // 룰렛 GUI 열기 (비용 지불 여부 플래그 전달)
+        openRoulette(player, rouletteId, isPaidWithKey)
     }
 
     /**
@@ -100,10 +123,51 @@ class RouletteNexoListener(
     }
 
     /**
+     * 아이템이 룰렛 열쇠인지 확인
+     */
+    private fun isKeyItem(item: org.bukkit.inventory.ItemStack, provider: ItemProvider, itemType: String): Boolean {
+        if (item.type == org.bukkit.Material.AIR) return false
+
+        return when (provider) {
+            ItemProvider.VANILLA -> {
+                try {
+                    val material = org.bukkit.Material.valueOf(itemType.uppercase())
+                    item.type == material
+                } catch (e: IllegalArgumentException) {
+                    false
+                }
+            }
+
+            ItemProvider.NEXO -> {
+                try {
+                    val nexoClass = Class.forName("com.nexomc.nexo.api.NexoItems")
+                    val method = nexoClass.getMethod("itemFromId", String::class.java)
+                    val itemBuilder = method.invoke(null, itemType)
+
+                    if (itemBuilder != null) {
+                        val buildMethod = itemBuilder.javaClass.getMethod("build")
+                        val nexoItem = buildMethod.invoke(itemBuilder) as? org.bukkit.inventory.ItemStack
+
+                        // Nexo 아이템인지 확인 (isSimilar 사용)
+                        nexoItem != null && item.isSimilar(nexoItem)
+                    } else {
+                        false
+                    }
+                } catch (e: Exception) {
+                    plugin.logger.warning("[Roulette] Nexo 열쇠 아이템 확인 오류: ${e.message}")
+                    false
+                }
+            }
+
+            else -> false
+        }
+    }
+
+    /**
      * 룰렛 GUI 열기
      */
-    private fun openRoulette(player: Player, rouletteId: Int) {
-        val gui = RouletteGUI(plugin, manager, player, rouletteId)
+    private fun openRoulette(player: Player, rouletteId: Int, isPaidWithKey: Boolean = false) {
+        val gui = RouletteGUI(plugin, manager, player, rouletteId, isPaidWithKey)
         activeGUIs[player] = gui
         gui.open()
     }
@@ -124,9 +188,12 @@ class RouletteNexoListener(
             if (event.slot == 22) {
                 val clickedItem = event.currentItem
                 if (clickedItem?.type == org.bukkit.Material.NETHER_STAR) {
-                    // 비용 확인 및 차감
-                    if (!checkAndPayCost(player, gui.getRouletteId())) {
-                        return
+                    // 열쇠로 이미 비용을 지불했는지 확인
+                    if (!gui.isPaidWithKey()) {
+                        // 비용 확인 및 차감
+                        if (!checkAndPayCost(player, gui.getRouletteId())) {
+                            return
+                        }
                     }
 
                     // 네더별 클릭 시 룰렛 시작
