@@ -72,3 +72,28 @@ book_system:
   
   # 로깅 설정
   log_book_reads: false             # 책 읽기 로그 활성화
+
+# 빼빼로 이벤트 시스템 설정
+pepero_event:
+  # 웹서버 활성화 여부
+  enable_web_server: true
+
+  # 웹서버 주소 및 포트
+  web_host: "0.0.0.0"
+  web_port: 9696
+
+  # 외부 접속 도메인 설정
+  external_domain: "peperoday2025.lukehemmin.com"
+  external_protocol: "https"  # http 또는 https
+
+  # CORS 설정
+  enable_cors: true
+  allowed_origins:
+    - "https://peperoday2025.lukehemmin.com"
+    - "http://localhost:9696"  # 개발용
+
+  # 이벤트 기간 설정 (KST 기준)
+  event_start_date: "2025-11-09 00:00:00"  # 이벤트 시작
+  event_end_date: "2025-11-11 23:59:59"     # 이벤트 종료
+  item_give_date: "2025-11-11"              # 아이템 지급 날짜
+  message_send_datetime: "2025-11-12 12:00:00"  # 메시지 전송 시각

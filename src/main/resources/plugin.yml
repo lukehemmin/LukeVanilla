@@ -172,6 +172,14 @@ commands:
   랜덤스크롤:
     description: "랜덤 스크롤 룰렛 시스템을 관리합니다."
     usage: "/랜덤스크롤 [확률|내기록]"
+  빼빼로받기:
+    description: "빼빼로 아이템을 받습니다."
+    usage: "/빼빼로받기"
+  빼빼로관리:
+    description: "빼빼로 이벤트 관리 명령어"
+    usage: "/빼빼로관리 [교환권추가|교환권확인|득표확인|테스트gui]"
+    permission: "lukevanilla.pepero.admin"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -290,4 +298,7 @@ permissions:
     default: op
   lukevanilla.randomscroll.reload:
     description: "랜덤 스크롤 시스템 리로드 권한"
+    default: op
+  lukevanilla.pepero.admin:
+    description: "빼빼로 이벤트 관리 권한"
     default: op

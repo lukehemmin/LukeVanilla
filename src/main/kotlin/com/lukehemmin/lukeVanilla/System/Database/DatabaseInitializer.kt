@@ -79,6 +79,12 @@ class DatabaseInitializer(private val database: Database) {
         createRandomScrollRewardsTable()
         createRandomScrollHistoryTable()
 
+        // 빼빼로 이벤트 시스템 테이블 생성
+        createPeperoEventParticipationTable()
+        createPeperoEventVotesTable()
+        createPeperoItemReceiveTable()
+        createPeperoGiftVouchersTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -1848,6 +1854,104 @@ class DatabaseInitializer(private val database: Database) {
                     INDEX `idx_scroll_id` (`scroll_id`),
                     INDEX `idx_played_at` (`played_at`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='랜덤 스크롤 플레이 히스토리'
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 빼빼로 이벤트 참여 기록 테이블 생성
+     * - 웹 이벤트 참여 기록 저장 (투표 대상, 익명 메시지, 원타임 토큰)
+     */
+    private fun createPeperoEventParticipationTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS pepero_event_participation (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `voter_uuid` VARCHAR(36) NOT NULL COMMENT '투표한 플레이어 UUID',
+                    `voter_name` VARCHAR(50) NOT NULL COMMENT '투표한 플레이어 이름',
+                    `voted_uuid` VARCHAR(36) NOT NULL COMMENT '투표받은 플레이어 UUID',
+                    `voted_name` VARCHAR(50) NOT NULL COMMENT '투표받은 플레이어 이름',
+                    `anonymous_message` TEXT NULL COMMENT '익명 메시지',
+                    `one_time_token` VARCHAR(64) NOT NULL UNIQUE COMMENT '원타임 토큰',
+                    `token_used` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '토큰 사용 여부',
+                    `participated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '참여 시각',
+                    INDEX `idx_voter_uuid` (`voter_uuid`),
+                    INDEX `idx_voted_uuid` (`voted_uuid`),
+                    INDEX `idx_token` (`one_time_token`),
+                    INDEX `idx_participated_at` (`participated_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='빼빼로 이벤트 참여 기록'
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 빼빼로 이벤트 득표 집계 테이블 생성
+     * - 유저별 총 득표수 집계
+     */
+    private fun createPeperoEventVotesTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS pepero_event_votes (
+                    `player_uuid` VARCHAR(36) PRIMARY KEY COMMENT '플레이어 UUID',
+                    `player_name` VARCHAR(50) NOT NULL COMMENT '플레이어 이름',
+                    `vote_count` INT NOT NULL DEFAULT 0 COMMENT '총 득표수',
+                    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '마지막 업데이트 시각',
+                    INDEX `idx_vote_count` (`vote_count` DESC)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='빼빼로 이벤트 득표 집계'
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 빼빼로 아이템 수령 기록 테이블 생성
+     * - 11월 11일 당일 아이템 수령 기록
+     */
+    private fun createPeperoItemReceiveTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS pepero_item_receive (
+                    `player_uuid` VARCHAR(36) PRIMARY KEY COMMENT '플레이어 UUID',
+                    `player_name` VARCHAR(50) NOT NULL COMMENT '플레이어 이름',
+                    `pepero_type` VARCHAR(50) NOT NULL COMMENT '선택한 빼빼로 종류 (original/almond/strawberry)',
+                    `received` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '수령 여부',
+                    `received_at` TIMESTAMP NULL COMMENT '수령 시각',
+                    INDEX `idx_received_at` (`received_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='빼빼로 아이템 수령 기록'
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * CU 교환권 풀 테이블 생성
+     * - 교환권 PNG 이미지 URL 및 발송 관리
+     */
+    private fun createPeperoGiftVouchersTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS pepero_gift_vouchers (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `voucher_name` VARCHAR(100) NOT NULL COMMENT '교환권 이름',
+                    `image_url` VARCHAR(500) NOT NULL COMMENT '교환권 PNG 이미지 URL',
+                    `sent` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '발송 여부',
+                    `sent_to_uuid` VARCHAR(36) NULL COMMENT '발송 대상 UUID',
+                    `sent_to_discord_id` VARCHAR(20) NULL COMMENT '발송 대상 디스코드 ID',
+                    `sent_at` TIMESTAMP NULL COMMENT '발송 시각',
+                    `added_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '추가된 시각',
+                    INDEX `idx_sent` (`sent`),
+                    INDEX `idx_sent_at` (`sent_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='빼빼로 CU 교환권 풀'
                 """.trimIndent()
             )
         }

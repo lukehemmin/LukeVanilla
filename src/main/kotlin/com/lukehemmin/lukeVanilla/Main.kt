@@ -69,6 +69,7 @@ class Main : JavaPlugin() {
     private var multiServerUpdater: MultiServerUpdater? = null
     private var bookSystem: com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem? = null
     private var rouletteSystem: RouletteSystem? = null
+    private var peperoEvent: com.lukehemmin.lukeVanilla.System.PeperoEvent.PeperoEvent? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -753,6 +754,16 @@ class Main : JavaPlugin() {
             e.printStackTrace()
         }
 
+        // PeperoEvent 시스템 초기화 (모든 서버에서 실행)
+        try {
+            peperoEvent = com.lukehemmin.lukeVanilla.System.PeperoEvent.PeperoEvent(this, database, discordBot)
+            peperoEvent?.enable()
+            logger.info("[PeperoEvent] 빼빼로 이벤트 시스템이 성공적으로 초기화되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[PeperoEvent] 빼빼로 이벤트 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
+
     }
 
     override fun onDisable() {
@@ -789,6 +800,15 @@ class Main : JavaPlugin() {
             logger.info("[Roulette] 룰렛 시스템이 정상적으로 종료되었습니다.")
         } catch (e: Exception) {
             logger.severe("[Roulette] 룰렛 시스템 종료 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
+
+        // PeperoEvent 종료
+        try {
+            peperoEvent?.disable()
+            logger.info("[PeperoEvent] 빼빼로 이벤트 시스템이 정상적으로 종료되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[PeperoEvent] 빼빼로 이벤트 시스템 종료 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
         }
 
