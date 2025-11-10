@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.PeperoEvent
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import kotlinx.serialization.Serializable
 import java.security.MessageDigest
 import java.sql.Timestamp
 import java.time.LocalDateTime
@@ -332,6 +333,7 @@ class PeperoEventRepository(private val database: Database) {
         val participatedAt: LocalDateTime?
     )
 
+    @Serializable
     data class PlayerSearchResult(
         val uuid: String,
         val nickname: String,

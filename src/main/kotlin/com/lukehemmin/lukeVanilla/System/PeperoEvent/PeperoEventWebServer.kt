@@ -91,11 +91,31 @@ class PeperoEventWebServer(
             exception<Throwable> { call, cause ->
                 logger.severe("[PeperoEventWebServer] 오류: ${cause.message}")
                 cause.printStackTrace()
-                call.respond(HttpStatusCode.InternalServerError, ApiResponse<Nothing>(success = false, error = "서버 오류가 발생했습니다."))
+                call.respond(HttpStatusCode.InternalServerError, SimpleResponse(success = false, error = "서버 오류가 발생했습니다."))
             }
         }
 
         routing {
+            // 정책 페이지 라우팅
+            get("/info") {
+                val infoFile = File(webContentPath, "info.html")
+                if (infoFile.exists()) {
+                    call.respondText(infoFile.readText(), ContentType.Text.Html)
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "페이지를 찾을 수 없습니다.")
+                }
+            }
+
+            // 이벤트 메인 페이지 라우팅
+            get("/pepero") {
+                val indexFile = File(webContentPath, "index.html")
+                if (indexFile.exists()) {
+                    call.respondText(indexFile.readText(), ContentType.Text.Html)
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "페이지를 찾을 수 없습니다.")
+                }
+            }
+
             staticFiles("/", File(webContentPath)) {
                 default("index.html")
             }
@@ -104,7 +124,7 @@ class PeperoEventWebServer(
             post("/api/search") {
                 val request = call.receive<SearchRequest>()
                 val results = repository.searchPlayers(request.keyword)
-                call.respond(ApiResponse(success = true, data = results))
+                call.respond(SearchResponse(success = true, data = results))
             }
 
             // 투표 제출 API
@@ -117,9 +137,9 @@ class PeperoEventWebServer(
                     anonymousMessage = request.message
                 )
                 if (success) {
-                    call.respond(ApiResponse<Nothing>(success = true, message = "투표가 완료되었습니다!"))
+                    call.respond(SimpleResponse(success = true, message = "투표가 완료되었습니다!"))
                 } else {
-                    call.respond(ApiResponse<Nothing>(success = false, error = "이미 사용된 토큰이거나 잘못된 요청입니다."))
+                    call.respond(SimpleResponse(success = false, error = "이미 사용된 토큰이거나 잘못된 요청입니다."))
                 }
             }
 
@@ -128,9 +148,9 @@ class PeperoEventWebServer(
                 val token = call.parameters["token"] ?: ""
                 val participation = repository.getParticipationByToken(token)
                 if (participation != null && !participation.tokenUsed) {
-                    call.respond(ApiResponse<Map<String, Boolean>>(success = true, data = mapOf("valid" to true)))
+                    call.respond(VerifyResponse(success = true, valid = true))
                 } else {
-                    call.respond(ApiResponse<Nothing>(success = false, error = "유효하지 않은 토큰입니다."))
+                    call.respond(SimpleResponse(success = false, error = "유효하지 않은 토큰입니다."))
                 }
             }
 
@@ -230,22 +250,15 @@ class PeperoEventWebServer(
                     곧 다가오는 <strong>11월 11일</strong>에 서버에 들어오셔서<br>
                     빼빼로 아이템을 받아가세요!
                 </p>
-                <a href="/info.html" class="btn btn-primary">정책 확인하기</a>
+                <a href="/info" class="btn btn-primary">정책 확인하기</a>
             </div>
         </div>
 
         <footer class="footer">
-            <a href="/info.html" target="_blank">개인정보 및 익명 메시지 관리 정책</a>
+            <a href="/info" target="_blank">개인정보 및 익명 메시지 관리 정책</a>
         </footer>
     </div>
 
-    <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('t');
-        if (!token) {
-            document.body.innerHTML = '<div class="container"><div class="error">유효하지 않은 접근입니다.</div></div>';
-        }
-    </script>
     <script src="/js/app.js"></script>
 </body>
 </html>
@@ -593,8 +606,14 @@ textarea:focus {
 
     private fun generateJS(): String {
         return """
+// 토큰 확인
 const urlParams = new URLSearchParams(window.location.search);
 const token = urlParams.get('t');
+
+if (!token) {
+    document.body.innerHTML = '<div class="container"><div class="error">유효하지 않은 접근입니다.</div></div>';
+    throw new Error('No token provided');
+}
 
 let currentStep = 1;
 let selectedUser = null;
@@ -766,11 +785,27 @@ async function submitVote(message) {
         """.trimIndent()
     }
 
+    // 검색 응답
     @Serializable
-    data class ApiResponse<T>(
+    data class SearchResponse(
         val success: Boolean,
-        val data: T? = null,
+        val data: List<PeperoEventRepository.PlayerSearchResult>? = null,
+        val error: String? = null
+    )
+
+    // 간단한 응답 (메시지만)
+    @Serializable
+    data class SimpleResponse(
+        val success: Boolean,
         val message: String? = null,
+        val error: String? = null
+    )
+
+    // 토큰 검증 응답
+    @Serializable
+    data class VerifyResponse(
+        val success: Boolean,
+        val valid: Boolean? = null,
         val error: String? = null
     )
 
