@@ -40,7 +40,7 @@ class PeperoEventListener(
         val player = event.player
         val uuid = player.uniqueId.toString()
 
-        // 60틱(3초) 후 메시지 표시
+        // 100틱(5초) 후 메시지 표시 (채팅 청소 및 기본 메시지 이후)
         Bukkit.getScheduler().runTaskLater(plugin, Runnable {
             val now = LocalDateTime.now()
 
@@ -55,7 +55,7 @@ class PeperoEventListener(
             if (now.isAfter(eventStartDate) && now.isBefore(eventEndDate)) {
                 showWebEventMessage(player, uuid)
             }
-        }, 60L)
+        }, 100L)
     }
 
     /**

@@ -598,6 +598,7 @@ const token = urlParams.get('t');
 
 let currentStep = 1;
 let selectedUser = null;
+let searchTimeout = null;
 
 // 단계 전환 함수
 function showStep(step) {
@@ -618,11 +619,10 @@ function showStep(step) {
     currentStep = step;
 }
 
-// 유저 검색
-document.getElementById('searchBtn')?.addEventListener('click', async () => {
-    const keyword = document.getElementById('searchInput').value.trim();
-    if (!keyword) {
-        alert('검색어를 입력하세요.');
+// 검색 실행 함수
+async function performSearch(keyword) {
+    if (!keyword || keyword.length < 1) {
+        document.getElementById('searchResults').innerHTML = '<p class="info-text">검색어를 입력하세요.</p>';
         return;
     }
 
@@ -643,6 +643,41 @@ document.getElementById('searchBtn')?.addEventListener('click', async () => {
         console.error('검색 오류:', error);
         alert('검색 중 오류가 발생했습니다.');
     }
+}
+
+// 실시간 검색 (입력할 때마다 자동 검색)
+document.getElementById('searchInput')?.addEventListener('input', (e) => {
+    const keyword = e.target.value.trim();
+
+    // 이전 타이머 취소 (디바운싱)
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+
+    // 300ms 후에 검색 실행 (너무 자주 검색하지 않도록)
+    searchTimeout = setTimeout(() => {
+        performSearch(keyword);
+    }, 300);
+});
+
+// Enter 키로 검색
+document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        const keyword = e.target.value.trim();
+        performSearch(keyword);
+    }
+});
+
+// 검색 버튼 클릭
+document.getElementById('searchBtn')?.addEventListener('click', async () => {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+    const keyword = document.getElementById('searchInput').value.trim();
+    performSearch(keyword);
 });
 
 function displaySearchResults(users) {
