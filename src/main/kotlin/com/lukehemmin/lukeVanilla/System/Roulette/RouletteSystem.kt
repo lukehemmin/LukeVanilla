@@ -69,11 +69,15 @@ class RouletteSystem(
      */
     fun disable() {
         try {
-            // 활성 GUI 정리 (NPC)
-            npcListener.cleanup()
+            // 활성 GUI 정리 (NPC) - 초기화 확인
+            if (::npcListener.isInitialized) {
+                npcListener.cleanup()
+            }
 
-            // 활성 GUI 정리 (Nexo)
-            nexoListener.cleanup()
+            // 활성 GUI 정리 (Nexo) - 초기화 확인
+            if (::nexoListener.isInitialized) {
+                nexoListener.cleanup()
+            }
 
             plugin.logger.info("[Roulette] 룰렛 시스템이 비활성화되었습니다.")
         } catch (e: Exception) {
