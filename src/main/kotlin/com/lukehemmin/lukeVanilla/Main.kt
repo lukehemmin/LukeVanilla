@@ -754,15 +754,23 @@ class Main : JavaPlugin() {
             e.printStackTrace()
         }
 
-        // PeperoEvent 시스템 초기화 (모든 서버에서 실행)
-        try {
-            peperoEvent = com.lukehemmin.lukeVanilla.System.PeperoEvent.PeperoEvent(this, database, discordBot)
-            peperoEvent?.enable()
-            logger.info("[PeperoEvent] 빼빼로 이벤트 시스템이 성공적으로 초기화되었습니다.")
-        } catch (e: Exception) {
-            logger.severe("[PeperoEvent] 빼빼로 이벤트 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
-            e.printStackTrace()
+        // PeperoEvent 시스템 초기화 (야생 서버에서만 실행)
+        // 2025-11-11 이벤트 종료로 인해 비활성화
+        /*
+        if (serviceType == "Vanilla") {
+            try {
+                peperoEvent = com.lukehemmin.lukeVanilla.System.PeperoEvent.PeperoEvent(this, database, discordBot)
+                peperoEvent?.enable()
+                logger.info("[PeperoEvent] 빼빼로 이벤트 시스템이 성공적으로 초기화되었습니다.")
+            } catch (e: Exception) {
+                logger.severe("[PeperoEvent] 빼빼로 이벤트 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        } else {
+            logger.info("[PeperoEvent] ${serviceType} 서버에서는 빼빼로 이벤트 시스템이 비활성화됩니다.")
         }
+        */
+        logger.info("[PeperoEvent] 이벤트 기간 종료로 시스템이 비활성화되었습니다.")
 
     }
 
@@ -804,6 +812,8 @@ class Main : JavaPlugin() {
         }
 
         // PeperoEvent 종료
+        // 2025-11-11 이벤트 종료로 인해 비활성화
+        /*
         try {
             peperoEvent?.disable()
             logger.info("[PeperoEvent] 빼빼로 이벤트 시스템이 정상적으로 종료되었습니다.")
@@ -811,6 +821,7 @@ class Main : JavaPlugin() {
             logger.severe("[PeperoEvent] 빼빼로 이벤트 시스템 종료 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
         }
+        */
 
         // 서버 종료 직전 프록시에 오프라인 임박 메시지 전송
         try {

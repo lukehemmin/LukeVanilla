@@ -39,9 +39,14 @@ class RouletteSystem(
 
             // Command 초기화 및 등록
             command = RouletteCommand(plugin, manager)
-            plugin.getCommand("룰렛")?.setExecutor(command)
-            plugin.getCommand("룰렛")?.tabCompleter = command
-            plugin.logger.info("[Roulette] 명령어 등록 완료")
+            val rouletteCommand = plugin.getCommand("룰렛")
+            if (rouletteCommand != null) {
+                rouletteCommand.setExecutor(command)
+                rouletteCommand.tabCompleter = command
+                plugin.logger.info("[Roulette] 명령어 등록 완료")
+            } else {
+                plugin.logger.severe("[Roulette] 명령어 '룰렛'을 찾을 수 없습니다! plugin.yml을 확인하세요.")
+            }
 
             // 초기 설정 확인
             val roulettes = manager.getAllRoulettes()
