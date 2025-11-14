@@ -70,6 +70,7 @@ class Main : JavaPlugin() {
     private var bookSystem: com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem? = null
     private var rouletteSystem: RouletteSystem? = null
     private var peperoEvent: com.lukehemmin.lukeVanilla.System.PeperoEvent.PeperoEvent? = null
+    private var peperoGifticonListener: com.lukehemmin.lukeVanilla.System.PeperoGifticon.PeperoGifticonDiscordListener? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -374,10 +375,37 @@ class Main : JavaPlugin() {
                 } else {
                     logger.warning("[AdminAssistant] OpenAI API 키를 찾을 수 없어 관리자 어시스턴트를 초기화할 수 없습니다. 데이터베이스 'Settings' 테이블에서 'OpenAI_API_Token' 값을 확인해주세요.")
                 }
+
+                // 빼빼로 기프티콘 보상 시스템 초기화 (로비 서버에서만 실행)
+                try {
+                    val peperoGifticonRepository = com.lukehemmin.lukeVanilla.System.PeperoGifticon.PeperoGifticonRepository(database)
+                    peperoGifticonListener = com.lukehemmin.lukeVanilla.System.PeperoGifticon.PeperoGifticonDiscordListener(
+                        peperoGifticonRepository,
+                        logger
+                    )
+                    discordBot.jda.addEventListener(peperoGifticonListener!!)
+
+                    // 명령어 등록
+                    val peperoGifticonCommand = com.lukehemmin.lukeVanilla.System.PeperoGifticon.PeperoGifticonCommand(
+                        peperoGifticonRepository,
+                        peperoGifticonListener!!,
+                        discordBot.jda,
+                        logger
+                    )
+                    getCommand("빼빼로보상")?.setExecutor(peperoGifticonCommand)
+                    getCommand("빼빼로보상")?.tabCompleter = peperoGifticonCommand
+
+                    logger.info("[PeperoGifticon] 로비 서버에서 빼빼로 기프티콘 보상 시스템 초기화 완료")
+                } catch (e: Exception) {
+                    logger.severe("[PeperoGifticon] 빼빼로 기프티콘 보상 시스템 초기화 중 오류: ${e.message}")
+                    e.printStackTrace()
+                }
+            } else {
+                logger.info("[PeperoGifticon] ${serviceType} 서버에서는 빼빼로 기프티콘 보상 시스템이 비활성화됩니다.")
             }
         } else {
             logger.warning("데이터베이스에서 Discord 토큰을 찾을 수 없습니다. Discord 봇 관련 기능이 제한됩니다.")
-            if (openAiApiKey == null) { 
+            if (openAiApiKey == null) {
                 logger.warning("[AdminAssistant] OpenAI API 키도 찾을 수 없습니다. (데이터베이스 'Settings' 테이블의 'OpenAI_API_Token' 값 확인 필요) 관리자 어시스턴트 기능이 비활성화됩니다.")
             }
         }

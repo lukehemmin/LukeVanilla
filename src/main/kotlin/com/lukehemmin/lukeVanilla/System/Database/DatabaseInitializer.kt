@@ -85,6 +85,10 @@ class DatabaseInitializer(private val database: Database) {
         createPeperoItemReceiveTable()
         createPeperoGiftVouchersTable()
 
+        // 빼빼로 기프티콘 보상 시스템 테이블 생성
+        createPeperoGifticonRecipientsTable()
+        createPeperoGifticonCodesTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -1208,6 +1212,7 @@ class DatabaseInitializer(private val database: Database) {
                     `roulette_name` VARCHAR(50) NOT NULL UNIQUE COMMENT '룰렛 이름 (고유)',
                     `cost_type` VARCHAR(20) NOT NULL DEFAULT 'MONEY' COMMENT '비용 타입 (MONEY, ITEM 등)',
                     `cost_amount` DECIMAL(20, 2) NOT NULL DEFAULT 1000 COMMENT '비용 (돈의 경우)',
+                    `cost_item_provider` VARCHAR(20) DEFAULT NULL COMMENT '비용 아이템 제공자 (VANILLA, NEXO 등)',
                     `cost_item_type` VARCHAR(100) DEFAULT NULL COMMENT '비용 아이템 타입 (아이템의 경우)',
                     `cost_item_amount` INT DEFAULT 1 COMMENT '비용 아이템 개수',
                     `key_item_provider` VARCHAR(20) DEFAULT NULL COMMENT '열쇠 아이템 제공자 (VANILLA, NEXO 등)',
@@ -1245,7 +1250,24 @@ class DatabaseInitializer(private val database: Database) {
                 println("[Roulette] roulette_name 컬럼 마이그레이션 중 오류: ${e.message}")
             }
 
-            // 4. 기존 테이블에 key_item_provider 컬럼이 없으면 추가 (마이그레이션)
+            // 4. 기존 테이블에 cost_item_provider 컬럼이 없으면 추가 (마이그레이션)
+            try {
+                val rsCostProvider = connection.metaData.getColumns(null, null, "roulette_config", "cost_item_provider")
+                if (!rsCostProvider.next()) {
+                    statement.executeUpdate(
+                        """
+                        ALTER TABLE roulette_config
+                        ADD COLUMN `cost_item_provider` VARCHAR(20) DEFAULT NULL COMMENT '비용 아이템 제공자 (VANILLA, NEXO 등)' AFTER `cost_amount`
+                        """
+                    )
+                    println("[Roulette] cost_item_provider 컬럼을 추가했습니다.")
+                }
+                rsCostProvider.close()
+            } catch (e: Exception) {
+                println("[Roulette] cost_item_provider 컬럼 마이그레이션 중 오류: ${e.message}")
+            }
+
+            // 5. 기존 테이블에 key_item_provider 컬럼이 없으면 추가 (마이그레이션)
             try {
                 val rsKeyProvider = connection.metaData.getColumns(null, null, "roulette_config", "key_item_provider")
                 if (!rsKeyProvider.next()) {
@@ -1262,7 +1284,7 @@ class DatabaseInitializer(private val database: Database) {
                 println("[Roulette] key_item_provider 컬럼 마이그레이션 중 오류: ${e.message}")
             }
 
-            // 5. 기존 테이블에 key_item_type 컬럼이 없으면 추가 (마이그레이션)
+            // 6. 기존 테이블에 key_item_type 컬럼이 없으면 추가 (마이그레이션)
             try {
                 val rsKeyType = connection.metaData.getColumns(null, null, "roulette_config", "key_item_type")
                 if (!rsKeyType.next()) {
@@ -1952,6 +1974,56 @@ class DatabaseInitializer(private val database: Database) {
                     INDEX `idx_sent` (`sent`),
                     INDEX `idx_sent_at` (`sent_at`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='빼빼로 CU 교환권 풀'
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 빼빼로 기프티콘 수령 대상자 테이블 생성
+     */
+    private fun createPeperoGifticonRecipientsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS pepero_gifticon_recipients (
+                    `uuid` VARCHAR(36) NOT NULL PRIMARY KEY COMMENT '플레이어 UUID',
+                    `player_name` VARCHAR(30) NOT NULL COMMENT '플레이어 닉네임',
+                    `discord_id` VARCHAR(30) NULL COMMENT '디스코드 ID',
+                    `has_received` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '받았는지 여부',
+                    `gifticon_type` VARCHAR(20) NULL COMMENT '받은 종류 (original/almond)',
+                    `received_at` TIMESTAMP NULL COMMENT '받은 시간',
+                    `added_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '대상자로 추가된 시간',
+                    `added_by` VARCHAR(100) NULL COMMENT '추가한 관리자',
+                    INDEX `idx_has_received` (`has_received`),
+                    INDEX `idx_discord_id` (`discord_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='빼빼로 기프티콘 수령 대상자'
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * 빼빼로 기프티콘 코드/이미지 테이블 생성
+     */
+    private fun createPeperoGifticonCodesTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS pepero_gifticon_codes (
+                    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    `gifticon_type` VARCHAR(20) NOT NULL COMMENT '종류 (original/almond)',
+                    `image_url` TEXT NOT NULL COMMENT '이미지 URL',
+                    `is_used` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '사용됨 여부',
+                    `used_by_uuid` VARCHAR(36) NULL COMMENT '사용한 유저 UUID',
+                    `used_by_discord_id` VARCHAR(30) NULL COMMENT '사용한 유저 디스코드 ID',
+                    `used_at` TIMESTAMP NULL COMMENT '사용 시간',
+                    `added_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '등록된 시간',
+                    INDEX `idx_type_used` (`gifticon_type`, `is_used`),
+                    INDEX `idx_used_by_uuid` (`used_by_uuid`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='빼빼로 기프티콘 코드/이미지'
                 """.trimIndent()
             )
         }
