@@ -24,9 +24,11 @@ class LandManager(private val plugin: Main, private val database: Database, priv
     private var useAreaRestriction: Boolean = true
     private var claimableArea: LandArea? = null
     private val landData: LandData
+    private val atomicService: MyLandAtomicService
 
     init {
         this.landData = LandData(database)
+        this.atomicService = MyLandAtomicService(database, debugManager)
     }
 
     fun loadClaimsFromDatabase() {
@@ -126,32 +128,14 @@ class LandManager(private val plugin: Main, private val database: Database, priv
 
     fun claimChunk(chunk: Chunk, player: Player, claimType: String = "GENERAL"): ClaimResult {
         debugManager.log("MyLand", "Attempting to claim chunk (${chunk.x}, ${chunk.z}) for ${player.name} with type $claimType.")
+        
         if (!isChunkInClaimableArea(chunk)) {
             debugManager.log("MyLand", "Claim failed: Chunk is NOT in the claimable area.")
             return ClaimResult.NOT_IN_AREA
         }
-        if (isChunkClaimed(chunk)) {
-            debugManager.log("MyLand", "Claim failed: Chunk is ALREADY claimed by ${getOwnerOfChunk(chunk)}.")
-            return ClaimResult.ALREADY_CLAIMED
-        }
         
-        val chunkCoords = chunk.x to chunk.z
-        val worldName = chunk.world.name
-
-        // Add to claimedChunks map
-        claimedChunks.computeIfAbsent(worldName) { mutableMapOf() }[chunkCoords] = player.uniqueId
-
-        // Add to ownedChunks map
-        ownedChunks.computeIfAbsent(player.uniqueId) { mutableMapOf() }
-            .computeIfAbsent(worldName) { mutableListOf() }
-            .add(chunkCoords)
-            
-        // Save to database
-        landData.saveClaim(worldName, chunk.x, chunk.z, player.uniqueId, claimType)
-        
-        debugManager.log("MyLand", "Claim successful for chunk (${chunk.x}, ${chunk.z}).")
-            
-        return ClaimResult.SUCCESS
+        // AtomicService를 사용하여 Race Condition 방지
+        return atomicService.atomicClaimChunk(chunk, player, claimType, claimedChunks, ownedChunks)
     }
     
     fun unclaimChunk(chunk: Chunk, actor: Player?, reason: String): UnclaimResult {
@@ -161,7 +145,7 @@ class LandManager(private val plugin: Main, private val database: Database, priv
         }
         
         // If actor is a player (not system), check for permission if they are not the owner
-        if (actor != null && ownerUuid != actor.uniqueId && !actor.hasPermission("myland.admin.unclaim")) {
+        if (actor != null && ownerUuid != actor.uniqueId && !actor.hasPermission(LandPermissions.ADMIN_UNCLAIM)) {
              return UnclaimResult.NO_PERMISSION
         }
         

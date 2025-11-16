@@ -37,6 +37,11 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
     }
 
     private fun handleGrantShopPermission(sender: CommandSender, args: Array<out String>) {
+        if (sender !is Player) {
+            sender.sendMessage(Component.text("이 명령어는 플레이어만 사용할 수 있습니다.", NamedTextColor.RED))
+            return
+        }
+        
         if (args.size < 2) {
             sender.sendMessage(Component.text("사용법: /농사마을 상점이용권한지급 <플레이어>", NamedTextColor.RED))
             return
@@ -49,7 +54,7 @@ class FarmVillageCommand(private val plugin: Main, private val manager: FarmVill
             return
         }
 
-        manager.grantShopPermission(targetPlayer).thenAccept { success ->
+        manager.grantShopPermission(sender, targetPlayer).thenAccept { success ->
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (success) {
                     sender.sendMessage(Component.text("${targetPlayer.name}님에게 농사마을 상점 이용 권한을 지급했습니다.", NamedTextColor.GREEN))

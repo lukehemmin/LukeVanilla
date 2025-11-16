@@ -23,7 +23,7 @@ class AdvancedLandProtectionListener(private val advancedLandManager: AdvancedLa
         val worldName = chunk.world.name
         
         // 관리자 권한 체크
-        if (player.hasPermission("advancedland.admin.bypass")) {
+        if (player.hasPermission(AdvancedLandPermissions.ADMIN_BYPASS)) {
             return
         }
         
@@ -81,7 +81,7 @@ class AdvancedLandProtectionListener(private val advancedLandManager: AdvancedLa
         val worldName = chunk.world.name
         
         // 관리자 권한 체크
-        if (player.hasPermission("advancedland.admin.bypass")) {
+        if (player.hasPermission(AdvancedLandPermissions.ADMIN_BYPASS)) {
             return
         }
         
@@ -149,7 +149,7 @@ class AdvancedLandProtectionListener(private val advancedLandManager: AdvancedLa
         val worldName = chunk.world.name
         
         // 관리자 권한 체크
-        if (player.hasPermission("advancedland.admin.bypass")) {
+        if (player.hasPermission(AdvancedLandPermissions.ADMIN_BYPASS)) {
             return
         }
         

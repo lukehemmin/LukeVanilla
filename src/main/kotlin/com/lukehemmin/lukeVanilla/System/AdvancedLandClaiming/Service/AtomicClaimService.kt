@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Service
 
 import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Models.*
 import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.Cache.AdvancedLandCache
+import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.AdvancedLandPermissions
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Debug.DebugManager
 import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.ClaimResult
@@ -266,7 +267,7 @@ class AtomicClaimService(
                         }
 
                         // 2. 권한 확인
-                        if (actor != null && existingClaim.ownerUuid != actor.uniqueId && !actor.hasPermission("advancedland.admin.unclaim")) {
+                        if (actor != null && existingClaim.ownerUuid != actor.uniqueId && !actor.hasPermission(AdvancedLandPermissions.ADMIN_UNCLAIM)) {
                             connection.rollback()
                             return ClaimResult(false, "본인의 청크만 포기할 수 있습니다.")
                         }

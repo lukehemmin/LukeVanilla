@@ -29,6 +29,8 @@ import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.block.Action
 import net.kyori.adventure.text.format.TextDecoration
 
+import java.util.concurrent.ConcurrentHashMap
+
 class FarmVillageManager(
     private val plugin: Main,
     private val farmVillageData: FarmVillageData,
@@ -49,6 +51,9 @@ class FarmVillageManager(
     private val gson = Gson()
     private var npcMerchants = listOf<NPCMerchant>()
     
+    // 청크 좌표 기반 농사마을 땅 캐시 (성능 최적화: O(N) -> O(1))
+    private val farmPlotChunkCache = ConcurrentHashMap<Pair<Int, Int>, PlotPartInfo>()
+    
     // Area selection system
     private val playersSelecting = mutableMapOf<UUID, AreaSelection>()
     private val areaSelectionTool = createSelectionTool()
@@ -68,11 +73,32 @@ class FarmVillageManager(
         farmVillageData.setPlugin(plugin)
         weeklyScrollRotationSystem.setFarmVillageData(farmVillageData)
         loadNPCMerchants()
+        loadFarmPlotCache()
     }
 
     private fun loadNPCMerchants() {
         npcMerchants = farmVillageData.getAllNPCMerchants()
         debugManager.log("FarmVillage", "${npcMerchants.size}개의 NPC 상인을 불러왔습니다.")
+    }
+    
+    /**
+     * 농사마을 땅 캐시 로딩 (성능 최적화)
+     * DB에서 모든 농사마을 땅을 불러와 청크 좌표 기반 해시맵에 저장
+     */
+    private fun loadFarmPlotCache() {
+        farmPlotChunkCache.clear()
+        val allPlots = farmVillageData.getAllPlotParts()
+        allPlots.forEach { plot ->
+            farmPlotChunkCache[plot.chunkX to plot.chunkZ] = plot
+        }
+        debugManager.log("FarmVillage", "${farmPlotChunkCache.size}개의 농사마을 땅 청크를 캐시에 로드했습니다.")
+    }
+    
+    /**
+     * 농사마을 땅 캐시 재로드 (땅 추가/삭제 시 호출)
+     */
+    fun reloadFarmPlotCache() {
+        loadFarmPlotCache()
     }
 
     fun openPackageEditor(player: Player) {
@@ -145,32 +171,44 @@ class FarmVillageManager(
         loadNPCMerchants() // Reload cache after update
     }
 
-    fun grantShopPermission(player: OfflinePlayer): CompletableFuture<Boolean> {
-        if (luckPerms == null) {
-            debugManager.log("FarmVillage", "LuckPerms is not available. Cannot grant permission.")
+    fun grantShopPermission(admin: Player, target: OfflinePlayer): CompletableFuture<Boolean> {
+        // 권한 검증
+        if (!admin.hasPermission(FarmVillagePermissions.ADMIN_GRANT)) {
+            admin.sendMessage(Component.text("권한 부여 권한이 없습니다.", NamedTextColor.RED))
             return CompletableFuture.completedFuture(false)
         }
         
-        val permission = "farmvillage.shop.use" // TODO: Make this configurable
+        if (luckPerms == null) {
+            debugManager.log("FarmVillage", "LuckPerms is not available. Cannot grant permission.")
+            admin.sendMessage(Component.text("LuckPerms를 사용할 수 없습니다.", NamedTextColor.RED))
+            return CompletableFuture.completedFuture(false)
+        }
+        
+        val permission = FarmVillagePermissions.SHOP_USE
         val node = Node.builder(permission).build()
 
-        debugManager.log("FarmVillage", "Attempting to grant permission '$permission' to ${player.name}.")
+        debugManager.log("FarmVillage", "${admin.name} attempting to grant permission '$permission' to ${target.name}.")
 
-        return luckPerms.userManager.modifyUser(player.uniqueId) { user: User ->
+        return luckPerms.userManager.modifyUser(target.uniqueId) { user: User ->
             val result = user.data().add(node)
             if (result.wasSuccessful()) {
-                debugManager.log("FarmVillage", "Successfully granted permission to ${player.name}.")
+                debugManager.log("FarmVillage", "Successfully granted permission to ${target.name} by ${admin.name}.")
+                admin.sendMessage(Component.text("${target.name}에게 상점 사용 권한을 부여했습니다.", NamedTextColor.GREEN))
             } else {
-                debugManager.log("FarmVillage", "Permission was already present for ${player.name}.")
+                debugManager.log("FarmVillage", "Permission was already present for ${target.name}.")
+                admin.sendMessage(Component.text("${target.name}은 이미 권한을 보유하고 있습니다.", NamedTextColor.YELLOW))
             }
         }.thenApply { true }.exceptionally { e ->
-            plugin.logger.severe("Error while granting permission to ${player.name}: ${e.message}")
+            plugin.logger.severe("Error while granting permission to ${target.name}: ${e.message}")
+            admin.sendMessage(Component.text("권한 부여 중 오류가 발생했습니다: ${e.message}", NamedTextColor.RED))
             false
         }
     }
 
     fun setPlot(plotNumber: Int, plotPart: Int, location: Location) {
         farmVillageData.setPlotLocation(plotNumber, plotPart, location)
+        // 캐시 재로드
+        reloadFarmPlotCache()
     }
 
     fun getPlotPart(plotNumber: Int, plotPart: Int): PlotPartInfo? {
@@ -190,22 +228,24 @@ class FarmVillageManager(
         }
     }
 
-    // 주어진 위치(청크)가 농사마을 땅 중 하나인지 확인합니다.
+    /**
+     * 주어진 위치(청크)가 농사마을 땅 중 하나인지 확인합니다.
+     * O(1) 성능으로 최적화됨 (캐시 사용)
+     */
     fun isLocationWithinAnyClaimedFarmPlot(location: Location): Boolean {
         val currentChunk = location.chunk
-        val allPlotParts = farmVillageData.getAllPlotParts()
-
-        for (plotPartInfo in allPlotParts) {
-            val plotWorld = Bukkit.getWorld(plotPartInfo.world) ?: continue
-            val plotChunk = plotWorld.getChunkAt(plotPartInfo.chunkX, plotPartInfo.chunkZ)
-            
-            if (plotChunk == currentChunk && landManager.isChunkClaimed(plotChunk)) {
-                debugManager.log("FarmVillage", "Location (${location.blockX}, ${location.blockY}, ${location.blockZ}) is within claimed farm plot # ${plotPartInfo.plotNumber} part ${plotPartInfo.plotPart}.")
-                return true
-            }
-        }
-        debugManager.log("FarmVillage", "Location (${location.blockX}, ${location.blockY}, ${location.blockZ}) is NOT within any claimed farm plot.")
-        return false
+        val plotInfo = farmPlotChunkCache[currentChunk.x to currentChunk.z] ?: return false
+        
+        val plotWorld = Bukkit.getWorld(plotInfo.world) ?: return false
+        val plotChunk = plotWorld.getChunkAt(plotInfo.chunkX, plotInfo.chunkZ)
+        
+        val isClaimed = landManager.isChunkClaimed(plotChunk)
+        
+        debugManager.log("FarmVillage", 
+            "Location (${location.blockX}, ${location.blockY}, ${location.blockZ}) " +
+            "is within ${if (isClaimed) "claimed" else "unclaimed"} farm plot #${plotInfo.plotNumber} part ${plotInfo.plotPart}.")
+        
+        return isClaimed
     }
 
     fun confiscatePlot(plotNumber: Int, admin: Player): ConfiscateResult {
