@@ -1,8 +1,10 @@
 package com.lukehemmin.lukeVanilla.System.Roulette
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.sql.Timestamp
+import java.util.UUID
 import kotlin.random.Random
 
 /**
@@ -11,6 +13,7 @@ import kotlin.random.Random
  * - 확률 기반 아이템 선택
  * - 히스토리 저장
  * - NPC와 룰렛 매핑 관리
+ * - 플레이어별 세션 관리 (중복 실행 방지)
  */
 class RouletteManager(
     private val plugin: JavaPlugin,
@@ -23,6 +26,9 @@ class RouletteManager(
     // 트리거 매핑 관리 (NPC + Nexo 통합)
     private val npcRouletteMap: MutableMap<Int, Int> = mutableMapOf() // NPC ID -> Roulette ID
     private val nexoRouletteMap: MutableMap<String, Int> = mutableMapOf() // Nexo 아이템 코드 -> Roulette ID
+
+    // 플레이어별 활성 세션 관리 (중복 실행 방지)
+    private val activeSessions: MutableMap<UUID, RouletteGUI> = mutableMapOf()
 
     companion object {
         // DB 쿼리 상수
@@ -64,29 +70,30 @@ class RouletteManager(
         configs.clear()
 
         database.getConnection().use { connection ->
-            val statement = connection.createStatement()
-            val rs = statement.executeQuery(QUERY_SELECT_ALL_CONFIGS)
+            connection.createStatement().use { statement ->
+                statement.executeQuery(QUERY_SELECT_ALL_CONFIGS).use { rs ->
+                    while (rs.next()) {
+                        val costItemProviderStr = rs.getString("cost_item_provider")
+                        val keyItemProviderStr = rs.getString("key_item_provider")
 
-            while (rs.next()) {
-                val costItemProviderStr = rs.getString("cost_item_provider")
-                val keyItemProviderStr = rs.getString("key_item_provider")
-
-                val config = RouletteConfig(
-                    id = rs.getInt("id"),
-                    rouletteName = rs.getString("roulette_name"),
-                    costType = CostType.valueOf(rs.getString("cost_type")),
-                    costAmount = rs.getDouble("cost_amount"),
-                    costItemProvider = costItemProviderStr?.let { ItemProvider.valueOf(it) },
-                    costItemType = rs.getString("cost_item_type"),
-                    costItemAmount = rs.getInt("cost_item_amount"),
-                    keyItemProvider = keyItemProviderStr?.let { ItemProvider.valueOf(it) },
-                    keyItemType = rs.getString("key_item_type"),
-                    animationDuration = rs.getInt("animation_duration"),
-                    enabled = rs.getBoolean("enabled"),
-                    createdAt = rs.getTimestamp("created_at"),
-                    updatedAt = rs.getTimestamp("updated_at")
-                )
-                configs[config.id] = config
+                        val config = RouletteConfig(
+                            id = rs.getInt("id"),
+                            rouletteName = rs.getString("roulette_name"),
+                            costType = CostType.valueOf(rs.getString("cost_type")),
+                            costAmount = rs.getDouble("cost_amount"),
+                            costItemProvider = costItemProviderStr?.let { ItemProvider.valueOf(it) },
+                            costItemType = rs.getString("cost_item_type"),
+                            costItemAmount = rs.getInt("cost_item_amount"),
+                            keyItemProvider = keyItemProviderStr?.let { ItemProvider.valueOf(it) },
+                            keyItemType = rs.getString("key_item_type"),
+                            animationDuration = rs.getInt("animation_duration"),
+                            enabled = rs.getBoolean("enabled"),
+                            createdAt = rs.getTimestamp("created_at"),
+                            updatedAt = rs.getTimestamp("updated_at")
+                        )
+                        configs[config.id] = config
+                    }
+                }
             }
         }
 
@@ -111,25 +118,26 @@ class RouletteManager(
         val loadedItems = mutableListOf<RouletteItem>()
 
         database.getConnection().use { connection ->
-            val stmt = connection.prepareStatement(QUERY_SELECT_ITEMS_BY_ROULETTE)
-            stmt.setInt(1, rouletteId)
-            val rs = stmt.executeQuery()
-
-            while (rs.next()) {
-                val item = RouletteItem(
-                    id = rs.getInt("id"),
-                    rouletteId = rs.getInt("roulette_id"),
-                    itemProvider = ItemProvider.valueOf(rs.getString("item_provider")),
-                    itemIdentifier = rs.getString("item_identifier"),
-                    itemDisplayName = rs.getString("item_display_name"),
-                    itemAmount = rs.getInt("item_amount"),
-                    itemData = rs.getString("item_data"),
-                    weight = rs.getDouble("weight"),
-                    enabled = rs.getBoolean("enabled"),
-                    createdAt = rs.getTimestamp("created_at"),
-                    updatedAt = rs.getTimestamp("updated_at")
-                )
-                loadedItems.add(item)
+            connection.prepareStatement(QUERY_SELECT_ITEMS_BY_ROULETTE).use { stmt ->
+                stmt.setInt(1, rouletteId)
+                stmt.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        val item = RouletteItem(
+                            id = rs.getInt("id"),
+                            rouletteId = rs.getInt("roulette_id"),
+                            itemProvider = ItemProvider.valueOf(rs.getString("item_provider")),
+                            itemIdentifier = rs.getString("item_identifier"),
+                            itemDisplayName = rs.getString("item_display_name"),
+                            itemAmount = rs.getInt("item_amount"),
+                            itemData = rs.getString("item_data"),
+                            weight = rs.getDouble("weight"),
+                            enabled = rs.getBoolean("enabled"),
+                            createdAt = rs.getTimestamp("created_at"),
+                            updatedAt = rs.getTimestamp("updated_at")
+                        )
+                        loadedItems.add(item)
+                    }
+                }
             }
         }
 
@@ -145,23 +153,24 @@ class RouletteManager(
         nexoRouletteMap.clear()
 
         database.getConnection().use { connection ->
-            val statement = connection.createStatement()
-            val rs = statement.executeQuery(QUERY_SELECT_ALL_TRIGGER_MAPPINGS)
+            connection.createStatement().use { statement ->
+                statement.executeQuery(QUERY_SELECT_ALL_TRIGGER_MAPPINGS).use { rs ->
+                    while (rs.next()) {
+                        val type = TriggerType.valueOf(rs.getString("type"))
+                        val identifier = rs.getString("identifier")
+                        val rouletteId = rs.getInt("roulette_id")
 
-            while (rs.next()) {
-                val type = TriggerType.valueOf(rs.getString("type"))
-                val identifier = rs.getString("identifier")
-                val rouletteId = rs.getInt("roulette_id")
-
-                when (type) {
-                    TriggerType.NPC -> {
-                        val npcId = identifier.toIntOrNull()
-                        if (npcId != null) {
-                            npcRouletteMap[npcId] = rouletteId
+                        when (type) {
+                            TriggerType.NPC -> {
+                                val npcId = identifier.toIntOrNull()
+                                if (npcId != null) {
+                                    npcRouletteMap[npcId] = rouletteId
+                                }
+                            }
+                            TriggerType.NEXO -> {
+                                nexoRouletteMap[identifier] = rouletteId
+                            }
                         }
-                    }
-                    TriggerType.NEXO -> {
-                        nexoRouletteMap[identifier] = rouletteId
                     }
                 }
             }
@@ -586,15 +595,16 @@ class RouletteManager(
     fun getPlayerPlayCount(playerUuid: String, rouletteId: Int): Int {
         return try {
             database.getConnection().use { connection ->
-                val stmt = connection.prepareStatement(QUERY_COUNT_PLAYS)
-                stmt.setString(1, playerUuid)
-                stmt.setInt(2, rouletteId)
-                val rs = stmt.executeQuery()
-
-                if (rs.next()) {
-                    rs.getInt(1)
-                } else {
-                    0
+                connection.prepareStatement(QUERY_COUNT_PLAYS).use { stmt ->
+                    stmt.setString(1, playerUuid)
+                    stmt.setInt(2, rouletteId)
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            rs.getInt(1)
+                        } else {
+                            0
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -671,4 +681,54 @@ class RouletteManager(
      * Database 연결 가져오기 (히스토리 조회용)
      */
     fun getConnection(): java.sql.Connection = database.getConnection()
+
+    // ==================== 세션 관리 (중복 실행 방지) ====================
+
+    /**
+     * 플레이어의 활성 세션 시작
+     * @return true: 세션 시작 성공, false: 이미 진행 중인 세션이 있음
+     */
+    fun startSession(player: Player, gui: RouletteGUI): Boolean {
+        if (activeSessions.containsKey(player.uniqueId)) {
+            plugin.logger.warning("[Roulette] 플레이어 ${player.name}는 이미 룰렛을 진행 중입니다.")
+            return false
+        }
+
+        activeSessions[player.uniqueId] = gui
+        plugin.logger.info("[Roulette] 플레이어 ${player.name}의 룰렛 세션 시작")
+        return true
+    }
+
+    /**
+     * 플레이어의 활성 세션 가져오기
+     */
+    fun getSession(player: Player): RouletteGUI? {
+        return activeSessions[player.uniqueId]
+    }
+
+    /**
+     * 플레이어의 활성 세션 종료
+     */
+    fun endSession(player: Player) {
+        activeSessions.remove(player.uniqueId)
+        plugin.logger.info("[Roulette] 플레이어 ${player.name}의 룰렛 세션 종료")
+    }
+
+    /**
+     * 플레이어가 진행 중인 세션이 있는지 확인
+     */
+    fun hasActiveSession(player: Player): Boolean {
+        return activeSessions.containsKey(player.uniqueId)
+    }
+
+    /**
+     * 모든 활성 세션 정리 (플러그인 비활성화 시)
+     */
+    fun cleanupAllSessions() {
+        activeSessions.values.forEach { gui ->
+            gui.forceStop()
+        }
+        activeSessions.clear()
+        plugin.logger.info("[Roulette] 모든 룰렛 세션 정리 완료")
+    }
 }

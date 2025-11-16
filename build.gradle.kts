@@ -44,7 +44,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.zaxxer:HikariCP:5.0.1")
     compileOnly("com.nexomc:nexo:1.8.0")
@@ -103,7 +103,7 @@ kotlin {
 }
 
 tasks.runServer {
-    minecraftVersion("1.20.6")
+    minecraftVersion("1.20.10")
 }
 
 tasks.build {

@@ -30,16 +30,20 @@ class RouletteGUI(
     private var currentTick = 0
     private var winningItem: RouletteItem? = null
     private var isAnimating = false
-
-    // 애니메이션 설정
-    private val totalDuration = 150 // 전체 애니메이션 지속 시간 (틱) - 12개 슬롯이라 더 길게
-    private val winningSlot = 4 // 12시 방향 (선택 포인트)
+    private var awarded = false
 
     // 아이템 순환 리스트
     private val itemCycle = mutableListOf<ItemStack>()
     private var currentRotation = 0
 
     companion object {
+        // 애니메이션 설정 상수
+        private const val ANIMATION_DURATION = 150
+        private const val SLOT_WINNING = 4
+        private const val SLOT_HIGHLIGHT_ARROW = 13
+        private const val SLOT_CENTER_BUTTON = 22
+        private const val ITEM_CYCLE_COUNT = 25
+
         // 원형 슬롯 배치 (시계방향으로 12시부터 시작) - 12개 슬롯으로 큰 원형
         private val CIRCLE_SLOTS = listOf(
             4,   // 12시 방향 (맨 위 중앙) - 당첨 포인트
@@ -81,8 +85,8 @@ class RouletteGUI(
      */
     private fun calculateTotalMoves(): Int {
         var moves = 0
-        for (tick in 0 until totalDuration) {
-            val progress = tick.toDouble() / totalDuration
+        for (tick in 0 until ANIMATION_DURATION) {
+            val progress = tick.toDouble() / ANIMATION_DURATION
             val shouldMove = when {
                 progress < 0.3 -> tick % 1 == 0  // 처음 30%: 매 틱마다 이동
                 progress < 0.5 -> tick % 2 == 0  // 30-50%: 2틱마다 이동
@@ -114,9 +118,8 @@ class RouletteGUI(
         // 정확히 12개만 사용 (12개 초과로 등록된 경우 상위 12개만 사용)
         val displayItems = items.take(CIRCLE_SLOTS.size)
 
-        // 12개를 순서대로 25바퀴 반복 (12 * 25 = 300개)
-        val cycles = 25
-        for (cycle in 0 until cycles) {
+        // 12개를 순서대로 반복
+        for (cycle in 0 until ITEM_CYCLE_COUNT) {
             for (item in displayItems) {
                 val itemStack = item.toItemStack() ?: continue
                 itemCycle.add(itemStack.clone())
@@ -167,13 +170,13 @@ class RouletteGUI(
      * 선택 포인트 강조 (12시 방향)
      */
     private fun highlightCenterSlot() {
-        // 12시 방향 위쪽에 당첨 표시 (슬롯 13 - 2번째 줄 중앙)
+        // 12시 방향 위쪽에 당첨 표시
         val highlightItem = ItemStack(HIGHLIGHT_MATERIAL)
         val meta = highlightItem.itemMeta
         meta?.setDisplayName("§e§l▲ 당첨 ▲")
         meta?.lore = listOf("§7위쪽 아이템이 당첨됩니다!")
         highlightItem.itemMeta = meta
-        inventory.setItem(13, highlightItem) // 슬롯 4 아래 (화살표가 위를 가리킴)
+        inventory.setItem(SLOT_HIGHLIGHT_ARROW, highlightItem)
 
         // 중앙에 시작 버튼 아이템 배치
         val centerItem = ItemStack(CENTER_INFO_MATERIAL)
@@ -205,7 +208,7 @@ class RouletteGUI(
             "§e§l[ 클릭하여 룰렛 시작! ]"
         )
         centerItem.itemMeta = centerMeta
-        inventory.setItem(22, centerItem) // 중앙 슬롯
+        inventory.setItem(SLOT_CENTER_BUTTON, centerItem)
     }
 
     /**
@@ -264,19 +267,23 @@ class RouletteGUI(
             0.0
         }
 
-        // 즉시 DB에 히스토리 기록 (비용 차감 직후)
+        // 비용 기록 (열쇠 사용 시 0원)
         val config = manager.getRouletteById(rouletteId)
-        val costPaid = config?.costAmount ?: 0.0
-        manager.saveHistory(
-            rouletteId = rouletteId,
-            playerUuid = player.uniqueId.toString(),
-            playerName = player.name,
-            itemId = winningItem!!.id,
-            itemProvider = winningItem!!.itemProvider.name,
-            itemIdentifier = winningItem!!.itemIdentifier,
-            costPaid = costPaid,
-            probability = probability
-        )
+        val actualCost = if (paidWithKey) 0.0 else (config?.costAmount ?: 0.0)
+
+        // DB에 히스토리 기록 (비동기)
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            manager.saveHistory(
+                rouletteId = rouletteId,
+                playerUuid = player.uniqueId.toString(),
+                playerName = player.name,
+                itemId = winningItem!!.id,
+                itemProvider = winningItem!!.itemProvider.name,
+                itemIdentifier = winningItem!!.itemIdentifier,
+                costPaid = actualCost,
+                probability = probability
+            )
+        })
 
         // 아이템 순환 리스트 생성
         createItemCycle()
@@ -291,21 +298,21 @@ class RouletteGUI(
             ""
         )
         centerItem.itemMeta = centerMeta
-        inventory.setItem(22, centerItem)
+        inventory.setItem(SLOT_CENTER_BUTTON, centerItem)
 
         isAnimating = true
         currentTick = 0
         currentRotation = 0
 
         animationTask = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
-            if (currentTick >= totalDuration) {
+            if (currentTick >= ANIMATION_DURATION) {
                 // 애니메이션 종료
                 stopAnimation()
                 return@Runnable
             }
 
             // 속도 계산 (처음엔 빠르게, 점점 느려짐)
-            val progress = currentTick.toDouble() / totalDuration
+            val progress = currentTick.toDouble() / ANIMATION_DURATION
             val shouldMove = when {
                 progress < 0.3 -> currentTick % 1 == 0  // 처음 30%: 매 틱마다 이동
                 progress < 0.5 -> currentTick % 2 == 0  // 30-50%: 2틱마다 이동
@@ -339,13 +346,19 @@ class RouletteGUI(
         showWinningItem()
 
         // 파티클 효과
-        player.spawnParticle(Particle.FIREWORK, player.location.add(0.0, 2.0, 0.0), 50, 0.5, 0.5, 0.5, 0.1)
+        player.spawnParticle(Particle.END_ROD, player.location.add(0.0, 2.0, 0.0), 50, 0.5, 0.5, 0.5, 0.1)
 
         // 당첨 사운드
         player.playSound(player.location, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
 
         // 2초 후 아이템 지급 및 GUI 닫기
         plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            // 플레이어가 여전히 온라인인지 확인
+            if (!player.isOnline) {
+                plugin.logger.warning("[Roulette] 플레이어가 로그아웃하여 아이템 지급을 건너뜁니다. (플레이어: ${player.name})")
+                return@Runnable
+            }
+
             giveWinningItem()
             player.closeInventory()
         }, 40L)
@@ -374,8 +387,8 @@ class RouletteGUI(
         meta?.lore = originalLore
         winItem.itemMeta = meta
 
-        // 12시 방향(슬롯 4)에 당첨 아이템 배치
-        inventory.setItem(winningSlot, winItem)
+        // 12시 방향에 당첨 아이템 배치
+        inventory.setItem(SLOT_WINNING, winItem)
 
         // 주변 원형 슬롯을 비워서 당첨 아이템 강조
         for (i in 1 until CIRCLE_SLOTS.size) {
@@ -395,12 +408,20 @@ class RouletteGUI(
      * 당첨 아이템 지급
      */
     private fun giveWinningItem() {
+        // 중복 지급 방지
+        if (awarded) {
+            plugin.logger.warning("[Roulette] 아이템이 이미 지급되었습니다. (플레이어: ${player.name})")
+            return
+        }
+
         val winning = winningItem ?: return
 
         // 꽝 체크 (VANILLA + BARRIER)
         if (winning.itemProvider == ItemProvider.VANILLA && winning.itemIdentifier == "BARRIER") {
             player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
             player.playSound(player.location, Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f)
+            awarded = true
+            winningItem = null
             return
         }
 
@@ -415,7 +436,9 @@ class RouletteGUI(
             player.inventory.addItem(winItem)
         }
 
-        // 히스토리는 이미 네더별 클릭 시점에 기록되었으므로 여기서는 생략
+        // 지급 완료 플래그 설정
+        awarded = true
+        winningItem = null
     }
 
     /**
@@ -435,6 +458,12 @@ class RouletteGUI(
             animationTask = null
             isAnimating = false
 
+            // 중복 지급 방지
+            if (awarded) {
+                plugin.logger.warning("[Roulette] 아이템이 이미 지급되었습니다. (플레이어: ${player.name}, forceStop)")
+                return
+            }
+
             val winning = winningItem
 
             // 플레이어가 온라인인지 확인
@@ -444,10 +473,12 @@ class RouletteGUI(
                 // 꽝 체크 (VANILLA + BARRIER)
                 if (winning.itemProvider == ItemProvider.VANILLA && winning.itemIdentifier == "BARRIER") {
                     player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
+                    awarded = true
+                    winningItem = null
                     return
                 }
 
-                // 당첨 아이템 즉시 지급 (히스토리는 이미 네더별 클릭 시 기록됨)
+                // 당첨 아이템 즉시 지급
                 val winItem = winning.toItemStack()
                 if (winItem != null) {
                     // 인벤토리에 공간이 있는지 확인
@@ -461,6 +492,10 @@ class RouletteGUI(
                         player.sendMessage("§a당첨 아이템이 지급되었습니다! §f$itemName §ax${winItem.amount}")
                     }
                 }
+
+                // 지급 완료 플래그 설정
+                awarded = true
+                winningItem = null
             }
         }
     }

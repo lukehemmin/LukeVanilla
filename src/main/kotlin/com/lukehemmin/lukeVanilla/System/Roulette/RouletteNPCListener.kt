@@ -21,9 +21,6 @@ class RouletteNPCListener(
     private val economyManager: EconomyManager
 ) : Listener {
 
-    // 현재 열려있는 룰렛 GUI 추적
-    private val activeGUIs = mutableMapOf<Player, RouletteGUI>()
-
     /**
      * NPC 우클릭 이벤트 처리
      */
@@ -51,10 +48,10 @@ class RouletteNPCListener(
             return
         }
 
-        // 이미 룰렛을 플레이 중인지 확인
-        if (activeGUIs.containsKey(player)) {
+        // 이미 룰렛을 플레이 중인지 확인 (중앙 세션)
+        if (manager.hasActiveSession(player)) {
             // 진행 중인 GUI를 다시 열어줌
-            val existingGUI = activeGUIs[player]!!
+            val existingGUI = manager.getSession(player)!!
             player.openInventory(existingGUI.getInventory())
             player.sendMessage("§e진행 중인 룰렛 화면을 다시 열었습니다!")
             return
@@ -105,7 +102,13 @@ class RouletteNPCListener(
      */
     private fun openRoulette(player: Player, rouletteId: Int) {
         val gui = RouletteGUI(plugin, manager, player, rouletteId)
-        activeGUIs[player] = gui
+        
+        // 중앙 세션 관리에 등록
+        if (!manager.startSession(player, gui)) {
+            player.sendMessage("§c이미 룰렛을 진행 중입니다!")
+            return
+        }
+
         gui.open()
     }
 
@@ -115,24 +118,26 @@ class RouletteNPCListener(
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
-        val gui = activeGUIs[player] ?: return
+        val gui = manager.getSession(player) ?: return
 
-        // 룰렛 GUI의 제목 확인
-        if (event.view.title == "§6§l[ 룰렛 ]") {
-            event.isCancelled = true // 모든 클릭 차단
+        // 현재 클릭한 인벤토리가 이 GUI의 인벤토리인지 확인
+        if (event.view.topInventory != gui.getInventory()) {
+            return
+        }
 
-            // 클릭한 슬롯이 22번(중앙)이고, 네더별인지 확인
-            if (event.slot == 22) {
-                val clickedItem = event.currentItem
-                if (clickedItem?.type == org.bukkit.Material.NETHER_STAR) {
-                    // 비용 확인 및 차감
-                    if (!checkAndPayCost(player, gui.getRouletteId())) {
-                        return
-                    }
+        event.isCancelled = true // 모든 클릭 차단
 
-                    // 네더별 클릭 시 룰렛 시작
-                    gui.startAnimation()
+        // 클릭한 슬롯이 22번(중앙)이고, 네더별인지 확인
+        if (event.slot == 22) {
+            val clickedItem = event.currentItem
+            if (clickedItem?.type == org.bukkit.Material.NETHER_STAR) {
+                // 비용 확인 및 차감
+                if (!checkAndPayCost(player, gui.getRouletteId())) {
+                    return
                 }
+
+                // 네더별 클릭 시 룰렛 시작
+                gui.startAnimation()
             }
         }
     }
@@ -143,37 +148,33 @@ class RouletteNPCListener(
     @EventHandler
     fun onInventoryClose(event: InventoryCloseEvent) {
         val player = event.player as? Player ?: return
-        val gui = activeGUIs[player] ?: return
+        val gui = manager.getSession(player) ?: return
 
-        // 룰렛 GUI의 제목 확인
-        if (event.view.title == "§6§l[ 룰렛 ]") {
-            // GUI 닫힐 때 처리
-            gui.onClose()
+        // 현재 닫힌 인벤토리가 이 GUI의 인벤토리인지 확인
+        if (event.view.topInventory != gui.getInventory()) {
+            return
+        }
 
-            // 애니메이션이 진행 중이면 activeGUIs에서 제거하지 않음
-            // 나중에 NPC를 다시 우클릭하면 진행 중인 화면을 다시 볼 수 있음
-            if (!gui.isAnimating()) {
-                // 애니메이션이 끝났거나 시작하지 않았으면 제거
-                activeGUIs.remove(player)
-            } else {
-                // 애니메이션 중이면 메시지 출력
-                player.sendMessage("§7룰렛이 백그라운드에서 계속 돌아가고 있습니다.")
-                player.sendMessage("§7NPC를 다시 우클릭하면 화면을 볼 수 있습니다!")
-            }
+        // GUI 닫힐 때 처리
+        gui.onClose()
+
+        // 애니메이션이 진행 중이면 세션 유지
+        if (!gui.isAnimating()) {
+            // 애니메이션이 끝났거나 시작하지 않았으면 세션 종료
+            manager.endSession(player)
+        } else {
+            // 애니메이션 중이면 메시지 출력
+            player.sendMessage("§7룰렛이 백그라운드에서 계속 돌아가고 있습니다.")
+            player.sendMessage("§7NPC를 다시 우클릭하면 화면을 볼 수 있습니다!")
         }
     }
-
-    /**
-     * 활성 GUI 개수 조회 (디버깅용)
-     */
-    fun getActiveGUICount(): Int = activeGUIs.size
 
     /**
      * 플레이어의 활성 GUI 강제 제거 (플러그인 비활성화 시 등)
      */
     fun removeActiveGUI(player: Player) {
-        activeGUIs[player]?.forceStop()
-        activeGUIs.remove(player)
+        manager.getSession(player)?.forceStop()
+        manager.endSession(player)
         player.closeInventory()
     }
 
@@ -181,8 +182,6 @@ class RouletteNPCListener(
      * 모든 활성 GUI 정리
      */
     fun cleanup() {
-        activeGUIs.keys.toList().forEach { player ->
-            removeActiveGUI(player)
-        }
+        manager.cleanupAllSessions()
     }
 }

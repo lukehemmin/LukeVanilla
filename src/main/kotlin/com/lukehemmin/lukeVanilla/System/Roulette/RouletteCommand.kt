@@ -229,6 +229,17 @@ class RouletteCommand(
         val amount = args.getOrNull(5)?.toIntOrNull() ?: 1
         val weight = args.getOrNull(6)?.toDoubleOrNull() ?: 10.0
 
+        // 입력 검증
+        if (amount !in 1..64) {
+            sender.sendMessage("§c아이템 개수는 1에서 64 사이의 값이어야 합니다. (입력값: $amount)")
+            return
+        }
+
+        if (weight < 0.0 || weight > 1000000.0) {
+            sender.sendMessage("§c가중치는 0 이상 1,000,000 이하의 값이어야 합니다. (입력값: $weight)")
+            return
+        }
+
         if (manager.addItem(roulette.id, provider, identifier, identifier, amount, weight)) {
             sender.sendMessage("§a아이템을 추가했습니다: $identifier x$amount (가중치: $weight)")
         } else {
@@ -256,8 +267,13 @@ class RouletteCommand(
         }
 
         val weight = args[4].toDoubleOrNull()
-        if (weight == null || weight < 0) {
-            sender.sendMessage("§c가중치는 0 이상의 숫자여야 합니다.")
+        if (weight == null) {
+            sender.sendMessage("§c가중치는 숫자여야 합니다.")
+            return
+        }
+
+        if (weight < 0.0 || weight > 1000000.0) {
+            sender.sendMessage("§c가중치는 0 이상 1,000,000 이하의 값이어야 합니다. (입력값: $weight)")
             return
         }
 
@@ -464,8 +480,13 @@ class RouletteCommand(
         }
 
         val cost = args[3].toDoubleOrNull()
-        if (cost == null || cost < 0) {
-            sender.sendMessage("§c금액은 0 이상의 숫자여야 합니다.")
+        if (cost == null) {
+            sender.sendMessage("§c금액은 숫자여야 합니다.")
+            return
+        }
+
+        if (cost < 0.0 || cost > 1000000000.0) {
+            sender.sendMessage("§c금액은 0 이상 10억 이하의 값이어야 합니다. (입력값: $cost)")
             return
         }
 
@@ -628,8 +649,8 @@ class RouletteCommand(
      * 특정 룰렛의 플레이 히스토리 표시
      */
     private fun showRouletteHistory(player: Player, rouletteId: Int, rouletteName: String) {
-        try {
-            plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            try {
                 val query = """
                     SELECT item_identifier, item_provider, probability, COUNT(*) as count
                     FROM roulette_history
@@ -641,14 +662,11 @@ class RouletteCommand(
                 val results = mutableListOf<HistoryEntry>()
                 var totalCount = 0
 
-                plugin.server.scheduler.runTask(plugin, Runnable {
-                    try {
-                        manager.getConnection().use { connection ->
-                            val stmt = connection.prepareStatement(query)
-                            stmt.setString(1, player.uniqueId.toString())
-                            stmt.setInt(2, rouletteId)
-                            val rs = stmt.executeQuery()
-
+                manager.getConnection().use { connection ->
+                    connection.prepareStatement(query).use { stmt ->
+                        stmt.setString(1, player.uniqueId.toString())
+                        stmt.setInt(2, rouletteId)
+                        stmt.executeQuery().use { rs ->
                             while (rs.next()) {
                                 val count = rs.getInt("count")
                                 totalCount += count
@@ -660,44 +678,43 @@ class RouletteCommand(
                                     )
                                 )
                             }
-                            rs.close()
-                            stmt.close()
                         }
-
-                        if (results.isEmpty()) {
-                            player.sendMessage("§e'$rouletteName' 룰렛 플레이 기록이 없습니다.")
-                            return@Runnable
-                        }
-
-                        player.sendMessage("§b§l━━━━━━━━━━━━━━━━━━━━━━━")
-                        player.sendMessage("§e§l  $rouletteName 내 기록")
-                        player.sendMessage("§7  총 플레이 횟수: ${totalCount}회")
-                        player.sendMessage("")
-
-                        results.forEach { entry ->
-                            val percentStr = "%.4f".format(entry.probability)
-                            player.sendMessage("§7  • §e${entry.itemName} §fx${entry.count}회 §7(당첨확률: §a${percentStr}%§7)")
-                        }
-
-                        player.sendMessage("§b§l━━━━━━━━━━━━━━━━━━━━━━━")
-                    } catch (e: Exception) {
-                        player.sendMessage("§c기록 조회 중 오류가 발생했습니다: ${e.message}")
-                        e.printStackTrace()
                     }
+                }
+
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    if (results.isEmpty()) {
+                        player.sendMessage("§e'$rouletteName' 룰렛 플레이 기록이 없습니다.")
+                        return@Runnable
+                    }
+
+                    player.sendMessage("§b§l━━━━━━━━━━━━━━━━━━━━━━━")
+                    player.sendMessage("§e§l  $rouletteName 내 기록")
+                    player.sendMessage("§7  총 플레이 횟수: ${totalCount}회")
+                    player.sendMessage("")
+
+                    results.forEach { entry ->
+                        val percentStr = "%.4f".format(entry.probability)
+                        player.sendMessage("§7  • §e${entry.itemName} §fx${entry.count}회 §7(당첨확률: §a${percentStr}%§7)")
+                    }
+
+                    player.sendMessage("§b§l━━━━━━━━━━━━━━━━━━━━━━━")
                 })
-            })
-        } catch (e: Exception) {
-            player.sendMessage("§c기록 조회 중 오류가 발생했습니다: ${e.message}")
-            e.printStackTrace()
-        }
+            } catch (e: Exception) {
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    player.sendMessage("§c기록 조회 중 오류가 발생했습니다: ${e.message}")
+                })
+                e.printStackTrace()
+            }
+        })
     }
 
     /**
      * 모든 룰렛의 플레이 통계 표시
      */
     private fun showAllRoulettesHistory(player: Player) {
-        try {
-            plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            try {
                 val query = """
                     SELECT rh.roulette_id, rc.roulette_name, COUNT(*) as count
                     FROM roulette_history rh
@@ -710,51 +727,47 @@ class RouletteCommand(
                 val results = mutableListOf<Pair<String, Int>>()
                 var totalCount = 0
 
-                plugin.server.scheduler.runTask(plugin, Runnable {
-                    try {
-                        manager.getConnection().use { connection ->
-                            val stmt = connection.prepareStatement(query)
-                            stmt.setString(1, player.uniqueId.toString())
-                            val rs = stmt.executeQuery()
-
+                manager.getConnection().use { connection ->
+                    connection.prepareStatement(query).use { stmt ->
+                        stmt.setString(1, player.uniqueId.toString())
+                        stmt.executeQuery().use { rs ->
                             while (rs.next()) {
                                 val rouletteName = rs.getString("roulette_name")
                                 val count = rs.getInt("count")
                                 totalCount += count
                                 results.add(rouletteName to count)
                             }
-                            rs.close()
-                            stmt.close()
                         }
-
-                        if (results.isEmpty()) {
-                            player.sendMessage("§e룰렛 플레이 기록이 없습니다.")
-                            return@Runnable
-                        }
-
-                        player.sendMessage("§b§l━━━━━━━━━━━━━━━━━━━━━━━")
-                        player.sendMessage("§e§l  룰렛 전체 기록")
-                        player.sendMessage("§7  총 플레이 횟수: ${totalCount}회")
-                        player.sendMessage("")
-
-                        results.forEach { (rouletteName, count) ->
-                            player.sendMessage("§7  • §e$rouletteName§f: ${count}회")
-                        }
-
-                        player.sendMessage("")
-                        player.sendMessage("§7  💡 특정 룰렛의 상세 기록을 보려면:")
-                        player.sendMessage("§7     /룰렛 내기록 <룰렛이름>")
-                        player.sendMessage("§b§l━━━━━━━━━━━━━━━━━━━━━━━")
-                    } catch (e: Exception) {
-                        player.sendMessage("§c기록 조회 중 오류가 발생했습니다: ${e.message}")
-                        e.printStackTrace()
                     }
+                }
+
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    if (results.isEmpty()) {
+                        player.sendMessage("§e룰렛 플레이 기록이 없습니다.")
+                        return@Runnable
+                    }
+
+                    player.sendMessage("§b§l━━━━━━━━━━━━━━━━━━━━━━━")
+                    player.sendMessage("§e§l  룰렛 전체 기록")
+                    player.sendMessage("§7  총 플레이 횟수: ${totalCount}회")
+                    player.sendMessage("")
+
+                    results.forEach { (rouletteName, count) ->
+                        player.sendMessage("§7  • §e$rouletteName§f: ${count}회")
+                    }
+
+                    player.sendMessage("")
+                    player.sendMessage("§7  💡 특정 룰렛의 상세 기록을 보려면:")
+                    player.sendMessage("§7     /룰렛 내기록 <룰렛이름>")
+                    player.sendMessage("§b§l━━━━━━━━━━━━━━━━━━━━━━━")
                 })
-            })
-        } catch (e: Exception) {
-            player.sendMessage("§c기록 조회 중 오류가 발생했습니다: ${e.message}")
-            e.printStackTrace()
-        }
+            } catch (e: Exception) {
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    player.sendMessage("§c기록 조회 중 오류가 발생했습니다: ${e.message}")
+                })
+                e.printStackTrace()
+            }
+        })
     }
 
     /**
