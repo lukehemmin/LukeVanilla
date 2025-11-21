@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.FishMerchant
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
+import com.lukehemmin.lukeVanilla.System.Economy.TransactionType
 import net.citizensnpcs.api.CitizensAPI
 import net.citizensnpcs.api.npc.NPC
 import net.kyori.adventure.text.Component
@@ -217,7 +218,12 @@ class FishMerchantManager(
 
         // 돈 지급
         val totalPrice = price * amount
-        economyManager.addBalance(player, totalPrice)
+        economyManager.deposit(
+            player, 
+            totalPrice, 
+            TransactionType.SHOP_SELL, 
+            "물고기 판매: [${fishInfo.provider}] ${fishInfo.displayName} x$amount"
+        )
 
         player.sendMessage(
             Component.text("[${fishInfo.provider}] ${fishInfo.displayName} ${amount}개를 ", NamedTextColor.GREEN)

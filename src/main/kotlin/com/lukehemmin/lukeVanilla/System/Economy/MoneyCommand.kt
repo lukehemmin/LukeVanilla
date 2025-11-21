@@ -35,12 +35,38 @@ class MoneyCommand(private val economyManager: EconomyManager) : CommandExecutor
                     return true
                 }
 
-                if (economyManager.removeBalance(sender, amount)) {
-                    economyManager.addBalance(target, amount)
+                // EconomyService의 transfer 메서드 사용 (트랜잭션 안전)
+                val success = economyManager.service.transfer(
+                    sender, 
+                    target, 
+                    amount, 
+                    "${sender.name} -> ${target.name} 송금"
+                )
+
+                if (success) {
                     sender.sendMessage("§f${target.name}님께 §e${formatter.format(amount)}원§f을 보냈습니다.")
                     target.sendMessage("§f${sender.name}님으로부터 §e${formatter.format(amount)}원§f을 받았습니다.")
                 } else {
-                    sender.sendMessage("§c소지금이 부족합니다.")
+                    sender.sendMessage("§c소지금이 부족하거나 송금 중 오류가 발생했습니다.")
+                }
+            }
+
+            args[0] == "로그" || args[0] == "내역" -> {
+                sender.sendMessage("§e===== 최근 거래 내역 (로딩 중...) =====")
+                economyManager.service.getRecentLogs(sender).thenAccept { logs ->
+                    if (logs.isEmpty()) {
+                        sender.sendMessage("§7거래 내역이 없습니다.")
+                    } else {
+                        logs.forEach { log ->
+                            val amountColor = if (log.amount >= 0) "§a+" else "§c"
+                            val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(log.date)
+                            val desc = log.description ?: log.type.name
+                            
+                            sender.sendMessage("§7[$dateStr] $amountColor${formatter.format(log.amount)}원 §7($desc)")
+                            sender.sendMessage("§8  └ 잔액: ${formatter.format(log.balanceAfter)}원")
+                        }
+                    }
+                    sender.sendMessage("§e================================")
                 }
             }
 
@@ -60,6 +86,7 @@ class MoneyCommand(private val economyManager: EconomyManager) : CommandExecutor
             §e===== 돈 명령어 도움말 =====
             §f/돈 §7- 현재 소지금을 확인합니다.
             §f/돈 보내기 <플레이어> <금액> §7- 다른 플레이어에게 돈을 보냅니다.
+            §f/돈 내역 §7- 최근 거래 내역을 확인합니다.
             §f/돈 도움말 §7- 이 도움말을 표시합니다.
             §e========================
         """.trimIndent())

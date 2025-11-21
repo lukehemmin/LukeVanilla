@@ -8,6 +8,7 @@ import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Database.DatabaseInitializer
 import com.lukehemmin.lukeVanilla.System.Discord.*
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
+import com.lukehemmin.lukeVanilla.System.Economy.EconomyListener
 import com.lukehemmin.lukeVanilla.System.Economy.MoneyCommand
 import com.lukehemmin.lukeVanilla.System.Items.*
 import com.lukehemmin.lukeVanilla.System.Items.UpgradeItem
@@ -524,6 +525,7 @@ class Main : JavaPlugin() {
 
         // 돈 이코노미 시스템
         economyManager = EconomyManager(database)
+        server.pluginManager.registerEvents(EconomyListener(economyManager), this)
         getCommand("돈")?.setExecutor(MoneyCommand(economyManager))
         getCommand("ehs")?.setExecutor(MoneyCommand(economyManager))
 

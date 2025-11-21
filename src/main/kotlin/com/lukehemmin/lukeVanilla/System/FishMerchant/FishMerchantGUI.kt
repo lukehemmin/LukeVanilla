@@ -264,7 +264,12 @@ class FishMerchantGUI(
 
         // 경제 시스템에 돈 추가
         val economyManager = (plugin as com.lukehemmin.lukeVanilla.Main).economyManager
-        economyManager.addBalance(player, totalPrice)
+        economyManager.deposit(
+            player, 
+            totalPrice, 
+            com.lukehemmin.lukeVanilla.System.Economy.TransactionType.SHOP_SELL, 
+            "물고기 선택 판매 (GUI)"
+        )
 
         // 판매 기록 저장을 위한 맵 생성
         val itemsSoldMap = mutableMapOf<String, Int>()
@@ -355,7 +360,12 @@ class FishMerchantGUI(
         }
 
         val economyManager = (plugin as com.lukehemmin.lukeVanilla.Main).economyManager
-        economyManager.addBalance(player, totalPrice)
+        economyManager.deposit(
+            player, 
+            totalPrice, 
+            com.lukehemmin.lukeVanilla.System.Economy.TransactionType.SHOP_SELL, 
+            "물고기 전체 판매 (GUI)"
+        )
 
         player.closeInventory()
     }

@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.Roulette
 
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
+import com.lukehemmin.lukeVanilla.System.Economy.TransactionType
 import net.citizensnpcs.api.event.NPCRightClickEvent
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -77,7 +78,12 @@ class RouletteNPCListener(
                 }
 
                 // 돈 차감
-                economyManager.removeBalance(player, config.costAmount)
+                economyManager.withdraw(
+                    player, 
+                    config.costAmount, 
+                    TransactionType.ROULETTE, 
+                    "룰렛 플레이 비용 (ID: ${config.id})"
+                )
                 player.sendMessage("§e${config.costAmount}원이 차감되었습니다.")
                 true
             }
