@@ -181,71 +181,7 @@ class RouletteNexoListener(
         gui.open()
     }
 
-    /**
-     * 인벤토리 클릭 이벤트 (룰렛 GUI 내부 클릭 처리)
-     */
-    @EventHandler
-    fun onInventoryClick(event: InventoryClickEvent) {
-        val player = event.whoClicked as? Player ?: return
-        val gui = manager.getSession(player) ?: return
 
-        // 현재 클릭한 인벤토리가 이 GUI의 인벤토리인지 확인
-        if (event.view.topInventory != gui.getInventory()) {
-            return
-        }
-
-        event.isCancelled = true // 모든 클릭 차단
-
-        // 클릭한 슬롯이 22번(중앙)이고, 네더별인지 확인
-        if (event.slot == 22) {
-            val clickedItem = event.currentItem
-            if (clickedItem?.type == org.bukkit.Material.NETHER_STAR) {
-                // 이미 룰렛이 돌아가고 있는지 확인
-                if (gui.isAnimating()) {
-                    player.sendMessage("§c이미 룰렛이 돌아가고 있습니다!")
-                    return
-                }
-
-                // 열쇠로 이미 비용을 지불했는지 확인
-                if (!gui.isPaidWithKey()) {
-                    // 비용 확인 및 차감
-                    if (!checkAndPayCost(player, gui.getRouletteId())) {
-                        return
-                    }
-                }
-
-                // 네더별 클릭 시 룰렛 시작
-                gui.startAnimation()
-            }
-        }
-    }
-
-    /**
-     * 인벤토리 닫기 이벤트
-     */
-    @EventHandler
-    fun onInventoryClose(event: InventoryCloseEvent) {
-        val player = event.player as? Player ?: return
-        val gui = manager.getSession(player) ?: return
-
-        // 현재 닫힌 인벤토리가 이 GUI의 인벤토리인지 확인
-        if (event.view.topInventory != gui.getInventory()) {
-            return
-        }
-
-        // GUI 닫힐 때 처리
-        gui.onClose()
-
-        // 애니메이션이 진행 중이면 세션 유지
-        if (!gui.isAnimating()) {
-            // 애니메이션이 끝났거나 시작하지 않았으면 세션 종료
-            manager.endSession(player)
-        } else {
-            // 애니메이션 중이면 메시지 출력
-            player.sendMessage("§7룰렛이 백그라운드에서 계속 돌아가고 있습니다.")
-            player.sendMessage("§7가구를 다시 우클릭하면 화면을 볼 수 있습니다!")
-        }
-    }
 
     /**
      * 플레이어의 활성 GUI 강제 제거 (플러그인 비활성화 시 등)

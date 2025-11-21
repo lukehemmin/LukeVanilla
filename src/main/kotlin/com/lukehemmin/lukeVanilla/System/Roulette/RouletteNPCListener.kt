@@ -143,9 +143,12 @@ class RouletteNPCListener(
                     return
                 }
 
-                // 비용 확인 및 차감
-                if (!checkAndPayCost(player, gui.getRouletteId())) {
-                    return
+                // 열쇠로 이미 비용을 지불했는지 확인 (Nexo 등으로 열었을 경우)
+                if (!gui.isPaidWithKey()) {
+                    // 비용 확인 및 차감
+                    if (!checkAndPayCost(player, gui.getRouletteId())) {
+                        return
+                    }
                 }
 
                 // 네더별 클릭 시 룰렛 시작
