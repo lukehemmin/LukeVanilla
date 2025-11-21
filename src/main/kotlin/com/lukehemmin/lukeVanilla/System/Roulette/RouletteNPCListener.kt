@@ -191,6 +191,19 @@ class RouletteNPCListener(
     }
 
     /**
+     * 플레이어 퇴장 시 세션 정리
+     */
+    @EventHandler
+    fun onPlayerQuit(event: org.bukkit.event.player.PlayerQuitEvent) {
+        val player = event.player
+        if (manager.hasActiveSession(player)) {
+            // 세션 강제 종료 (아이템 지급 등은 forceStop 내부에서 처리됨)
+            manager.getSession(player)?.forceStop()
+            manager.endSession(player)
+        }
+    }
+
+    /**
      * 모든 활성 GUI 정리
      */
     fun cleanup() {
