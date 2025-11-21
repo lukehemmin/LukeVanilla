@@ -185,6 +185,14 @@ commands:
     usage: "/빼빼로보상 [추가|등록|재고|목록|제거|초기화] <인자>"
     permission: "lukevanilla.pepero.gifticon.admin"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+  market:
+    description: "플리마켓 중고장터를 열거나 아이템을 등록합니다."
+    usage: "/market [sell <가격>|history]"
+    aliases: [플마]
+  플마:
+    description: "플리마켓 중고장터를 열거나 아이템을 등록합니다."
+    usage: "/플마 [판매 <가격>|내역]"
+    aliases: [market]
 
 permissions:
   lukevanilla.nametag:

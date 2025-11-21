@@ -206,6 +206,38 @@ class Player_Join_And_Quit_Message_Listener(private val serviceType: String, pri
                 mapLink.clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, "https://map.mine.lukehemmin.com/")
                 player.spigot().sendMessage(mapLink)
                 player.sendMessage("")
+
+                // 플리마켓 판매 알림 (야생 서버에서만 실행)
+                try {
+                    val mainPlugin = plugin as com.lukehemmin.lukeVanilla.Main
+                    val fleaMarketManager = mainPlugin.fleaMarketManager
+                    
+                    if (fleaMarketManager != null) {
+                        val unnotifiedSales = fleaMarketManager.service.getUnnotifiedSales(player.uniqueId)
+                        
+                        if (unnotifiedSales.isNotEmpty()) {
+                            player.sendMessage("§6§l━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                            player.sendMessage("§a§l               [플리마켓 판매 알림]")
+                            player.sendMessage("§6§l━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                            
+                            unnotifiedSales.take(5).forEach { sale ->
+                                player.sendMessage("  §a§l[판매완료] §f${sale.itemName} §a-> §f${sale.counterpartName}§a님 (§f${sale.price.toLong()}원§a)")
+                                }
+                            
+                            if (unnotifiedSales.size > 5) {
+                                player.sendMessage("  §7... 외 ${unnotifiedSales.size - 5}건의 판매 기록")
+                            }
+                            
+                            player.sendMessage("§6§l━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                            player.sendMessage("")
+                            
+                            // 알림 확인 처리
+                            fleaMarketManager.service.markSalesAsNotified(player.uniqueId)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // 플리마켓 시스템이 초기화되지 않은 경우 무시
+                }
             }, 60L)
         } else if (serviceType == "Lobby") {
             // Lobby Server Join

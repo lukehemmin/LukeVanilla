@@ -53,6 +53,23 @@ class EconomyService(private val repository: EconomyRepository) {
         repository.insertLog(uuid, type, amount, newBalance, null, description)
     }
 
+    // [입금] 오프라인 플레이어 돈 지급 (UUID 직접 사용)
+    fun depositOffline(uuid: UUID, amount: Double, type: TransactionType, relatedUuid: UUID?, description: String) {
+        if (amount <= 0) return
+
+        val currentBalance = getOfflineBalance(uuid)
+        val newBalance = currentBalance + amount
+
+        // 1. 캐시 업데이트
+        balanceCache[uuid] = newBalance
+
+        // 2. DB 업데이트 (비동기)
+        repository.updateBalance(uuid, newBalance)
+
+        // 3. 로그 기록 (비동기)
+        repository.insertLog(uuid, type, amount, newBalance, relatedUuid, description)
+    }
+
     // [출금] 돈 차감
     fun withdraw(player: Player, amount: Double, type: TransactionType, description: String): Boolean {
         if (amount <= 0) return false
