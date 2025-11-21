@@ -137,6 +137,12 @@ class RouletteNPCListener(
         if (event.slot == 22) {
             val clickedItem = event.currentItem
             if (clickedItem?.type == org.bukkit.Material.NETHER_STAR) {
+                // 이미 룰렛이 돌아가고 있는지 확인
+                if (gui.isAnimating()) {
+                    player.sendMessage("§c이미 룰렛이 돌아가고 있습니다!")
+                    return
+                }
+
                 // 비용 확인 및 차감
                 if (!checkAndPayCost(player, gui.getRouletteId())) {
                     return
