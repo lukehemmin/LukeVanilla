@@ -10,6 +10,8 @@ Paper 1.21.x + Velocity 통합 플러그인</br>
 ## 소개
 LukeVanilla는 Kotlin(Gradle, ShadowJar)로 개발된 Paper/Velocity 통합 플러그인입니다. Discord(JDA) 연동, 마이랜드(청크 보호), 시즌 아이템/통계, 서버 간 통신(로비↔야생), HMCCosmetics/Custom-Crops/Nexo 등 다양한 플러그인과의 연동을 통해 서버 운영 전반을 지원합니다.
 
+<iframe style="width:728px;height:90px;max-width:100%;border:none;display:block;margin:auto" src="https://ko.namemc.com/server/mine.lukehemmin.com/embed" width="728" height="90"></iframe>
+
 ## 주요 기능
 - 디스코드 연동: 인증/역할 부여(DiscordAuth), 관리자 채팅 동기화, 티토커/음성채널 메시지 토글, 동적 음성채널, 고객지원 메시지/티켓, 아이템 복구 로그, 서버 상태 브로드캐스트, 관리자 어시스턴트(OpenAI 연동)
 - 서버 통합: 로비/야생 간 상태 요청/응답(PluginMessage), 종료 임박 알림 전송, Velocity 플러그인 동봉
