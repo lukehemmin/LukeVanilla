@@ -193,6 +193,11 @@ commands:
     description: "플리마켓 중고장터를 열거나 아이템을 등록합니다."
     usage: "/플마 [판매 <가격>|내역]"
     aliases: [market]
+  마을상인:
+    description: "마을 상인 NPC를 관리합니다."
+    usage: "/마을상인 [씨앗상인지정|교환상인지정|장비상인지정|토양받기상인지정|상인삭제|목록]"
+    permission: "villagemerchant.admin"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
 
 permissions:
   lukevanilla.nametag:
@@ -317,4 +322,7 @@ permissions:
     default: op
   lukevanilla.pepero.gifticon.admin:
     description: "빼빼로 기프티콘 보상 시스템 관리 권한"
+    default: op
+  villagemerchant.admin:
+    description: "마을 상인 시스템 관리 권한"
     default: op

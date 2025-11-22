@@ -89,6 +89,9 @@ class DatabaseInitializer(private val database: Database) {
         createPeperoGifticonRecipientsTable()
         createPeperoGifticonCodesTable()
 
+        // 마을 상인 시스템 테이블 생성 (NPC 매핑만)
+        createVillageMerchantNPCsTable()
+
         // 다른 테이블 생성 코드 추가 가능
     }
 
@@ -2028,7 +2031,27 @@ class DatabaseInitializer(private val database: Database) {
             )
         }
     }
+
+    /**
+     * 마을 상인 NPC 매핑 테이블 생성
+     */
+    private fun createVillageMerchantNPCsTable() {
+        database.getConnection().use { connection ->
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS villagemerchant_npcs (
+                    `shop_id` VARCHAR(100) PRIMARY KEY COMMENT '상점 타입 (seed_merchant, exchange_merchant 등)',
+                    `npc_id` INT NOT NULL COMMENT 'Citizens NPC ID',
+                    INDEX `idx_npc_id` (`npc_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='마을 상인 NPC 매핑'
+                """.trimIndent()
+            )
+        }
+    }
 }
+
+
 
 // Helper data class for tuples
 private data class Tuple6<A, B, C, D, E, F>(val a: A, val b: B, val c: C, val d: D, val e: E, val f: F)

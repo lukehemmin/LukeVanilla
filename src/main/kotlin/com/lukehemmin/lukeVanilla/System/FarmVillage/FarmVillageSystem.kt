@@ -17,7 +17,8 @@ class FarmVillageSystem(
     private lateinit var farmVillageManager: FarmVillageManager
     private lateinit var farmVillageCommand: FarmVillageCommand
     // private lateinit var weeklyScrollCommand: WeeklyScrollCommand // /농사마을 시스템 주차스크롤로 통합됨
-    private lateinit var farmItemRestrictionListener: FarmItemRestrictionListener
+    // FarmItemRestrictionListener는 비활성화됨 - 농사 아이템 지역 제한 해제
+    // private lateinit var farmItemRestrictionListener: FarmItemRestrictionListener
     // private lateinit var shopInteractListener: ShopInteractListener // NPC 기반 시스템으로 변경됨
     private lateinit var chestProtectionListener: ChestProtectionListener
     private lateinit var packageOpenListener: PackageOpenListener
@@ -31,7 +32,8 @@ class FarmVillageSystem(
         farmVillageManager = FarmVillageManager(plugin, farmVillageData, landManager, debugManager, luckPerms)
         farmVillageCommand = FarmVillageCommand(plugin, farmVillageManager)
         // weeklyScrollCommand = WeeklyScrollCommand(plugin, farmVillageManager) // /농사마을 시스템 주차스크롤로 통합됨
-        farmItemRestrictionListener = FarmItemRestrictionListener(plugin, farmVillageManager, debugManager)
+        // FarmItemRestrictionListener는 비활성화됨 - 농사 아이템 지역 제한 해제
+        // farmItemRestrictionListener = FarmItemRestrictionListener(plugin, farmVillageManager, debugManager)
         // shopInteractListener 초기화 제거됨 - NPC 기반 시스템으로 변경됨
         chestProtectionListener = ChestProtectionListener(farmVillageManager, debugManager)
         packageOpenListener = PackageOpenListener(plugin, farmVillageManager)
@@ -41,7 +43,8 @@ class FarmVillageSystem(
         plugin.getCommand("농사마을")?.tabCompleter = farmVillageCommand
         // plugin.getCommand("주차스크롤")?.setExecutor(weeklyScrollCommand) // /농사마을 시스템 주차스크롤로 통합됨
         // plugin.getCommand("주차스크롤")?.tabCompleter = weeklyScrollCommand // /농사마을 시스템 주차스크롤로 통합됨
-        plugin.server.pluginManager.registerEvents(farmItemRestrictionListener, plugin)
+        // FarmItemRestrictionListener는 비활성화됨 - 농사 아이템 지역 제한 해제
+        // plugin.server.pluginManager.registerEvents(farmItemRestrictionListener, plugin)
         // shopInteractListener 등록 제거됨 - NPC 기반 시스템으로 변경됨
         plugin.server.pluginManager.registerEvents(chestProtectionListener, plugin)
         plugin.server.pluginManager.registerEvents(packageOpenListener, plugin)

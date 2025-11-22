@@ -40,12 +40,13 @@ class FarmVillageManager(
 ) : Listener {
 
     private val packageEditGUI = PackageEditGUI(plugin, farmVillageData)
-    private val seedMerchantGUI = SeedMerchantGUI(plugin, this)
-    private val exchangeMerchantGUI = ExchangeMerchantGUI(plugin)
-    private val equipmentMerchantGUI = EquipmentMerchantGUI(plugin, this)
+    val seedMerchantGUI = SeedMerchantGUI(plugin, this)
+    val exchangeMerchantGUI = ExchangeMerchantGUI(plugin)
+    val equipmentMerchantGUI = EquipmentMerchantGUI(plugin, this)
     private val tradeConfirmationGUI = TradeConfirmationGUI(plugin)
-    private val soilReceiveGUI = SoilReceiveGUI(plugin, this)
-    private val npcMerchantListener = NPCMerchantListener(this)
+    val soilReceiveGUI = SoilReceiveGUI(plugin, this)
+    // NPCMerchantListener는 VillageMerchant 시스템으로 이전됨
+    // private val npcMerchantListener = NPCMerchantListener(this)
     private val weeklyScrollRotationSystem = WeeklyScrollRotationSystem()
     private val weeklyScrollExchangeGUI = WeeklyScrollExchangeGUI(plugin, farmVillageData, weeklyScrollRotationSystem)
     private val gson = Gson()
@@ -65,7 +66,8 @@ class FarmVillageManager(
         plugin.server.pluginManager.registerEvents(equipmentMerchantGUI, plugin)
         plugin.server.pluginManager.registerEvents(tradeConfirmationGUI, plugin)
         plugin.server.pluginManager.registerEvents(soilReceiveGUI, plugin)
-        plugin.server.pluginManager.registerEvents(npcMerchantListener, plugin)
+        // NPCMerchantListener는 VillageMerchant 시스템으로 이전됨
+        // plugin.server.pluginManager.registerEvents(npcMerchantListener, plugin)
         plugin.server.pluginManager.registerEvents(weeklyScrollExchangeGUI, plugin)
         plugin.server.pluginManager.registerEvents(this, plugin)
         exchangeMerchantGUI.setFarmVillageManager(this)

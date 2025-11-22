@@ -74,6 +74,7 @@ class Main : JavaPlugin() {
     private var peperoEvent: com.lukehemmin.lukeVanilla.System.PeperoEvent.PeperoEvent? = null
     private var peperoGifticonListener: com.lukehemmin.lukeVanilla.System.PeperoGifticon.PeperoGifticonDiscordListener? = null
     var fleaMarketManager: FleaMarketManager? = null
+    private var villageMerchantSystem: com.lukehemmin.lukeVanilla.System.VillageMerchant.VillageMerchantSystem? = null
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -817,6 +818,28 @@ class Main : JavaPlugin() {
             logger.info("[FleaMarket] ${serviceType} 서버에서는 플리마켓 시스템이 비활성화됩니다.")
         }
 
+        // VillageMerchant 시스템 초기화 (야생 서버에서만 실행)
+        if (serviceType == "Vanilla") {
+            try {
+                farmVillageSystem?.let { farmVillage ->
+                    villageMerchantSystem = com.lukehemmin.lukeVanilla.System.VillageMerchant.VillageMerchantSystem(
+                        this,
+                        database,
+                        farmVillage.getFarmVillageManager()
+                    )
+                    villageMerchantSystem?.enable()
+                    logger.info("[VillageMerchant] 야생 서버에서 마을 상인 시스템이 성공적으로 초기화되었습니다.")
+                } ?: run {
+                    logger.warning("[VillageMerchant] FarmVillage 시스템이 초기화되지 않아 VillageMerchant를 초기화할 수 없습니다.")
+                }
+            } catch (e: Exception) {
+                logger.severe("[VillageMerchant] 마을 상인 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+                e.printStackTrace()
+            }
+        } else {
+            logger.info("[VillageMerchant] ${serviceType} 서버에서는 마을 상인 시스템이 비활성화됩니다.")
+        }
+
     }
 
     override fun onDisable() {
@@ -825,6 +848,9 @@ class Main : JavaPlugin() {
         
         // AdvancedLandClaiming 시스템 비활성화
         advancedLandSystem?.disable()
+        
+        // 마을 상인 시스템 비활성화
+        villageMerchantSystem?.disable()
         
         // 농장마을 시스템 비활성화
         farmVillageSystem?.disable()
