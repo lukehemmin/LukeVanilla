@@ -54,6 +54,14 @@ class FleaMarketRepository(private val database: Database) {
                                 INDEX idx_is_notified (is_notified)
                             )
                         """)
+
+                        // 3. NPC 테이블
+                        statement.executeUpdate("""
+                            CREATE TABLE IF NOT EXISTS flea_market_npcs (
+                                npc_id INT PRIMARY KEY,
+                                created_at BIGINT NOT NULL
+                            )
+                        """)
                     }
                 }
             } catch (e: SQLException) {
@@ -360,6 +368,70 @@ class FleaMarketRepository(private val database: Database) {
             } catch (e: SQLException) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    // ===== NPC 관련 =====
+
+    /**
+     * NPC 등록
+     */
+    fun registerNPC(npcId: Int): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync {
+            try {
+                database.getConnection().use { connection ->
+                    connection.prepareStatement("INSERT IGNORE INTO flea_market_npcs (npc_id, created_at) VALUES (?, ?)").use { stmt ->
+                        stmt.setInt(1, npcId)
+                        stmt.setLong(2, System.currentTimeMillis())
+                        stmt.executeUpdate() > 0
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+
+    /**
+     * NPC 삭제
+     */
+    fun unregisterNPC(npcId: Int): CompletableFuture<Boolean> {
+        return CompletableFuture.supplyAsync {
+            try {
+                database.getConnection().use { connection ->
+                    connection.prepareStatement("DELETE FROM flea_market_npcs WHERE npc_id = ?").use { stmt ->
+                        stmt.setInt(1, npcId)
+                        stmt.executeUpdate() > 0
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+
+    /**
+     * 등록된 모든 NPC ID 조회
+     */
+    fun getAllNPCsAsync(): CompletableFuture<Set<Int>> {
+        return CompletableFuture.supplyAsync {
+            val npcs = mutableSetOf<Int>()
+            try {
+                database.getConnection().use { connection ->
+                    connection.prepareStatement("SELECT npc_id FROM flea_market_npcs").use { stmt ->
+                        stmt.executeQuery().use { rs ->
+                            while (rs.next()) {
+                                npcs.add(rs.getInt("npc_id"))
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            npcs
         }
     }
 

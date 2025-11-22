@@ -12,7 +12,8 @@ import org.bukkit.entity.Player
  */
 class FleaMarketCommand(
     private val service: FleaMarketService,
-    private val gui: FleaMarketGUI
+    private val gui: FleaMarketGUI,
+    private val manager: FleaMarketManager
 ) : CommandExecutor, TabCompleter {
     
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
@@ -88,6 +89,48 @@ class FleaMarketCommand(
                 }
             }
             
+            "npc" -> {
+                if (!sender.isOp) {
+                    sender.sendMessage("§c권한이 없습니다.")
+                    return true
+                }
+                
+                if (args.size < 3) {
+                    sender.sendMessage("§c사용법: /market npc <add|remove> <npcId>")
+                    return true
+                }
+                
+                val action = args[1].lowercase()
+                val npcId = args[2].toIntOrNull()
+                
+                if (npcId == null) {
+                    sender.sendMessage("§cNPC ID는 숫자여야 합니다.")
+                    return true
+                }
+                
+                when (action) {
+                    "add", "추가" -> {
+                        if (manager.isMarketNPC(npcId)) {
+                            sender.sendMessage("§c이미 등록된 NPC입니다.")
+                        } else {
+                            manager.addNPC(npcId)
+                            sender.sendMessage("§aNPC(ID: $npcId)가 플리마켓 NPC로 등록되었습니다.")
+                        }
+                    }
+                    "remove", "제거" -> {
+                        if (!manager.isMarketNPC(npcId)) {
+                            sender.sendMessage("§c등록되지 않은 NPC입니다.")
+                        } else {
+                            manager.removeNPC(npcId)
+                            sender.sendMessage("§aNPC(ID: $npcId)가 플리마켓 NPC에서 제거되었습니다.")
+                        }
+                    }
+                    else -> {
+                        sender.sendMessage("§c사용법: /market npc <add|remove> <npcId>")
+                    }
+                }
+            }
+            
             "help", "도움말" -> {
                 sendHelpMessage(sender)
             }
@@ -110,12 +153,18 @@ class FleaMarketCommand(
         
         return when (args.size) {
             1 -> {
-                listOf("sell", "history", "help", "판매", "내역", "도움말")
-                    .filter { it.startsWith(args[0].lowercase()) }
+                val commands = mutableListOf("sell", "history", "help", "판매", "내역", "도움말")
+                if (sender.isOp) {
+                    commands.add("npc")
+                }
+                commands.filter { it.startsWith(args[0].lowercase()) }
             }
             2 -> {
                 if (args[0].lowercase() in listOf("history", "내역")) {
                     listOf("sell", "buy", "withdraw", "register", "판매", "구매", "회수", "등록")
+                        .filter { it.startsWith(args[1].lowercase()) }
+                } else if (args[0].lowercase() == "npc" && sender.isOp) {
+                    listOf("add", "remove", "추가", "제거")
                         .filter { it.startsWith(args[1].lowercase()) }
                 } else {
                     emptyList()
@@ -137,6 +186,9 @@ class FleaMarketCommand(
         player.sendMessage("  §e/market history §7- 거래 내역 조회")
         player.sendMessage("  §e/market history <유형> §7- 특정 유형 거래 내역")
         player.sendMessage("  §7  유형: sell(판매), buy(구매), withdraw(회수)")
+        if (player.isOp) {
+            player.sendMessage("  §c/market npc <add|remove> <npcId> §7- NPC 설정")
+        }
         player.sendMessage("§6§l━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     }
     

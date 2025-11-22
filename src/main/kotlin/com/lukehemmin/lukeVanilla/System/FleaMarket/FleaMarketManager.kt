@@ -22,6 +22,9 @@ class FleaMarketManager(
     val gui: FleaMarketGUI
     private val command: FleaMarketCommand
     
+    // NPC ID 캐시 (Concurrent Set)
+    private val npcCache = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+    
     init {
         // Repository 초기화
         repository = FleaMarketRepository(database)
@@ -33,7 +36,7 @@ class FleaMarketManager(
         gui = FleaMarketGUI(service)
         
         // Command 초기화
-        command = FleaMarketCommand(service, gui)
+        command = FleaMarketCommand(service, gui, this)
         
         // 초기화
         initialize()
@@ -47,6 +50,16 @@ class FleaMarketManager(
         Bukkit.getPluginManager().registerEvents(gui, plugin)
         Bukkit.getPluginManager().registerEvents(this, plugin)
         
+        // Citizens가 로드된 경우에만 NPC 리스너 등록
+        if (Bukkit.getPluginManager().getPlugin("Citizens") != null) {
+            try {
+                Bukkit.getPluginManager().registerEvents(FleaMarketNPCListener(this), plugin)
+                println("[플리마켓] Citizens NPC 리스너가 등록되었습니다.")
+            } catch (e: Exception) {
+                println("[플리마켓] Citizens NPC 리스너 등록 실패: ${e.message}")
+            }
+        }
+        
         // 명령어 등록
         plugin.getCommand("market")?.setExecutor(command)
         plugin.getCommand("market")?.tabCompleter = command
@@ -56,9 +69,50 @@ class FleaMarketManager(
         // 캐시 로드 (비동기, 5초 후)
         Bukkit.getScheduler().runTaskLater(plugin, Runnable {
             service.loadCache()
+            loadNPCCache()
         }, 100L)  // 5초 후 (100틱)
         
         println("[플리마켓] 플리마켓 시스템이 초기화되었습니다.")
+    }
+    
+    /**
+     * NPC 캐시 로드
+     */
+    fun loadNPCCache() {
+        repository.getAllNPCsAsync().thenAccept { npcs ->
+            npcCache.clear()
+            npcCache.addAll(npcs)
+            println("[플리마켓] ${npcs.size}개의 NPC를 로드했습니다.")
+        }
+    }
+    
+    /**
+     * NPC가 플리마켓 NPC인지 확인
+     */
+    fun isMarketNPC(npcId: Int): Boolean {
+        return npcCache.contains(npcId)
+    }
+    
+    /**
+     * NPC 추가
+     */
+    fun addNPC(npcId: Int) {
+        repository.registerNPC(npcId).thenAccept { success ->
+            if (success) {
+                npcCache.add(npcId)
+            }
+        }
+    }
+    
+    /**
+     * NPC 제거
+     */
+    fun removeNPC(npcId: Int) {
+        repository.unregisterNPC(npcId).thenAccept { success ->
+            if (success) {
+                npcCache.remove(npcId)
+            }
+        }
     }
     
     /**
