@@ -39,11 +39,18 @@ class SeedMerchantGUI(
 
         // 비동기로 아이템 로드
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
-            val items = villageMerchantData!!.getSeedMerchantItems()
-            
-            plugin.server.scheduler.runTask(plugin, Runnable {
-                openGUI(player, items, page)
-            })
+            try {
+                val items = villageMerchantData!!.getSeedMerchantItems()
+                
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    openGUI(player, items, page)
+                })
+            } catch (e: Exception) {
+                plugin.logger.severe("[SeedMerchant] Failed to load items: ${e.message}")
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    player.sendMessage(Component.text("상점 데이터를 불러오는 중 오류가 발생했습니다.", NamedTextColor.RED))
+                })
+            }
         })
     }
 
@@ -137,6 +144,11 @@ class SeedMerchantGUI(
     }
 
     @EventHandler
+    fun onInventoryClose(event: org.bukkit.event.inventory.InventoryCloseEvent) {
+        playerPages.remove(event.player.uniqueId)
+    }
+
+    @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
         val view = event.view
@@ -173,44 +185,77 @@ class SeedMerchantGUI(
         
         // 비동기로 데이터 가져와서 처리
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
-            val items = villageMerchantData!!.getSeedMerchantItems()
-            
-            // 클릭한 아이템이 Nexo 아이템인지 확인
-            val nexoId = NexoItems.idFromItem(displayItem)
-            
-            val matchedItem = items.find { dbItem ->
-                if (nexoId != null) {
-                    // Nexo 아이템인 경우 ID로 비교
-                    dbItem.itemId == nexoId
-                } else {
-                    // 바닐라 아이템인 경우 Type 이름으로 비교
-                    dbItem.itemId == displayItem.type.name
+            try {
+                val items = villageMerchantData!!.getSeedMerchantItems()
+                
+                // 클릭한 아이템이 Nexo 아이템인지 확인
+                val nexoId = NexoItems.idFromItem(displayItem)
+                
+                val matchedItem = items.find { dbItem ->
+                    if (nexoId != null) {
+                        // Nexo 아이템인 경우 ID로 비교
+                        dbItem.itemId == nexoId
+                    } else {
+                        // 바닐라 아이템인 경우 Type 이름으로 비교
+                        dbItem.itemId == displayItem.type.name
+                    }
                 }
-            }
-            
-            if (matchedItem != null) {
+                
+                if (matchedItem != null) {
+                    plugin.server.scheduler.runTask(plugin, Runnable {
+                        processTransaction(player, matchedItem, isShiftClick)
+                    })
+                } else {
+                    // 아이템을 찾지 못했을 경우
+                    plugin.logger.warning("[SeedMerchant] 구매 시도 중 아이템 매칭 실패. Display: ${nexoId ?: displayItem.type.name}")
+                    plugin.server.scheduler.runTask(plugin, Runnable {
+                        player.sendMessage(Component.text("상점 데이터와 일치하는 아이템을 찾을 수 없습니다.", NamedTextColor.RED))
+                    })
+                }
+            } catch (e: Exception) {
+                plugin.logger.severe("[SeedMerchant] Error during purchase: ${e.message}")
                 plugin.server.scheduler.runTask(plugin, Runnable {
-                    processTransaction(player, matchedItem, isShiftClick)
+                    player.sendMessage(Component.text("구매 처리 중 오류가 발생했습니다.", NamedTextColor.RED))
                 })
-            } else {
-                // 아이템을 찾지 못했을 경우
-                plugin.logger.warning("[SeedMerchant] 구매 시도 중 아이템 매칭 실패. Display: ${nexoId ?: displayItem.type.name}")
-                player.sendMessage(Component.text("상점 데이터와 일치하는 아이템을 찾을 수 없습니다.", NamedTextColor.RED))
             }
         })
     }
 
     private fun processTransaction(player: Player, itemData: SeedItem, isShiftClick: Boolean) {
+        // 가격 유효성 검사
+        if (itemData.price <= 0 || !itemData.price.isFinite()) {
+            player.sendMessage(Component.text("상품 정보에 오류가 있어 구매할 수 없습니다.", NamedTextColor.RED))
+            plugin.logger.warning("[SeedMerchant] Invalid price detected for item ${itemData.itemId}: ${itemData.price}")
+            return
+        }
+
         val amount = if (isShiftClick) 64 else 1
         val totalPrice = itemData.price * amount
+
+        if (!totalPrice.isFinite() || totalPrice <= 0) {
+            player.sendMessage(Component.text("결제 금액 계산 중 오류가 발생했습니다.", NamedTextColor.RED))
+            return
+        }
         
         val economy = plugin.economyManager
+        if (economy == null) {
+            player.sendMessage(Component.text("경제 시스템이 로드되지 않았습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 아이템 미리 확인 (결제 전)
+        val itemToGive = NexoItems.itemFromId(itemData.itemId)?.build() 
+            ?: Material.getMaterial(itemData.itemId)?.let { ItemStack(it) }
+
+        if (itemToGive == null) {
+            player.sendMessage(Component.text("아이템 데이터를 찾을 수 없어 구매를 취소했습니다.", NamedTextColor.RED))
+            plugin.logger.warning("[SeedMerchant] Unknown item ID during transaction: ${itemData.itemId}")
+            return
+        }
+        itemToGive.amount = amount
+
         if (economy.getBalance(player) >= totalPrice) {
             if (economy.withdraw(player, totalPrice, TransactionType.SHOP_BUY, "씨앗 상인 구매: ${itemData.itemId} x$amount")) {
-                val itemToGive = NexoItems.itemFromId(itemData.itemId)?.build() 
-                    ?: ItemStack(Material.getMaterial(itemData.itemId) ?: Material.STONE)
-                itemToGive.amount = amount
-                
                 val leftover = player.inventory.addItem(itemToGive)
                 if (leftover.isNotEmpty()) {
                     player.sendMessage(Component.text("인벤토리가 가득 차서 일부 아이템이 땅에 떨어졌습니다.", NamedTextColor.YELLOW))

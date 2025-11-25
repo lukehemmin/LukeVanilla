@@ -20,11 +20,9 @@ class VillageMerchantData(
      * NPC ID로 상점 타입 조회 (비동기)
      */
     fun getShopIdByNPCAsync(npcId: Int): CompletableFuture<String?> {
-        return CompletableFuture.supplyAsync({
+        return CompletableFuture.supplyAsync {
             getShopIdByNPC(npcId)
-        }, plugin.server.scheduler.let { org.bukkit.Bukkit.getScheduler() }.run {
-            java.util.concurrent.Executors.newCachedThreadPool()
-        })
+        }
     }
 
     /**
@@ -50,9 +48,9 @@ class VillageMerchantData(
      * 상점 ID로 NPC ID 조회 (비동기)
      */
     fun getNPCIdByShopIdAsync(shopId: String): CompletableFuture<Int?> {
-        return CompletableFuture.supplyAsync({
+        return CompletableFuture.supplyAsync {
             getNPCIdByShopId(shopId)
-        }, java.util.concurrent.Executors.newCachedThreadPool())
+        }
     }
 
     /**
@@ -78,7 +76,7 @@ class VillageMerchantData(
      * NPC 상인 저장 (비동기)
      */
     fun saveNPCMerchantAsync(shopId: String, npcId: Int): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return CompletableFuture.supplyAsync {
             try {
                 saveNPCMerchant(shopId, npcId)
                 true
@@ -86,7 +84,7 @@ class VillageMerchantData(
                 e.printStackTrace()
                 false
             }
-        }, java.util.concurrent.Executors.newCachedThreadPool())
+        }
     }
 
     /**
@@ -111,14 +109,14 @@ class VillageMerchantData(
      * NPC 상인 삭제 (비동기)
      */
     fun removeNPCMerchantAsync(shopId: String): CompletableFuture<Boolean> {
-        return CompletableFuture.supplyAsync({
+        return CompletableFuture.supplyAsync {
             try {
                 removeNPCMerchant(shopId)
             } catch (e: Exception) {
                 e.printStackTrace()
                 false
             }
-        }, java.util.concurrent.Executors.newCachedThreadPool())
+        }
     }
 
     /**
@@ -139,9 +137,9 @@ class VillageMerchantData(
      * 모든 NPC 상인 조회 (비동기)
      */
     fun getAllNPCMerchantsAsync(): CompletableFuture<List<NPCMerchant>> {
-        return CompletableFuture.supplyAsync({
+        return CompletableFuture.supplyAsync {
             getAllNPCMerchants()
-        }, java.util.concurrent.Executors.newCachedThreadPool())
+        }
     }
 
     /**
