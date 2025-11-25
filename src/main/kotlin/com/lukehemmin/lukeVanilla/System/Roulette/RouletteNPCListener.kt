@@ -139,7 +139,8 @@ class RouletteNPCListener(
             if (clickedItem?.type == org.bukkit.Material.NETHER_STAR) {
                 // 이미 룰렛이 돌아가고 있는지 확인
                 if (gui.isAnimating()) {
-                    player.sendMessage("§c이미 룰렛이 돌아가고 있습니다!")
+                    // 애니메이션 건너뛰기
+                    gui.skipAnimation()
                     return
                 }
 

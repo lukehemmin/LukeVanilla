@@ -295,7 +295,8 @@ class RouletteGUI(
         centerMeta?.lore = listOf(
             "",
             "§e잠시만 기다려주세요!",
-            ""
+            "",
+            "§7§l[ 클릭하여 건너뛰기 ]"
         )
         centerItem.itemMeta = centerMeta
         inventory.setItem(SLOT_CENTER_BUTTON, centerItem)
@@ -499,6 +500,45 @@ class RouletteGUI(
             }
         }
     }
+
+    /**
+     * 애니메이션 건너뛰기 (플레이어가 중앙 버튼 클릭 시 호출)
+     */
+    fun skipAnimation() {
+        // 애니메이션 중이 아니면 무시
+        if (!isAnimating) {
+            return
+        }
+
+        // 애니메이션 작업 취소
+        animationTask?.cancel()
+        animationTask = null
+        isAnimating = false
+
+        player.sendMessage("§e룰렛을 건너뛰었습니다!")
+
+        // 최종 당첨 아이템 표시
+        showWinningItem()
+
+        // 파티클 효과
+        player.spawnParticle(Particle.END_ROD, player.location.add(0.0, 2.0, 0.0), 50, 0.5, 0.5, 0.5, 0.1)
+
+        // 당첨 사운드
+        player.playSound(player.location, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
+
+        // 1초 후 아이템 지급 및 GUI 닫기 (건너뛰었으므로 더 빨리)
+        plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            // 플레이어가 여전히 온라인인지 확인
+            if (!player.isOnline) {
+                plugin.logger.warning("[Roulette] 플레이어가 로그아웃하여 아이템 지급을 건너뜁니다. (플레이어: ${player.name})")
+                return@Runnable
+            }
+
+            giveWinningItem()
+            player.closeInventory()
+        }, 20L) // 2초가 아닌 1초로 단축
+    }
+
 
     /**
      * 현재 애니메이션 중인지 확인
