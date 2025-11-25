@@ -27,10 +27,12 @@ class VillageMerchantSystem(
         data = VillageMerchantData(plugin, database)
 
         // GUI 인스턴스 가져오기 (FarmVillage에서 공유)
-        val seedMerchantGUI = SeedMerchantGUI(plugin, farmVillageManager)
-        val exchangeMerchantGUI = ExchangeMerchantGUI(plugin)
-        val equipmentMerchantGUI = EquipmentMerchantGUI(plugin, farmVillageManager)
-        val soilReceiveGUI = SoilReceiveGUI(plugin, farmVillageManager)
+        val seedMerchantGUI = farmVillageManager.seedMerchantGUI
+        seedMerchantGUI.setVillageMerchantData(data)
+        
+        val exchangeMerchantGUI = farmVillageManager.exchangeMerchantGUI
+        val equipmentMerchantGUI = farmVillageManager.equipmentMerchantGUI
+        val soilReceiveGUI = farmVillageManager.soilReceiveGUI
 
         // Manager 초기화
         manager = VillageMerchantManager(

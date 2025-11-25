@@ -166,7 +166,49 @@ class VillageMerchantData(
             merchants
         }
     }
+
+    /**
+     * 씨앗 상인 아이템 목록 조회 (동기)
+     */
+    fun getSeedMerchantItems(): List<SeedItem> {
+        return database.getConnection().use { connection ->
+            // 테이블이 존재하는지 확인 (없으면 생성)
+            connection.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS villagemerchant_seeds (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    item_id VARCHAR(255) NOT NULL,
+                    price DOUBLE NOT NULL
+                )
+            """)
+
+            val statement = connection.createStatement()
+            val resultSet = statement.executeQuery(
+                "SELECT * FROM villagemerchant_seeds ORDER BY id ASC"
+            )
+            
+            val items = mutableListOf<SeedItem>()
+            while (resultSet.next()) {
+                items.add(
+                    SeedItem(
+                        id = resultSet.getInt("id"),
+                        itemId = resultSet.getString("item_id"),
+                        price = resultSet.getDouble("price")
+                    )
+                )
+            }
+            items
+        }
+    }
 }
+
+/**
+ * 씨앗 상인 아이템 데이터 클래스
+ */
+data class SeedItem(
+    val id: Int,
+    val itemId: String,
+    val price: Double
+)
 
 /**
  * NPC 상인 데이터 클래스
