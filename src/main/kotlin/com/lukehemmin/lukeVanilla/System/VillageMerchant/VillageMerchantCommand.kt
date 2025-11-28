@@ -43,11 +43,17 @@ class VillageMerchantCommand(
 
         when (args[0].lowercase()) {
             "씨앗상인지정" -> handleSetNPCMerchant(sender, "seed_merchant", "씨앗 상인")
-            "교환상인지정" -> handleSetNPCMerchant(sender, "exchange_merchant", "교환 상인")
-            "장비상인지정" -> handleSetNPCMerchant(sender, "equipment_merchant", "장비 상인")
-            "토양받기상인지정" -> handleSetNPCMerchant(sender, "soil_receive_merchant", "토양받기 상인")
+            "농산물판매상인지정" -> handleSetNPCMerchant(sender, "crop_sell_merchant", "농산물 판매 상인")
+            "비료상인지정" -> handleSetNPCMerchant(sender, "fertilizer_merchant", "비료 상인")
+            "토양및물품상인지정" -> handleSetNPCMerchant(sender, "soil_goods_merchant", "토양 및 물품 상인")
             "상인삭제" -> handleRemoveNPCMerchant(sender, args)
             "목록" -> handleListMerchants(sender)
+            "리로드", "reload" -> {
+                manager.reload()
+                sender.sendMessage(Component.text("농사 상점 시스템을 리로드했습니다.", NamedTextColor.GREEN))
+                sender.sendMessage(Component.text("- 아이템 캐시가 초기화되었습니다.", NamedTextColor.GRAY))
+                sender.sendMessage(Component.text("- NPC 상인 데이터가 갱신되었습니다.", NamedTextColor.GRAY))
+            }
             else -> sendUsage(sender)
         }
 
@@ -95,15 +101,15 @@ class VillageMerchantCommand(
     private fun handleRemoveNPCMerchant(player: Player, args: Array<out String>) {
         if (args.size < 2) {
             player.sendMessage(Component.text("사용법: /농사상점 상인삭제 <상인타입>", NamedTextColor.YELLOW))
-            player.sendMessage(Component.text("상인타입: seed, exchange, equipment, soil", NamedTextColor.GRAY))
+            player.sendMessage(Component.text("상인타입: seed, crop, fertilizer, soil", NamedTextColor.GRAY))
             return
         }
 
         val shopId = when (args[1].lowercase()) {
             "seed", "씨앗" -> "seed_merchant"
-            "exchange", "교환" -> "exchange_merchant"
-            "equipment", "장비" -> "equipment_merchant"
-            "soil", "토양" -> "soil_receive_merchant"
+            "crop", "농산물" -> "crop_sell_merchant"
+            "fertilizer", "비료" -> "fertilizer_merchant"
+            "soil", "토양", "물품" -> "soil_goods_merchant"
             else -> {
                 player.sendMessage(Component.text("알 수 없는 상인 타입입니다.", NamedTextColor.RED))
                 return
@@ -137,13 +143,13 @@ class VillageMerchantCommand(
                     return@Runnable
                 }
 
-                player.sendMessage(Component.text("=== 마을 상인 목록 ===", NamedTextColor.GOLD))
+                player.sendMessage(Component.text("=== 농사 상점 목록 ===", NamedTextColor.GOLD))
                 for (merchant in merchants) {
                     val shopName = when (merchant.shopId) {
                         "seed_merchant" -> "씨앗 상인"
-                        "exchange_merchant" -> "교환 상인"
-                        "equipment_merchant" -> "장비 상인"
-                        "soil_receive_merchant" -> "토양받기 상인"
+                        "crop_sell_merchant" -> "농산물 판매 상인"
+                        "fertilizer_merchant" -> "비료 상인"
+                        "soil_goods_merchant" -> "토양 및 물품 상인"
                         else -> merchant.shopId
                     }
                     player.sendMessage(
@@ -166,16 +172,18 @@ class VillageMerchantCommand(
         sender.sendMessage(Component.text("=== 농사 상점 명령어 ===", NamedTextColor.GOLD))
         sender.sendMessage(Component.text("/농사상점 씨앗상인지정", NamedTextColor.AQUA)
             .append(Component.text(" - 바라보는 NPC를 씨앗 상인으로 지정", NamedTextColor.GRAY)))
-        sender.sendMessage(Component.text("/농사상점 교환상인지정", NamedTextColor.AQUA)
-            .append(Component.text(" - 바라보는 NPC를 교환 상인으로 지정", NamedTextColor.GRAY)))
-        sender.sendMessage(Component.text("/농사상점 장비상인지정", NamedTextColor.AQUA)
-            .append(Component.text(" - 바라보는 NPC를 장비 상인으로 지정", NamedTextColor.GRAY)))
-        sender.sendMessage(Component.text("/농사상점 토양받기상인지정", NamedTextColor.AQUA)
-            .append(Component.text(" - 바라보는 NPC를 토양받기 상인으로 지정", NamedTextColor.GRAY)))
+        sender.sendMessage(Component.text("/농사상점 농산물판매상인지정", NamedTextColor.AQUA)
+            .append(Component.text(" - 바라보는 NPC를 농산물 판매 상인으로 지정", NamedTextColor.GRAY)))
+        sender.sendMessage(Component.text("/농사상점 비료상인지정", NamedTextColor.AQUA)
+            .append(Component.text(" - 바라보는 NPC를 비료 상인으로 지정", NamedTextColor.GRAY)))
+        sender.sendMessage(Component.text("/농사상점 토양및물품상인지정", NamedTextColor.AQUA)
+            .append(Component.text(" - 바라보는 NPC를 토양 및 물품 상인으로 지정", NamedTextColor.GRAY)))
         sender.sendMessage(Component.text("/농사상점 상인삭제 <타입>", NamedTextColor.AQUA)
             .append(Component.text(" - 등록된 상인 삭제", NamedTextColor.GRAY)))
         sender.sendMessage(Component.text("/농사상점 목록", NamedTextColor.AQUA)
             .append(Component.text(" - 등록된 상인 목록 보기", NamedTextColor.GRAY)))
+        sender.sendMessage(Component.text("/농사상점 리로드", NamedTextColor.AQUA)
+            .append(Component.text(" - 데이터 및 캐시 리로드", NamedTextColor.GRAY)))
     }
 
     override fun onTabComplete(
@@ -187,13 +195,13 @@ class VillageMerchantCommand(
         if (!sender.hasPermission("villagemerchant.admin")) return mutableListOf()
 
         if (args.size == 1) {
-            return mutableListOf("씨앗상인지정", "교환상인지정", "장비상인지정", "토양받기상인지정", "상인삭제", "목록")
+            return mutableListOf("씨앗상인지정", "농산물판매상인지정", "비료상인지정", "토양및물품상인지정", "상인삭제", "목록", "리로드")
                 .filter { it.startsWith(args[0], ignoreCase = true) }
                 .toMutableList()
         }
 
         if (args.size == 2 && args[0].equals("상인삭제", ignoreCase = true)) {
-            return mutableListOf("seed", "씨앗", "exchange", "교환", "equipment", "장비", "soil", "토양")
+            return mutableListOf("seed", "씨앗", "crop", "농산물", "fertilizer", "비료", "soil", "토양", "물품")
                 .filter { it.startsWith(args[1], ignoreCase = true) }
                 .toMutableList()
         }

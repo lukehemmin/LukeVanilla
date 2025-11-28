@@ -18,9 +18,6 @@ class VillageMerchantManager(
     private val plugin: Main,
     private val data: VillageMerchantData,
     private val seedMerchantGUI: SeedMerchantGUI,
-    private val exchangeMerchantGUI: ExchangeMerchantGUI,
-    private val equipmentMerchantGUI: EquipmentMerchantGUI,
-    private val soilReceiveGUI: SoilReceiveGUI,
     private val npcRouter: NPCInteractionRouter
 ) {
     
@@ -45,12 +42,12 @@ class VillageMerchantManager(
      */
     fun openShopGUI(player: Player, shopId: String) {
         when (shopId) {
-            "seed_merchant" -> openSeedMerchantGUI(player)
-            "exchange_merchant" -> openExchangeMerchantGUI(player)
-            "equipment_merchant" -> openEquipmentMerchantGUI(player)
-            "soil_receive_merchant" -> openSoilReceiveGUI(player)
+            "seed_merchant" -> seedMerchantGUI.open(player, "seed_merchant", "씨앗 상인")
+            "crop_sell_merchant" -> seedMerchantGUI.open(player, "crop_sell_merchant", "농산물 판매 상인")
+            "fertilizer_merchant" -> seedMerchantGUI.open(player, "fertilizer_merchant", "비료 상인")
+            "soil_goods_merchant" -> seedMerchantGUI.open(player, "soil_goods_merchant", "토양 및 물품 상인")
             else -> {
-                player.sendMessage(Component.text("이 상점은 아직 준비중입니다.", NamedTextColor.GRAY))
+                player.sendMessage(Component.text("알 수 없는 상점 타입입니다: $shopId", NamedTextColor.RED))
             }
         }
     }
@@ -126,30 +123,27 @@ class VillageMerchantManager(
     }
 
     /**
-     * 씨앗 상인 GUI 열기
+     * 시스템 리로드
+     * - 캐시 초기화
+     * - 상인 목록 재등록
+     */
+    fun reload() {
+        data.clearCache()
+        loadAndRegisterMerchants()
+        plugin.logger.info("[VillageMerchant] 시스템이 리로드되었습니다. (캐시 초기화 완료)")
+    }
+
+    /**
+     * 씨앗 상인 GUI 열기 (레거시 지원)
      */
     fun openSeedMerchantGUI(player: Player) {
-        seedMerchantGUI.open(player)
+        seedMerchantGUI.open(player, "seed_merchant", "씨앗 상인")
     }
 
-    /**
-     * 교환 상인 GUI 열기
-     */
-    fun openExchangeMerchantGUI(player: Player) {
-        exchangeMerchantGUI.openMainGui(player)
-    }
-
-    /**
-     * 장비 상인 GUI 열기
-     */
-    fun openEquipmentMerchantGUI(player: Player) {
-        equipmentMerchantGUI.open(player)
-    }
-
-    /**
-     * 토양받기 상인 GUI 열기
-     */
-    fun openSoilReceiveGUI(player: Player) {
-        soilReceiveGUI.open(player)
-    }
+    /*
+    // 사용하지 않는 GUI 메서드 제거
+    fun openExchangeMerchantGUI(player: Player) { ... }
+    fun openEquipmentMerchantGUI(player: Player) { ... }
+    fun openSoilReceiveGUI(player: Player) { ... }
+    */
 }

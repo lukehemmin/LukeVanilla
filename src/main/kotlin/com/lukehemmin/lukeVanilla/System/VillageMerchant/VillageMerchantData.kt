@@ -3,6 +3,7 @@ package com.lukehemmin.lukeVanilla.System.VillageMerchant
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 마을 상인 NPC 데이터 관리 클래스
@@ -15,6 +16,16 @@ class VillageMerchantData(
     private val plugin: JavaPlugin,
     private val database: Database
 ) {
+    // 아이템 캐시 (상점 타입 -> 아이템 목록)
+    private val itemCache = ConcurrentHashMap<String, List<MerchantItem>>()
+
+    /**
+     * 캐시 초기화
+     * 리로드 명령어 실행 시 호출됨
+     */
+    fun clearCache() {
+        itemCache.clear()
+    }
 
     /**
      * NPC ID로 상점 타입 조회 (비동기)
@@ -166,38 +177,71 @@ class VillageMerchantData(
     }
 
     /**
-     * 씨앗 상인 아이템 목록 조회 (동기)
+     * 상점 아이템 목록 조회 (동기)
+     * shopType에 따라 다른 아이템을 불러옵니다.
+     * 모든 상점 아이템은 'villagemerchant_items' 통합 테이블에서 관리됩니다.
+     * 성능 최적화를 위해 캐싱을 사용합니다.
      */
-    fun getSeedMerchantItems(): List<SeedItem> {
+    fun getMerchantItems(shopType: String): List<MerchantItem> {
+        // 캐시에 있으면 캐시된 값 반환
+        if (itemCache.containsKey(shopType)) {
+            return itemCache[shopType]!!
+        }
+
         return database.getConnection().use { connection ->
-            // 테이블이 존재하는지 확인 (없으면 생성)
+            // 통합 아이템 테이블 생성 (없으면)
             connection.createStatement().execute("""
-                CREATE TABLE IF NOT EXISTS villagemerchant_seeds (
+                CREATE TABLE IF NOT EXISTS villagemerchant_items (
                     id INT AUTO_INCREMENT PRIMARY KEY,
+                    shop_type VARCHAR(50) NOT NULL,
                     item_id VARCHAR(255) NOT NULL,
-                    price DOUBLE NOT NULL
+                    price DOUBLE NOT NULL,
+                    INDEX idx_shop_type (shop_type)
                 )
             """)
 
-            val statement = connection.createStatement()
-            val resultSet = statement.executeQuery(
-                "SELECT * FROM villagemerchant_seeds ORDER BY id ASC"
+            val statement = connection.prepareStatement(
+                "SELECT * FROM villagemerchant_items WHERE shop_type = ? ORDER BY id ASC"
             )
+            statement.setString(1, shopType)
+            val resultSet = statement.executeQuery()
             
-            val items = mutableListOf<SeedItem>()
+            val items = mutableListOf<MerchantItem>()
             while (resultSet.next()) {
                 items.add(
-                    SeedItem(
+                    MerchantItem(
                         id = resultSet.getInt("id"),
                         itemId = resultSet.getString("item_id"),
                         price = resultSet.getDouble("price")
                     )
                 )
             }
+            
+            // 캐시에 저장
+            itemCache[shopType] = items
             items
         }
     }
+
+    /**
+     * 씨앗 상인 아이템 목록 조회 (동기) - 호환성 유지용
+     */
+    fun getSeedMerchantItems(): List<SeedItem> {
+        // 이제 내부적으로 통합 메서드를 호출합니다.
+        return getMerchantItems("seed_merchant").map { 
+            SeedItem(it.id, it.itemId, it.price) 
+        }
+    }
 }
+
+/**
+ * 상점 아이템 데이터 클래스 (공용)
+ */
+data class MerchantItem(
+    val id: Int,
+    val itemId: String,
+    val price: Double
+)
 
 /**
  * 씨앗 상인 아이템 데이터 클래스

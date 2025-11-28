@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.FarmVillage
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.VillageMerchant.VillageMerchantData
+import com.lukehemmin.lukeVanilla.System.VillageMerchant.MerchantItem
 import com.lukehemmin.lukeVanilla.System.VillageMerchant.SeedItem
 import com.lukehemmin.lukeVanilla.System.Economy.TransactionType
 import com.nexomc.nexo.api.NexoItems
@@ -26,27 +27,34 @@ class SeedMerchantGUI(
     private val itemSlots = listOf(10, 12, 14, 16, 28, 30, 32, 34)
     private val itemsPerPage = itemSlots.size
     private val playerPages = mutableMapOf<UUID, Int>()
+    // 플레이어가 현재 보고 있는 상점 타입 저장 (UUID -> ShopType)
+    private val playerShopTypes = mutableMapOf<UUID, String>()
+    private val playerShopTitles = mutableMapOf<UUID, String>()
 
     fun setVillageMerchantData(data: VillageMerchantData) {
         this.villageMerchantData = data
     }
 
-    fun open(player: Player, page: Int = 1) {
+    fun open(player: Player, shopType: String, shopTitle: String, page: Int = 1) {
         if (villageMerchantData == null) {
             player.sendMessage(Component.text("상점 데이터를 불러올 수 없습니다. (시스템 초기화 중)", NamedTextColor.RED))
             return
         }
+        
+        // 상점 정보 저장
+        playerShopTypes[player.uniqueId] = shopType
+        playerShopTitles[player.uniqueId] = shopTitle
 
         // 비동기로 아이템 로드
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
             try {
-                val items = villageMerchantData!!.getSeedMerchantItems()
+                val items = villageMerchantData!!.getMerchantItems(shopType)
                 
                 plugin.server.scheduler.runTask(plugin, Runnable {
-                    openGUI(player, items, page)
+                    openGUI(player, items, shopTitle, page)
                 })
             } catch (e: Exception) {
-                plugin.logger.severe("[SeedMerchant] Failed to load items: ${e.message}")
+                plugin.logger.severe("[VillageShop] Failed to load items for $shopType: ${e.message}")
                 plugin.server.scheduler.runTask(plugin, Runnable {
                     player.sendMessage(Component.text("상점 데이터를 불러오는 중 오류가 발생했습니다.", NamedTextColor.RED))
                 })
@@ -54,12 +62,12 @@ class SeedMerchantGUI(
         })
     }
 
-    private fun openGUI(player: Player, items: List<SeedItem>, page: Int) {
+    private fun openGUI(player: Player, items: List<MerchantItem>, title: String, page: Int) {
         val totalPages = maxOf(1, (items.size + itemsPerPage - 1) / itemsPerPage)
         val currentPage = page.coerceIn(1, totalPages)
         playerPages[player.uniqueId] = currentPage
 
-        val inv = Bukkit.createInventory(null, 54, Component.text("씨앗 상인 (페이지 $currentPage/$totalPages)"))
+        val inv = Bukkit.createInventory(null, 54, Component.text("$title (페이지 $currentPage/$totalPages)"))
 
         // 배경 설정 (유리판)
         // 모든 슬롯을 유리판으로 초기화하므로, 아이템이 배치되지 않은 빈 공간은 자동으로 유리판이 유지됩니다.
@@ -112,21 +120,21 @@ class SeedMerchantGUI(
         player.openInventory(inv)
     }
 
-    private fun createDisplayItem(seedItem: SeedItem): ItemStack {
+    private fun createDisplayItem(itemData: MerchantItem): ItemStack {
         // 1. Nexo 아이템 확인
-        val nexoBuilder = NexoItems.itemFromId(seedItem.itemId)
+        val nexoBuilder = NexoItems.itemFromId(itemData.itemId)
         val item = if (nexoBuilder != null) {
             nexoBuilder.build()
         } else {
             // 2. 바닐라 아이템 확인
-            val material = Material.getMaterial(seedItem.itemId)
+            val material = Material.getMaterial(itemData.itemId)
             if (material != null) {
                 ItemStack(material)
             } else {
                 // 3. 아이템을 찾을 수 없는 경우
-                plugin.logger.warning("[SeedMerchant] 알 수 없는 아이템 ID: ${seedItem.itemId}")
+                plugin.logger.warning("[VillageShop] 알 수 없는 아이템 ID: ${itemData.itemId}")
                 ItemStack(Material.BARRIER).apply {
-                    editMeta { it.displayName(Component.text("알 수 없는 아이템: ${seedItem.itemId}", NamedTextColor.RED)) }
+                    editMeta { it.displayName(Component.text("알 수 없는 아이템: ${itemData.itemId}", NamedTextColor.RED)) }
                 }
             }
         }
@@ -134,7 +142,7 @@ class SeedMerchantGUI(
         val meta = item.itemMeta
         val lore = meta.lore() ?: mutableListOf()
         lore.add(Component.text(""))
-        lore.add(Component.text("가격: ${String.format("%,.0f", seedItem.price)}원", NamedTextColor.GOLD))
+        lore.add(Component.text("가격: ${String.format("%,.0f", itemData.price)}원", NamedTextColor.GOLD))
         lore.add(Component.text(""))
         lore.add(Component.text("좌클릭: 1개 구매", NamedTextColor.YELLOW))
         lore.add(Component.text("Shift + 좌클릭: 64개 구매", NamedTextColor.YELLOW))
@@ -146,6 +154,8 @@ class SeedMerchantGUI(
     @EventHandler
     fun onInventoryClose(event: org.bukkit.event.inventory.InventoryCloseEvent) {
         playerPages.remove(event.player.uniqueId)
+        playerShopTypes.remove(event.player.uniqueId)
+        playerShopTitles.remove(event.player.uniqueId)
     }
 
     @EventHandler
@@ -154,8 +164,14 @@ class SeedMerchantGUI(
         val view = event.view
         val title = view.title()
         
+        // 상점 제목 확인 (저장된 타이틀로 확인하거나, 포괄적으로 확인)
+        val currentShopTitle = playerShopTitles[player.uniqueId]
         val titleString = PlainTextComponentSerializer.plainText().serialize(title)
-        if (!titleString.contains("씨앗 상인")) return
+        
+        // 타이틀이 없거나 일치하지 않으면 무시 (단, 페이지 번호 때문에 포함 관계로 확인)
+        // "상인" 이라는 단어가 포함되어 있으면 우리 GUI라고 가정 (약간 위험할 수 있으나 기존 "씨앗 상인" 로직 따름)
+        // 더 안전하게는 playerShopTypes에 값이 있는지 확인
+        if (playerShopTypes[player.uniqueId] == null) return
 
         event.isCancelled = true
         val clickedItem = event.currentItem ?: return
@@ -163,30 +179,32 @@ class SeedMerchantGUI(
 
         val slot = event.slot
         val currentPage = playerPages[player.uniqueId] ?: 1
+        val currentShopType = playerShopTypes[player.uniqueId] ?: return
+        val currentTitle = playerShopTitles[player.uniqueId] ?: "상점"
 
         // 페이지 이동
         if (slot == 48) { // 이전
-             open(player, currentPage - 1)
+             open(player, currentShopType, currentTitle, currentPage - 1)
              return
         }
         if (slot == 50) { // 다음
-             open(player, currentPage + 1)
+             open(player, currentShopType, currentTitle, currentPage + 1)
              return
         }
 
         // 아이템 구매
         if (itemSlots.contains(slot)) {
-            handlePurchase(player, clickedItem, event.isShiftClick)
+            handlePurchase(player, clickedItem, event.isShiftClick, currentShopType)
         }
     }
     
-    private fun handlePurchase(player: Player, displayItem: ItemStack, isShiftClick: Boolean) {
+    private fun handlePurchase(player: Player, displayItem: ItemStack, isShiftClick: Boolean, shopType: String) {
         if (villageMerchantData == null) return
         
         // 비동기로 데이터 가져와서 처리
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
             try {
-                val items = villageMerchantData!!.getSeedMerchantItems()
+                val items = villageMerchantData!!.getMerchantItems(shopType)
                 
                 // 클릭한 아이템이 Nexo 아이템인지 확인
                 val nexoId = NexoItems.idFromItem(displayItem)
@@ -203,17 +221,17 @@ class SeedMerchantGUI(
                 
                 if (matchedItem != null) {
                     plugin.server.scheduler.runTask(plugin, Runnable {
-                        processTransaction(player, matchedItem, isShiftClick)
+                        processTransaction(player, matchedItem, isShiftClick, shopType)
                     })
                 } else {
                     // 아이템을 찾지 못했을 경우
-                    plugin.logger.warning("[SeedMerchant] 구매 시도 중 아이템 매칭 실패. Display: ${nexoId ?: displayItem.type.name}")
+                    plugin.logger.warning("[VillageShop] 구매 시도 중 아이템 매칭 실패. Display: ${nexoId ?: displayItem.type.name}")
                     plugin.server.scheduler.runTask(plugin, Runnable {
                         player.sendMessage(Component.text("상점 데이터와 일치하는 아이템을 찾을 수 없습니다.", NamedTextColor.RED))
                     })
                 }
             } catch (e: Exception) {
-                plugin.logger.severe("[SeedMerchant] Error during purchase: ${e.message}")
+                plugin.logger.severe("[VillageShop] Error during purchase: ${e.message}")
                 plugin.server.scheduler.runTask(plugin, Runnable {
                     player.sendMessage(Component.text("구매 처리 중 오류가 발생했습니다.", NamedTextColor.RED))
                 })
@@ -221,7 +239,7 @@ class SeedMerchantGUI(
         })
     }
 
-    private fun processTransaction(player: Player, itemData: SeedItem, isShiftClick: Boolean) {
+    private fun processTransaction(player: Player, itemData: MerchantItem, isShiftClick: Boolean, shopType: String) {
         // 가격 유효성 검사
         if (itemData.price <= 0 || !itemData.price.isFinite()) {
             player.sendMessage(Component.text("상품 정보에 오류가 있어 구매할 수 없습니다.", NamedTextColor.RED))
@@ -255,7 +273,7 @@ class SeedMerchantGUI(
         itemToGive.amount = amount
 
         if (economy.getBalance(player) >= totalPrice) {
-            if (economy.withdraw(player, totalPrice, TransactionType.SHOP_BUY, "씨앗 상인 구매: ${itemData.itemId} x$amount")) {
+            if (economy.withdraw(player, totalPrice, TransactionType.SHOP_BUY, "$shopType 구매: ${itemData.itemId} x$amount")) {
                 val leftover = player.inventory.addItem(itemToGive)
                 if (leftover.isNotEmpty()) {
                     player.sendMessage(Component.text("인벤토리가 가득 차서 일부 아이템이 땅에 떨어졌습니다.", NamedTextColor.YELLOW))

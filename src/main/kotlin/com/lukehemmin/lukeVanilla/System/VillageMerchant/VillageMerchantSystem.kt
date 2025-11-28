@@ -41,9 +41,6 @@ class VillageMerchantSystem(
             plugin,
             data,
             seedMerchantGUI,
-            exchangeMerchantGUI,
-            equipmentMerchantGUI,
-            soilReceiveGUI,
             npcRouter
         )
 

@@ -108,7 +108,7 @@ class FarmVillageManager(
     }
 
     fun openSeedMerchantGUI(player: Player) {
-        seedMerchantGUI.open(player)
+        seedMerchantGUI.open(player, "seed_merchant", "씨앗 상인")
     }
 
     fun openExchangeMerchantGUI(player: Player) {
