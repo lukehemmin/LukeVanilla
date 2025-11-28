@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.FleaMarket
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
+import com.lukehemmin.lukeVanilla.System.NPC.NPCInteractionRouter
 import org.bukkit.Bukkit
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -14,7 +15,8 @@ import org.bukkit.plugin.java.JavaPlugin
 class FleaMarketManager(
     private val plugin: JavaPlugin,
     database: Database,
-    private val economyManager: EconomyManager
+    private val economyManager: EconomyManager,
+    private val npcRouter: NPCInteractionRouter
 ) : Listener {
     
     private val repository: FleaMarketRepository
@@ -51,6 +53,8 @@ class FleaMarketManager(
         Bukkit.getPluginManager().registerEvents(this, plugin)
         
         // Citizens가 로드된 경우에만 NPC 리스너 등록
+        // NPCInteractionRouter 사용으로 인해 기존 리스너 등록 비활성화
+        /*
         if (Bukkit.getPluginManager().getPlugin("Citizens") != null) {
             try {
                 Bukkit.getPluginManager().registerEvents(FleaMarketNPCListener(this), plugin)
@@ -59,6 +63,7 @@ class FleaMarketManager(
                 println("[플리마켓] Citizens NPC 리스너 등록 실패: ${e.message}")
             }
         }
+        */
         
         // 명령어 등록
         plugin.getCommand("market")?.setExecutor(command)
@@ -82,6 +87,14 @@ class FleaMarketManager(
         repository.getAllNPCsAsync().thenAccept { npcs ->
             npcCache.clear()
             npcCache.addAll(npcs)
+            
+            // 라우터에 NPC 등록
+            npcs.forEach { npcId ->
+                npcRouter.register(npcId) { player ->
+                    gui.openMarket(player)
+                }
+            }
+            
             println("[플리마켓] ${npcs.size}개의 NPC를 로드했습니다.")
         }
     }
@@ -100,6 +113,10 @@ class FleaMarketManager(
         repository.registerNPC(npcId).thenAccept { success ->
             if (success) {
                 npcCache.add(npcId)
+                // 라우터에 등록
+                npcRouter.register(npcId) { player ->
+                    gui.openMarket(player)
+                }
             }
         }
     }
@@ -111,6 +128,8 @@ class FleaMarketManager(
         repository.unregisterNPC(npcId).thenAccept { success ->
             if (success) {
                 npcCache.remove(npcId)
+                // 라우터에서 제거
+                npcRouter.unregister(npcId)
             }
         }
     }

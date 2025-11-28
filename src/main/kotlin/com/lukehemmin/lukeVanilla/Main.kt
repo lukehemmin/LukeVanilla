@@ -75,6 +75,7 @@ class Main : JavaPlugin() {
     private var peperoGifticonListener: com.lukehemmin.lukeVanilla.System.PeperoGifticon.PeperoGifticonDiscordListener? = null
     var fleaMarketManager: FleaMarketManager? = null
     private var villageMerchantSystem: com.lukehemmin.lukeVanilla.System.VillageMerchant.VillageMerchantSystem? = null
+    lateinit var npcInteractionRouter: com.lukehemmin.lukeVanilla.System.NPC.NPCInteractionRouter
 
     // AdminAssistant에 데이터베이스 연결을 제공하는 함수
     // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
@@ -271,6 +272,10 @@ class Main : JavaPlugin() {
 
         // DebugManager 초기화
         debugManager = DebugManager(this)
+
+        // NPCInteractionRouter 초기화 (NPC 이벤트 중앙 관리)
+        npcInteractionRouter = com.lukehemmin.lukeVanilla.System.NPC.NPCInteractionRouter()
+        server.pluginManager.registerEvents(npcInteractionRouter, this)
 
         // LuckPerms API 초기화
         val provider = server.servicesManager.getRegistration(LuckPerms::class.java)
@@ -808,7 +813,7 @@ class Main : JavaPlugin() {
         // FleaMarket 시스템 초기화 (야생 서버에서만 실행)
         if (serviceType == "Vanilla") {
             try {
-                fleaMarketManager = FleaMarketManager(this, database, economyManager)
+                fleaMarketManager = FleaMarketManager(this, database, economyManager, npcInteractionRouter)
                 logger.info("[FleaMarket] 야생 서버에서 플리마켓 시스템이 성공적으로 초기화되었습니다.")
             } catch (e: Exception) {
                 logger.severe("[FleaMarket] 플리마켓 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
@@ -825,7 +830,8 @@ class Main : JavaPlugin() {
                     villageMerchantSystem = com.lukehemmin.lukeVanilla.System.VillageMerchant.VillageMerchantSystem(
                         this,
                         database,
-                        farmVillage.getFarmVillageManager()
+                        farmVillage.getFarmVillageManager(),
+                        npcInteractionRouter
                     )
                     villageMerchantSystem?.enable()
                     logger.info("[VillageMerchant] 야생 서버에서 마을 상인 시스템이 성공적으로 초기화되었습니다.")

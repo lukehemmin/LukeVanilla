@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.VillageMerchant
 
 import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import com.lukehemmin.lukeVanilla.System.NPC.NPCInteractionRouter
 import com.lukehemmin.lukeVanilla.System.FarmVillage.*
 
 /**
@@ -12,7 +13,8 @@ import com.lukehemmin.lukeVanilla.System.FarmVillage.*
 class VillageMerchantSystem(
     private val plugin: Main,
     private val database: Database,
-    private val farmVillageManager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager
+    private val farmVillageManager: com.lukehemmin.lukeVanilla.System.FarmVillage.FarmVillageManager,
+    private val npcRouter: NPCInteractionRouter
 ) {
     
     private lateinit var data: VillageMerchantData
@@ -41,12 +43,14 @@ class VillageMerchantSystem(
             seedMerchantGUI,
             exchangeMerchantGUI,
             equipmentMerchantGUI,
-            soilReceiveGUI
+            soilReceiveGUI,
+            npcRouter
         )
 
         // 리스너 등록
-        listener = VillageMerchantListener(manager)
-        plugin.server.pluginManager.registerEvents(listener, plugin)
+        // NPCInteractionRouter 사용으로 인해 기존 리스너 비활성화
+        // listener = VillageMerchantListener(manager)
+        // plugin.server.pluginManager.registerEvents(listener, plugin)
 
         // 명령어 등록
         command = VillageMerchantCommand(plugin, manager)
