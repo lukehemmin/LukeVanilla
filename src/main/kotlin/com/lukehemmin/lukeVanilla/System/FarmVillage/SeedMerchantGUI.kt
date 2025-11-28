@@ -8,6 +8,7 @@ import com.lukehemmin.lukeVanilla.System.Economy.TransactionType
 import com.nexomc.nexo.api.NexoItems
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.Bukkit
 import org.bukkit.Material
@@ -15,6 +16,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryClickEvent
+import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
 import java.util.UUID
 
@@ -140,31 +142,79 @@ class SeedMerchantGUI(
         }
         
         val meta = item.itemMeta
+        
+        // Hide item flags
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS)
+        
         val lore = meta.lore() ?: mutableListOf()
-        lore.add(Component.text(""))
+        lore.add(Component.text("").decoration(TextDecoration.ITALIC, false))
         
         // 가격 정보 표시
         if (itemData.canBuy) {
-            lore.add(Component.text("구매가: ${String.format("%,.0f", itemData.buyPrice)}원", NamedTextColor.GOLD))
+            lore.add(Component.text("구매가: ", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text("${String.format("%,.0f", itemData.buyPrice)}원", NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false)))
         }
         if (itemData.canSell) {
-            lore.add(Component.text("판매가: ${String.format("%,.0f", itemData.sellPrice)}원", NamedTextColor.GOLD))
+            lore.add(Component.text("판매가: ", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text("${String.format("%,.0f", itemData.sellPrice)}원", NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false)))
         }
         
-        lore.add(Component.text(""))
+        // 구분선 (취소선 사용) - 조작 안내가 있을 때만 표시
+        if (itemData.canBuy || itemData.canSell) {
+            lore.add(Component.text("").decoration(TextDecoration.ITALIC, false))
+            lore.add(Component.text("                    ", NamedTextColor.DARK_GRAY)
+                .decoration(TextDecoration.STRIKETHROUGH, true)
+                .decoration(TextDecoration.ITALIC, false))
+        }
         
         // 조작 안내 표시
         if (itemData.canBuy && itemData.canSell) {
-            lore.add(Component.text("좌클릭: 1개 구매", NamedTextColor.YELLOW))
-            lore.add(Component.text("Shift + 좌클릭: 64개 구매", NamedTextColor.YELLOW))
-            lore.add(Component.text("우클릭: 1개 판매", NamedTextColor.YELLOW))
-            lore.add(Component.text("Shift + 우클릭: 64개 판매", NamedTextColor.YELLOW))
+            lore.add(Component.text("[", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text("좌클릭", NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("] ", NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("구매 ", NamedTextColor.WHITE)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("(Shift: 64개)", NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false)))
+            lore.add(Component.text("[", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text("우클릭", NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("] ", NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("판매 ", NamedTextColor.WHITE)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("(Shift: 64개)", NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false)))
         } else if (itemData.canBuy) {
-            lore.add(Component.text("좌클릭: 1개 구매", NamedTextColor.YELLOW))
-            lore.add(Component.text("Shift + 좌클릭: 64개 구매", NamedTextColor.YELLOW))
+            lore.add(Component.text("[", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text("좌클릭", NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("] ", NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("구매 ", NamedTextColor.WHITE)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("(Shift: 64개)", NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false)))
         } else if (itemData.canSell) {
-            lore.add(Component.text("우클릭: 1개 판매", NamedTextColor.YELLOW))
-            lore.add(Component.text("Shift + 우클릭: 64개 판매", NamedTextColor.YELLOW))
+            lore.add(Component.text("[", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text("우클릭", NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("] ", NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("판매 ", NamedTextColor.WHITE)
+                    .decoration(TextDecoration.ITALIC, false))
+                .append(Component.text("(Shift: 64개)", NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false)))
         }
         
         meta.lore(lore)
