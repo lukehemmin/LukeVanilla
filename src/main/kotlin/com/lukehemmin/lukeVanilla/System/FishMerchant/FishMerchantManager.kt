@@ -3,6 +3,7 @@ package com.lukehemmin.lukeVanilla.System.FishMerchant
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
 import com.lukehemmin.lukeVanilla.System.Economy.TransactionType
+import com.lukehemmin.lukeVanilla.System.NPC.NPCInteractionRouter
 import net.citizensnpcs.api.CitizensAPI
 import net.citizensnpcs.api.npc.NPC
 import net.kyori.adventure.text.Component
@@ -22,10 +23,22 @@ data class FishIdentificationResult(
 class FishMerchantManager(
     private val plugin: JavaPlugin,
     database: Database,
-    private val economyManager: EconomyManager
+    private val economyManager: EconomyManager,
+    private val npcRouter: NPCInteractionRouter
 ) {
     private val data = FishMerchantData(database)
     private val gui: FishMerchantGUI by lazy { FishMerchantGUI(plugin, this) }
+
+    init {
+        // 서버 시작 시 등록된 낚시 상인 NPC를 라우터에 등록
+        val registeredNpcId = data.getNPCMerchant()
+        if (registeredNpcId != null) {
+            npcRouter.register(registeredNpcId) { player ->
+                openFishMerchantGUI(player)
+            }
+            plugin.logger.info("[FishMerchant] 낚시 상인 NPC(ID: $registeredNpcId)를 라우터에 등록했습니다.")
+        }
+    }
 
     /**
      * NPC를 낚시 상인으로 설정
@@ -37,6 +50,17 @@ class FishMerchantManager(
             return Pair(false, null)
         }
         val previousNpcId = data.saveNPCMerchant(npcId)
+        
+        // 이전 NPC가 있다면 라우터에서 해제
+        if (previousNpcId != null) {
+            npcRouter.unregister(previousNpcId)
+        }
+        
+        // 새 NPC 라우터에 등록
+        npcRouter.register(npcId) { player ->
+            openFishMerchantGUI(player)
+        }
+        
         return Pair(true, previousNpcId)
     }
 
@@ -44,6 +68,10 @@ class FishMerchantManager(
      * 낚시 상인 NPC 해제
      */
     fun removeFishMerchant() {
+        val npcId = data.getNPCMerchant()
+        if (npcId != null) {
+            npcRouter.unregister(npcId)
+        }
         data.removeNPCMerchant()
     }
 

@@ -2,6 +2,7 @@ package com.lukehemmin.lukeVanilla.System.Roulette
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
 import com.lukehemmin.lukeVanilla.System.Economy.EconomyManager
+import com.lukehemmin.lukeVanilla.System.NPC.NPCInteractionRouter
 import org.bukkit.plugin.java.JavaPlugin
 
 /**
@@ -11,7 +12,8 @@ import org.bukkit.plugin.java.JavaPlugin
 class RouletteSystem(
     private val plugin: JavaPlugin,
     private val database: Database,
-    private val economyManager: EconomyManager
+    private val economyManager: EconomyManager,
+    private val npcRouter: NPCInteractionRouter
 ) {
     private lateinit var manager: RouletteManager
     private lateinit var npcListener: RouletteNPCListener
@@ -24,13 +26,19 @@ class RouletteSystem(
     fun enable() {
         try {
             // Manager 초기화
-            manager = RouletteManager(plugin, database)
+            manager = RouletteManager(plugin, database, npcRouter)
             plugin.logger.info("[Roulette] RouletteManager 초기화 완료")
 
             // NPC Listener 초기화 및 등록
             npcListener = RouletteNPCListener(plugin, manager, economyManager)
             plugin.server.pluginManager.registerEvents(npcListener, plugin)
-            plugin.logger.info("[Roulette] NPC Listener 등록 완료")
+            
+            // Manager에 NPC 클릭 액션 연결
+            manager.setNPCAction { player, npcId ->
+                npcListener.handleNPCClick(player, npcId)
+            }
+
+            plugin.logger.info("[Roulette] NPC Listener 등록 및 핸들러 연결 완료")
 
             // Nexo Listener 초기화 및 등록
             nexoListener = RouletteNexoListener(plugin, manager, economyManager)

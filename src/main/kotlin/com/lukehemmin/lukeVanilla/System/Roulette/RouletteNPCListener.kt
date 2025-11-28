@@ -23,14 +23,9 @@ class RouletteNPCListener(
 ) : Listener {
 
     /**
-     * NPC 우클릭 이벤트 처리
+     * NPC 우클릭 이벤트 처리 (Router에 의해 호출됨)
      */
-    @EventHandler
-    fun onNPCRightClick(event: NPCRightClickEvent) {
-        val player = event.clicker
-        val npc = event.npc
-        val npcId = npc.id
-
+    fun handleNPCClick(player: Player, npcId: Int) {
         // NPC ID로 룰렛 조회
         val rouletteId = manager.getRouletteIdByNPC(npcId) ?: return
 
@@ -61,6 +56,18 @@ class RouletteNPCListener(
         // 룰렛 GUI 열기 (비용은 나중에 차감)
         openRoulette(player, rouletteId)
     }
+
+    // 기존 이벤트 핸들러 제거됨
+    /*
+    @EventHandler
+    fun onNPCRightClick(event: NPCRightClickEvent) {
+        val player = event.clicker
+        val npc = event.npc
+        val npcId = npc.id
+        
+        // ... (기존 로직)
+    }
+    */
 
     /**
      * 비용 확인 및 차감

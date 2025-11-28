@@ -750,9 +750,10 @@ class Main : JavaPlugin() {
         // FishMerchant 시스템 초기화 (야생 서버에서만 실행)
         if (serviceType == "Vanilla") {
             try {
-                fishMerchantManager = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantManager(this, database, economyManager)
-                val fishMerchantListener = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantListener(fishMerchantManager!!)
-                server.pluginManager.registerEvents(fishMerchantListener, this)
+                fishMerchantManager = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantManager(this, database, economyManager, npcInteractionRouter)
+                // 리스너 등록 제거 (라우터 사용으로 대체)
+                // val fishMerchantListener = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantListener(fishMerchantManager!!)
+                // server.pluginManager.registerEvents(fishMerchantListener, this)
 
                 val fishMerchantCommand = com.lukehemmin.lukeVanilla.System.FishMerchant.FishMerchantCommand(fishMerchantManager!!)
                 getCommand("낚시상인")?.setExecutor(fishMerchantCommand)
@@ -784,7 +785,7 @@ class Main : JavaPlugin() {
 
         // RouletteSystem 초기화 (모든 서버에서 실행)
         try {
-            rouletteSystem = RouletteSystem(this, database, economyManager)
+            rouletteSystem = RouletteSystem(this, database, economyManager, npcInteractionRouter)
             rouletteSystem?.enable()
             logger.info("[Roulette] 룰렛 시스템이 성공적으로 초기화되었습니다.")
         } catch (e: Exception) {

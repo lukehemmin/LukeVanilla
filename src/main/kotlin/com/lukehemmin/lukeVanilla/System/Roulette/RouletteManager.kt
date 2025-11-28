@@ -1,6 +1,7 @@
 package com.lukehemmin.lukeVanilla.System.Roulette
 
 import com.lukehemmin.lukeVanilla.System.Database.Database
+import com.lukehemmin.lukeVanilla.System.NPC.NPCInteractionRouter
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.sql.Timestamp
@@ -17,8 +18,33 @@ import kotlin.random.Random
  */
 class RouletteManager(
     private val plugin: JavaPlugin,
-    private val database: Database
+    private val database: Database,
+    private val npcRouter: NPCInteractionRouter
 ) {
+    // NPC 클릭 시 실행할 액션 (System에서 주입)
+    private var npcAction: ((Player, Int) -> Unit)? = null
+    
+    fun setNPCAction(action: (Player, Int) -> Unit) {
+        this.npcAction = action
+        // 액션 설정 시 현재 로드된 모든 NPC 라우터에 등록
+        registerAllNPCsToRouter()
+    }
+    
+    private fun registerAllNPCsToRouter() {
+        npcRouletteMap.keys.forEach { npcId ->
+            registerNPC(npcId)
+        }
+    }
+    
+    private fun registerNPC(npcId: Int) {
+        val action = npcAction
+        if (action != null) {
+            npcRouter.register(npcId) { player ->
+                action(player, npcId)
+            }
+        }
+    }
+
     // 다중 룰렛 관리
     private val configs: MutableMap<Int, RouletteConfig> = mutableMapOf()
     private val itemsMap: MutableMap<Int, List<RouletteItem>> = mutableMapOf()
@@ -343,6 +369,8 @@ class RouletteManager(
                         val npcId = identifier.toIntOrNull()
                         if (npcId != null) {
                             npcRouletteMap[npcId] = rouletteId
+                            // 라우터에 등록 (메모리 갱신 시)
+                            registerNPC(npcId)
                         }
                     }
                     TriggerType.NEXO -> {
@@ -388,6 +416,8 @@ class RouletteManager(
                         val npcId = identifier.toIntOrNull()
                         if (npcId != null) {
                             npcRouletteMap.remove(npcId)
+                            // 라우터에서 해제
+                            npcRouter.unregister(npcId)
                         }
                     }
                     TriggerType.NEXO -> {
