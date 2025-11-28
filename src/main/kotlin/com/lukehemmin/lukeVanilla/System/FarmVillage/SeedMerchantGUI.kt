@@ -402,22 +402,14 @@ class SeedMerchantGUI(
             return
         }
 
-        val totalPrice = itemData.sellPrice * amount
-
-        if (!totalPrice.isFinite() || totalPrice <= 0) {
-            player.sendMessage(Component.text("판매 금액 계산 중 오류가 발생했습니다.", NamedTextColor.RED))
-            return
-        }
-
-        // 플레이어 인벤토리에서 아이템 찾기 및 제거
+        // 플레이어 인벤토리에서 아이템 찾기
         val inventory = player.inventory
-        var remainingAmount = amount
         
         // Nexo 아이템인지 확인
         val nexoBuilder = NexoItems.itemFromId(itemData.itemId)
         val isNexoItem = nexoBuilder != null
         
-        // 먼저 아이템이 충분히 있는지 확인
+        // 먼저 플레이어가 가진 아이템 개수 확인
         var availableCount = 0
         for (item in inventory.contents) {
             if (item == null || item.type == Material.AIR) continue
@@ -435,12 +427,30 @@ class SeedMerchantGUI(
             }
         }
         
-        if (availableCount < amount) {
-            player.sendMessage(Component.text("판매할 아이템이 부족합니다. (필요: ${amount}개, 보유: ${availableCount}개)", NamedTextColor.RED))
+        // 실제 판매할 수량 결정
+        val isShiftClick = amount == 64
+        val amountToSell = if (isShiftClick) {
+            minOf(64, availableCount)
+        } else {
+            1
+        }
+        
+        // 판매할 아이템이 없는 경우
+        if (amountToSell == 0 || availableCount < amountToSell) {
+            player.sendMessage(Component.text("판매할 아이템이 없습니다.", NamedTextColor.RED))
+            return
+        }
+        
+        // 가격 계산
+        val totalPrice = itemData.sellPrice * amountToSell
+
+        if (!totalPrice.isFinite() || totalPrice <= 0) {
+            player.sendMessage(Component.text("판매 금액 계산 중 오류가 발생했습니다.", NamedTextColor.RED))
             return
         }
         
         // 아이템 제거
+        var remainingAmount = amountToSell
         for (item in inventory.contents) {
             if (remainingAmount <= 0) break
             if (item == null || item.type == Material.AIR) continue
@@ -459,7 +469,7 @@ class SeedMerchantGUI(
         }
         
         // 돈 지급
-        economy.deposit(player, totalPrice, TransactionType.SHOP_SELL, "$shopType 판매: ${itemData.itemId} x$amount")
-        player.sendMessage(Component.text("${String.format("%,.0f", totalPrice)}원을 받고 아이템을 판매했습니다.", NamedTextColor.GREEN))
+        economy.deposit(player, totalPrice, TransactionType.SHOP_SELL, "$shopType 판매: ${itemData.itemId} x$amountToSell")
+        player.sendMessage(Component.text("${String.format("%,.0f", totalPrice)}원을 받고 아이템 ${amountToSell}개를 판매했습니다.", NamedTextColor.GREEN))
     }
 }
