@@ -142,10 +142,31 @@ class SeedMerchantGUI(
         val meta = item.itemMeta
         val lore = meta.lore() ?: mutableListOf()
         lore.add(Component.text(""))
-        lore.add(Component.text("가격: ${String.format("%,.0f", itemData.price)}원", NamedTextColor.GOLD))
+        
+        // 가격 정보 표시
+        if (itemData.canBuy) {
+            lore.add(Component.text("구매가: ${String.format("%,.0f", itemData.buyPrice)}원", NamedTextColor.GOLD))
+        }
+        if (itemData.canSell) {
+            lore.add(Component.text("판매가: ${String.format("%,.0f", itemData.sellPrice)}원", NamedTextColor.GOLD))
+        }
+        
         lore.add(Component.text(""))
-        lore.add(Component.text("좌클릭: 1개 구매", NamedTextColor.YELLOW))
-        lore.add(Component.text("Shift + 좌클릭: 64개 구매", NamedTextColor.YELLOW))
+        
+        // 조작 안내 표시
+        if (itemData.canBuy && itemData.canSell) {
+            lore.add(Component.text("좌클릭: 1개 구매", NamedTextColor.YELLOW))
+            lore.add(Component.text("Shift + 좌클릭: 64개 구매", NamedTextColor.YELLOW))
+            lore.add(Component.text("우클릭: 1개 판매", NamedTextColor.YELLOW))
+            lore.add(Component.text("Shift + 우클릭: 64개 판매", NamedTextColor.YELLOW))
+        } else if (itemData.canBuy) {
+            lore.add(Component.text("좌클릭: 1개 구매", NamedTextColor.YELLOW))
+            lore.add(Component.text("Shift + 좌클릭: 64개 구매", NamedTextColor.YELLOW))
+        } else if (itemData.canSell) {
+            lore.add(Component.text("우클릭: 1개 판매", NamedTextColor.YELLOW))
+            lore.add(Component.text("Shift + 우클릭: 64개 판매", NamedTextColor.YELLOW))
+        }
+        
         meta.lore(lore)
         item.itemMeta = meta
         return item
@@ -192,14 +213,26 @@ class SeedMerchantGUI(
              return
         }
 
-        // 아이템 구매
+        // 아이템 구매/판매
         if (itemSlots.contains(slot)) {
-            handlePurchase(player, clickedItem, event.isShiftClick, currentShopType)
+            val isLeftClick = event.isLeftClick
+            val isRightClick = event.isRightClick
+            handleTransaction(player, clickedItem, event.isShiftClick, isLeftClick, isRightClick, currentShopType)
         }
     }
     
-    private fun handlePurchase(player: Player, displayItem: ItemStack, isShiftClick: Boolean, shopType: String) {
+    private enum class TransactionAction {
+        BUY, SELL
+    }
+    
+    private fun handleTransaction(player: Player, displayItem: ItemStack, isShiftClick: Boolean, isLeftClick: Boolean, isRightClick: Boolean, shopType: String) {
         if (villageMerchantData == null) return
+        
+        val action = when {
+            isLeftClick -> TransactionAction.BUY
+            isRightClick -> TransactionAction.SELL
+            else -> return // 다른 클릭은 무시
+        }
         
         // 비동기로 데이터 가져와서 처리
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
@@ -220,44 +253,66 @@ class SeedMerchantGUI(
                 }
                 
                 if (matchedItem != null) {
+                    // 권한 확인
+                    val canProceed = when (action) {
+                        TransactionAction.BUY -> matchedItem.canBuy
+                        TransactionAction.SELL -> matchedItem.canSell
+                    }
+                    
+                    if (!canProceed) {
+                        plugin.server.scheduler.runTask(plugin, Runnable {
+                            val actionText = if (action == TransactionAction.BUY) "구매" else "판매"
+                            player.sendMessage(Component.text("이 아이템은 ${actionText}할 수 없습니다.", NamedTextColor.RED))
+                        })
+                        return@Runnable
+                    }
+                    
                     plugin.server.scheduler.runTask(plugin, Runnable {
-                        processTransaction(player, matchedItem, isShiftClick, shopType)
+                        processTransaction(player, matchedItem, isShiftClick, action, shopType)
                     })
                 } else {
                     // 아이템을 찾지 못했을 경우
-                    plugin.logger.warning("[VillageShop] 구매 시도 중 아이템 매칭 실패. Display: ${nexoId ?: displayItem.type.name}")
+                    plugin.logger.warning("[VillageShop] 거래 시도 중 아이템 매칭 실패. Display: ${nexoId ?: displayItem.type.name}")
                     plugin.server.scheduler.runTask(plugin, Runnable {
                         player.sendMessage(Component.text("상점 데이터와 일치하는 아이템을 찾을 수 없습니다.", NamedTextColor.RED))
                     })
                 }
             } catch (e: Exception) {
-                plugin.logger.severe("[VillageShop] Error during purchase: ${e.message}")
+                plugin.logger.severe("[VillageShop] Error during transaction: ${e.message}")
                 plugin.server.scheduler.runTask(plugin, Runnable {
-                    player.sendMessage(Component.text("구매 처리 중 오류가 발생했습니다.", NamedTextColor.RED))
+                    player.sendMessage(Component.text("거래 처리 중 오류가 발생했습니다.", NamedTextColor.RED))
                 })
             }
         })
     }
 
-    private fun processTransaction(player: Player, itemData: MerchantItem, isShiftClick: Boolean, shopType: String) {
-        // 가격 유효성 검사
-        if (itemData.price <= 0 || !itemData.price.isFinite()) {
-            player.sendMessage(Component.text("상품 정보에 오류가 있어 구매할 수 없습니다.", NamedTextColor.RED))
-            plugin.logger.warning("[SeedMerchant] Invalid price detected for item ${itemData.itemId}: ${itemData.price}")
+    private fun processTransaction(player: Player, itemData: MerchantItem, isShiftClick: Boolean, action: TransactionAction, shopType: String) {
+        val economy = plugin.economyManager
+        if (economy == null) {
+            player.sendMessage(Component.text("경제 시스템이 로드되지 않았습니다.", NamedTextColor.RED))
             return
         }
 
         val amount = if (isShiftClick) 64 else 1
-        val totalPrice = itemData.price * amount
+
+        when (action) {
+            TransactionAction.BUY -> processBuy(player, itemData, amount, economy, shopType)
+            TransactionAction.SELL -> processSell(player, itemData, amount, economy, shopType)
+        }
+    }
+
+    private fun processBuy(player: Player, itemData: MerchantItem, amount: Int, economy: com.lukehemmin.lukeVanilla.System.Economy.EconomyManager, shopType: String) {
+        // 가격 유효성 검사
+        if (itemData.buyPrice <= 0 || !itemData.buyPrice.isFinite()) {
+            player.sendMessage(Component.text("상품 정보에 오류가 있어 구매할 수 없습니다.", NamedTextColor.RED))
+            plugin.logger.warning("[SeedMerchant] Invalid buy price detected for item ${itemData.itemId}: ${itemData.buyPrice}")
+            return
+        }
+
+        val totalPrice = itemData.buyPrice * amount
 
         if (!totalPrice.isFinite() || totalPrice <= 0) {
             player.sendMessage(Component.text("결제 금액 계산 중 오류가 발생했습니다.", NamedTextColor.RED))
-            return
-        }
-        
-        val economy = plugin.economyManager
-        if (economy == null) {
-            player.sendMessage(Component.text("경제 시스템이 로드되지 않았습니다.", NamedTextColor.RED))
             return
         }
 
@@ -287,5 +342,74 @@ class SeedMerchantGUI(
         } else {
             player.sendMessage(Component.text("돈이 부족합니다.", NamedTextColor.RED))
         }
+    }
+
+    private fun processSell(player: Player, itemData: MerchantItem, amount: Int, economy: com.lukehemmin.lukeVanilla.System.Economy.EconomyManager, shopType: String) {
+        // 가격 유효성 검사
+        if (itemData.sellPrice <= 0 || !itemData.sellPrice.isFinite()) {
+            player.sendMessage(Component.text("판매 가격 정보에 오류가 있습니다.", NamedTextColor.RED))
+            plugin.logger.warning("[SeedMerchant] Invalid sell price detected for item ${itemData.itemId}: ${itemData.sellPrice}")
+            return
+        }
+
+        val totalPrice = itemData.sellPrice * amount
+
+        if (!totalPrice.isFinite() || totalPrice <= 0) {
+            player.sendMessage(Component.text("판매 금액 계산 중 오류가 발생했습니다.", NamedTextColor.RED))
+            return
+        }
+
+        // 플레이어 인벤토리에서 아이템 찾기 및 제거
+        val inventory = player.inventory
+        var remainingAmount = amount
+        
+        // Nexo 아이템인지 확인
+        val nexoBuilder = NexoItems.itemFromId(itemData.itemId)
+        val isNexoItem = nexoBuilder != null
+        
+        // 먼저 아이템이 충분히 있는지 확인
+        var availableCount = 0
+        for (item in inventory.contents) {
+            if (item == null || item.type == Material.AIR) continue
+            
+            val matches = if (isNexoItem) {
+                // Nexo 아이템: ID로 비교
+                NexoItems.idFromItem(item) == itemData.itemId
+            } else {
+                // 바닐라 아이템: Material 이름으로 비교
+                item.type.name == itemData.itemId
+            }
+            
+            if (matches) {
+                availableCount += item.amount
+            }
+        }
+        
+        if (availableCount < amount) {
+            player.sendMessage(Component.text("판매할 아이템이 부족합니다. (필요: ${amount}개, 보유: ${availableCount}개)", NamedTextColor.RED))
+            return
+        }
+        
+        // 아이템 제거
+        for (item in inventory.contents) {
+            if (remainingAmount <= 0) break
+            if (item == null || item.type == Material.AIR) continue
+            
+            val matches = if (isNexoItem) {
+                NexoItems.idFromItem(item) == itemData.itemId
+            } else {
+                item.type.name == itemData.itemId
+            }
+            
+            if (matches) {
+                val removeAmount = minOf(remainingAmount, item.amount)
+                item.amount -= removeAmount
+                remainingAmount -= removeAmount
+            }
+        }
+        
+        // 돈 지급
+        economy.deposit(player, totalPrice, TransactionType.SHOP_SELL, "$shopType 판매: ${itemData.itemId} x$amount")
+        player.sendMessage(Component.text("${String.format("%,.0f", totalPrice)}원을 받고 아이템을 판매했습니다.", NamedTextColor.GREEN))
     }
 }

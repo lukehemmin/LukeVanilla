@@ -195,10 +195,43 @@ class VillageMerchantData(
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     shop_type VARCHAR(50) NOT NULL,
                     item_id VARCHAR(255) NOT NULL,
-                    price DOUBLE NOT NULL,
+                    buy_price DOUBLE NOT NULL DEFAULT 0,
+                    sell_price DOUBLE NOT NULL DEFAULT 0,
+                    can_buy BOOLEAN NOT NULL DEFAULT true,
+                    can_sell BOOLEAN NOT NULL DEFAULT false,
                     INDEX idx_shop_type (shop_type)
                 )
             """)
+
+            // 테이블 마이그레이션: 기존 price 컬럼이 있으면 새 컬럼으로 변환
+            try {
+                val metaData = connection.metaData
+                val columns = metaData.getColumns(null, null, "villagemerchant_items", "price")
+                if (columns.next()) {
+                    // 기존 price 컬럼이 있으면 마이그레이션
+                    connection.createStatement().execute("""
+                        ALTER TABLE villagemerchant_items 
+                        ADD COLUMN IF NOT EXISTS buy_price DOUBLE NOT NULL DEFAULT 0,
+                        ADD COLUMN IF NOT EXISTS sell_price DOUBLE NOT NULL DEFAULT 0,
+                        ADD COLUMN IF NOT EXISTS can_buy BOOLEAN NOT NULL DEFAULT true,
+                        ADD COLUMN IF NOT EXISTS can_sell BOOLEAN NOT NULL DEFAULT false
+                    """)
+                    
+                    // price 값을 buy_price로 복사
+                    connection.createStatement().execute("""
+                        UPDATE villagemerchant_items 
+                        SET buy_price = price, can_buy = true, can_sell = false 
+                        WHERE buy_price = 0
+                    """)
+                    
+                    // 기존 price 컬럼 삭제
+                    connection.createStatement().execute("""
+                        ALTER TABLE villagemerchant_items DROP COLUMN price
+                    """)
+                }
+            } catch (e: Exception) {
+                // 마이그레이션 실패는 무시 (이미 마이그레이션 되었거나 새 테이블)
+            }
 
             val statement = connection.prepareStatement(
                 "SELECT * FROM villagemerchant_items WHERE shop_type = ? ORDER BY id ASC"
@@ -212,7 +245,10 @@ class VillageMerchantData(
                     MerchantItem(
                         id = resultSet.getInt("id"),
                         itemId = resultSet.getString("item_id"),
-                        price = resultSet.getDouble("price")
+                        buyPrice = resultSet.getDouble("buy_price"),
+                        sellPrice = resultSet.getDouble("sell_price"),
+                        canBuy = resultSet.getBoolean("can_buy"),
+                        canSell = resultSet.getBoolean("can_sell")
                     )
                 )
             }
@@ -229,7 +265,7 @@ class VillageMerchantData(
     fun getSeedMerchantItems(): List<SeedItem> {
         // 이제 내부적으로 통합 메서드를 호출합니다.
         return getMerchantItems("seed_merchant").map { 
-            SeedItem(it.id, it.itemId, it.price) 
+            SeedItem(it.id, it.itemId, it.buyPrice) 
         }
     }
 }
@@ -240,7 +276,10 @@ class VillageMerchantData(
 data class MerchantItem(
     val id: Int,
     val itemId: String,
-    val price: Double
+    val buyPrice: Double,
+    val sellPrice: Double,
+    val canBuy: Boolean,
+    val canSell: Boolean
 )
 
 /**
