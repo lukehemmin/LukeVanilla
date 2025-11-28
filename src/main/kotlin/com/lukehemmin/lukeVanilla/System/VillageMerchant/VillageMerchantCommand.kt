@@ -94,7 +94,7 @@ class VillageMerchantCommand(
 
     private fun handleRemoveNPCMerchant(player: Player, args: Array<out String>) {
         if (args.size < 2) {
-            player.sendMessage(Component.text("사용법: /마을상인 상인삭제 <상인타입>", NamedTextColor.YELLOW))
+            player.sendMessage(Component.text("사용법: /농사상점 상인삭제 <상인타입>", NamedTextColor.YELLOW))
             player.sendMessage(Component.text("상인타입: seed, exchange, equipment, soil", NamedTextColor.GRAY))
             return
         }
@@ -163,18 +163,18 @@ class VillageMerchantCommand(
     }
 
     private fun sendUsage(sender: CommandSender) {
-        sender.sendMessage(Component.text("=== 마을 상인 명령어 ===", NamedTextColor.GOLD))
-        sender.sendMessage(Component.text("/마을상인 씨앗상인지정", NamedTextColor.AQUA)
+        sender.sendMessage(Component.text("=== 농사 상점 명령어 ===", NamedTextColor.GOLD))
+        sender.sendMessage(Component.text("/농사상점 씨앗상인지정", NamedTextColor.AQUA)
             .append(Component.text(" - 바라보는 NPC를 씨앗 상인으로 지정", NamedTextColor.GRAY)))
-        sender.sendMessage(Component.text("/마을상인 교환상인지정", NamedTextColor.AQUA)
+        sender.sendMessage(Component.text("/농사상점 교환상인지정", NamedTextColor.AQUA)
             .append(Component.text(" - 바라보는 NPC를 교환 상인으로 지정", NamedTextColor.GRAY)))
-        sender.sendMessage(Component.text("/마을상인 장비상인지정", NamedTextColor.AQUA)
+        sender.sendMessage(Component.text("/농사상점 장비상인지정", NamedTextColor.AQUA)
             .append(Component.text(" - 바라보는 NPC를 장비 상인으로 지정", NamedTextColor.GRAY)))
-        sender.sendMessage(Component.text("/마을상인 토양받기상인지정", NamedTextColor.AQUA)
+        sender.sendMessage(Component.text("/농사상점 토양받기상인지정", NamedTextColor.AQUA)
             .append(Component.text(" - 바라보는 NPC를 토양받기 상인으로 지정", NamedTextColor.GRAY)))
-        sender.sendMessage(Component.text("/마을상인 상인삭제 <타입>", NamedTextColor.AQUA)
+        sender.sendMessage(Component.text("/농사상점 상인삭제 <타입>", NamedTextColor.AQUA)
             .append(Component.text(" - 등록된 상인 삭제", NamedTextColor.GRAY)))
-        sender.sendMessage(Component.text("/마을상인 목록", NamedTextColor.AQUA)
+        sender.sendMessage(Component.text("/농사상점 목록", NamedTextColor.AQUA)
             .append(Component.text(" - 등록된 상인 목록 보기", NamedTextColor.GRAY)))
     }
 

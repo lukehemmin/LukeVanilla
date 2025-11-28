@@ -193,11 +193,12 @@ commands:
     description: "플리마켓 중고장터를 열거나 아이템을 등록합니다."
     usage: "/플마 [판매 <가격>|내역]"
     aliases: [market]
-  마을상인:
+  농사상점:
     description: "마을 상인 NPC를 관리합니다."
-    usage: "/마을상인 [씨앗상인지정|교환상인지정|장비상인지정|토양받기상인지정|상인삭제|목록]"
+    usage: "/농사상점 [씨앗상인지정|교환상인지정|장비상인지정|토양받기상인지정|상인삭제|목록]"
     permission: "villagemerchant.admin"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
+    aliases: [마을상인]
 
 permissions:
   lukevanilla.nametag:

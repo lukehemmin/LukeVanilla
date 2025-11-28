@@ -1,5 +1,6 @@
 package com.lukehemmin.lukeVanilla.System.FleaMarket
 
+import net.citizensnpcs.api.CitizensAPI
 import org.bukkit.Material
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -25,6 +26,11 @@ class FleaMarketCommand(
         when (args.getOrNull(0)?.lowercase()) {
             null -> {
                 // /market 또는 /플마 - GUI 열기
+                // 일반 유저는 명령어로 열 수 없음 (NPC 이용)
+                if (!sender.isOp && !sender.hasPermission("fleamarket.open")) {
+                    sender.sendMessage("§c플리마켓은 마을에 있는 상인 NPC를 통해서만 이용할 수 있습니다.")
+                    return true
+                }
                 gui.openMarket(sender)
             }
             
@@ -95,23 +101,38 @@ class FleaMarketCommand(
                     return true
                 }
                 
-                if (args.size < 3) {
-                    sender.sendMessage("§c사용법: /market npc <add|remove> <npcId>")
+                if (args.size < 2) {
+                    sender.sendMessage("§c사용법: /market npc <add|remove> [npcId]")
                     return true
                 }
                 
                 val action = args[1].lowercase()
-                val npcId = args[2].toIntOrNull()
-                
-                if (npcId == null) {
-                    sender.sendMessage("§cNPC ID는 숫자여야 합니다.")
-                    return true
+                // 인자가 있으면 그 ID 사용, 없으면 바라보고 있는 NPC 감지
+                val targetNpcId = args.getOrNull(2)?.toIntOrNull()
+                val npcId = if (targetNpcId != null) {
+                    targetNpcId
+                } else {
+                    // 바라보고 있는 엔티티 확인
+                    val target = sender.getTargetEntity(5)
+                    if (target == null) {
+                        sender.sendMessage("§c바라보고 있는 NPC가 없습니다.")
+                        return true
+                    }
+                    
+                    // Citizens NPC인지 확인
+                    val registry = CitizensAPI.getNPCRegistry()
+                    val npc = registry.getNPC(target)
+                    if (npc == null) {
+                        sender.sendMessage("§c이 엔티티는 Citizens NPC가 아닙니다.")
+                        return true
+                    }
+                    npc.id
                 }
                 
                 when (action) {
                     "add", "추가" -> {
                         if (manager.isMarketNPC(npcId)) {
-                            sender.sendMessage("§c이미 등록된 NPC입니다.")
+                            sender.sendMessage("§cNPC(ID: $npcId)는 이미 플리마켓 NPC로 등록되어 있습니다.")
                         } else {
                             manager.addNPC(npcId)
                             sender.sendMessage("§aNPC(ID: $npcId)가 플리마켓 NPC로 등록되었습니다.")
@@ -119,14 +140,14 @@ class FleaMarketCommand(
                     }
                     "remove", "제거" -> {
                         if (!manager.isMarketNPC(npcId)) {
-                            sender.sendMessage("§c등록되지 않은 NPC입니다.")
+                            sender.sendMessage("§cNPC(ID: $npcId)는 등록되지 않은 NPC입니다.")
                         } else {
                             manager.removeNPC(npcId)
                             sender.sendMessage("§aNPC(ID: $npcId)가 플리마켓 NPC에서 제거되었습니다.")
                         }
                     }
                     else -> {
-                        sender.sendMessage("§c사용법: /market npc <add|remove> <npcId>")
+                        sender.sendMessage("§c사용법: /market npc <add|remove> [npcId]")
                     }
                 }
             }

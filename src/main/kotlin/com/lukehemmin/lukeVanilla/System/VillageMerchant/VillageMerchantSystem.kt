@@ -54,8 +54,8 @@ class VillageMerchantSystem(
 
         // 명령어 등록
         command = VillageMerchantCommand(plugin, manager)
-        plugin.getCommand("마을상인")?.setExecutor(command)
-        plugin.getCommand("마을상인")?.tabCompleter = command
+        plugin.getCommand("농사상점")?.setExecutor(command)
+        plugin.getCommand("농사상점")?.tabCompleter = command
 
         plugin.logger.info("[VillageMerchant] 마을 상인 시스템 초기화 완료!")
     }
