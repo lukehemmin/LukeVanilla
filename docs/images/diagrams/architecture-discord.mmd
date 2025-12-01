@@ -1,0 +1,12 @@
+graph LR
+    subgraph "Discord 시스템"
+        BOT[DiscordBot] --> AUTH[DiscordAuth]
+        BOT --> ROLE[DiscordRoleManager]
+        BOT --> SUPPORT[SupportSystem]
+        BOT --> AI[AIassistant]
+        BOT --> STATUS[ServerStatusListener]
+        BOT --> VOICE[DynamicVoiceChannelManager]
+    end
+    
+    DISCORD[Discord Server] <--> BOT
+    AI --> OPENAI[OpenAI API]

@@ -30,6 +30,11 @@ LukeVanilla는 Minecraft 서버를 위한 종합 플러그인으로, Velocity �
 
 ## 서버 아키텍처
 
+![시스템 구조도](docs/images/diagrams/architecture-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph "외부 서비스"
@@ -75,6 +80,8 @@ graph TB
     
     LOBBY <-->|Plugin Message| SURVIVAL
 ```
+
+</details>
 
 ---
 
@@ -131,6 +138,11 @@ Discord 봇 연동 및 관련 기능을 담당합니다.
 | ServerStatusListener | [Discord/ServerStatusListener.kt](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Discord/README.md) | 서버 상태 모니터링 |
 | DynamicVoiceChannelManager | [Discord/DynamicVoiceChannelManager.kt](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Discord/README.md) | 동적 음성 채널 관리 |
 
+![시스템 구조도](docs/images/diagrams/architecture-diagram-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph LR
     subgraph "Discord 시스템"
@@ -146,6 +158,8 @@ graph LR
     AI --> OPENAI[OpenAI API]
 ```
 
+</details>
+
 ---
 
 ### 🏞️ 토지(Land) 시스템
@@ -156,6 +170,11 @@ graph LR
 | MyLand | [MyLand/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/MyLand/README.md) | 개인 토지 시스템 |
 | AdvancedLandClaiming | [AdvancedLandClaiming/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/AdvancedLandClaiming/README.md) | 고급 토지 청구 |
 | FarmVillage | [관련 문서](Docs/Develop_Docs/LandSystems/FarmVillage/README.md) | 농장 마을 시스템 |
+
+![시스템 구조도](docs/images/diagrams/architecture-diagram-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 graph TB
@@ -168,6 +187,8 @@ graph TB
     PROTECT --> DB[(Database)]
     CACHE[AdvancedLandCache] --> ADVANCED
 ```
+
+</details>
 
 #### 토지 시스템 상세 구조
 
@@ -189,6 +210,11 @@ graph TB
 | Economy | [Economy/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Economy/README.md) | 기본 경제 시스템 |
 | FleaMarket | [FleaMarket/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/FleaMarket/README.md) | 벼룩시장 거래 시스템 |
 
+![시스템 구조도](docs/images/diagrams/architecture-diagram-4.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph LR
     subgraph "경제 시스템"
@@ -201,6 +227,8 @@ graph LR
     REPO --> DB[(Database)]
     FLEA_REPO --> DB
 ```
+
+</details>
 
 #### 경제 시스템 구성요소
 
@@ -222,6 +250,11 @@ NPC 상인 및 거래 기능을 제공합니다.
 | FishMerchant | [FishMerchant/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/FishMerchant/README.md) | 물고기 상인 |
 | VillageMerchant | [VillageMerchant/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/VillageMerchant/README.md) | 마을 상인 |
 
+![시스템 구조도](docs/images/diagrams/architecture-diagram-5.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph "상인 시스템"
@@ -234,6 +267,8 @@ graph TB
     VILLAGE --> ECON
 ```
 
+</details>
+
 ---
 
 ### 🎁 아이템(Items) 시스템
@@ -244,6 +279,11 @@ graph TB
 | ItemSeasonSystem | [Items/ItemSeasonSystem/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/ItemSeasonSystem/README.md) | 시즌 아이템 시스템 |
 | CustomItemSystem | [Items/CustomItemSystem/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/CustomItemSystem/README.md) | 커스텀 아이템 시스템 |
 | StatsSystem | [Items/StatsSystem/](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Items/StatsSystem/README.md) | 아이템 스탯 시스템 |
+
+![시스템 구조도](docs/images/diagrams/architecture-diagram-6.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 graph TB
@@ -263,6 +303,8 @@ graph TB
     SEASON --> NEXO[Nexo/Oraxen]
     CUSTOM --> NEXO
 ```
+
+</details>
 
 #### 아이템 시스템 세부 구성
 
@@ -375,6 +417,11 @@ graph TB
 ## 데이터 흐름
 
 ### 플레이어 인증 흐름
+![시퀀스 다이어그램](docs/images/diagrams/architecture-discord.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant P as Player
@@ -395,7 +442,14 @@ sequenceDiagram
     MC->>P: 인증 완료 메시지
 ```
 
+</details>
+
 ### 경제 거래 흐름
+![시퀀스 다이어그램](docs/images/diagrams/architecture-economy.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant P1 as Player 1
@@ -422,7 +476,14 @@ sequenceDiagram
     ES->>P2: 수령 알림 메시지
 ```
 
+</details>
+
 ### 토지 보호 흐름
+![시퀀스 다이어그램](docs/images/diagrams/architecture-flow-7.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant P as Player
@@ -452,6 +513,8 @@ sequenceDiagram
         L->>P: 권한 없음 메시지
     end
 ```
+
+</details>
 
 ---
 

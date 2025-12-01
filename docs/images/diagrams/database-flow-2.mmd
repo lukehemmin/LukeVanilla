@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant M as Main
+    participant D as Database
+    participant DI as DatabaseInitializer
+    participant ADM as AsyncDatabaseManager
+    participant H as HikariCP
+    
+    M->>D: new Database(config)
+    D->>H: HikariDataSource 생성
+    H-->>D: Connection Pool 준비
+    
+    M->>DI: createTables()
+    DI->>D: getConnection()
+    D->>H: 연결 획득
+    DI->>DI: 60+ 테이블 생성/마이그레이션
+    
+    M->>D: initializeAsyncManager()
+    D->>ADM: new AsyncDatabaseManager()
+    ADM->>ADM: 스레드 풀 시작
+    ADM->>ADM: 캐시 정리 스케줄러 시작
+    
+    Note over M,H: 플러그인 준비 완료

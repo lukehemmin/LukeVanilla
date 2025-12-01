@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant Admin as 관리자 (Discord)
+    participant LobbyServer as 로비 서버
+    participant Database as DB
+    participant VanillaServer as 야생 서버
+    participant Player as 대상 플레이어
+    
+    Admin->>LobbyServer: 밴 명령 실행
+    LobbyServer->>Database: createCrossServerCommand()
+    
+    loop 매 10초
+        VanillaServer->>Database: getPendingCrossServerCommands()
+        Database-->>VanillaServer: 대기 명령어 목록
+    end
+    
+    VanillaServer->>VanillaServer: 명령어 처리
+    VanillaServer->>Player: 킥 + 밴 적용
+    VanillaServer->>Database: markCrossServerCommandExecuted()

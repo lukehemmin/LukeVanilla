@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant A as Admin
+    participant VMC as VillageMerchantCommand
+    participant VMM as VillageMerchantManager
+    participant VMD as VillageMerchantData
+    participant Router as NPCInteractionRouter
+    participant DB as Database
+
+    A->>VMC: /농사상점 씨앗상인지정
+    VMC->>VMC: 바라보는 NPC 감지
+    VMC->>VMM: setNPCMerchantAsync(shopId, npcId)
+    VMM->>VMD: saveNPCMerchantAsync()
+    VMD->>DB: INSERT/UPDATE
+    VMD-->>VMM: success
+    VMM->>Router: register(npcId, handler)
+    VMM-->>VMC: success
+    VMC-->>A: 설정 완료 메시지

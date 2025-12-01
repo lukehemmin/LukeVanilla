@@ -1,0 +1,29 @@
+graph TB
+    subgraph ChatSystem["💬 ChatSystem"]
+        subgraph AdminChat["🔒 관리자 채팅"]
+            ACM[AdminChatManager<br/>관리자 채팅 관리]
+            ACS[AdminChatSync<br/>디스코드 동기화]
+        end
+        
+        subgraph Nametag["🏷️ 칭호 시스템"]
+            NM[NametagManager<br/>칭호 관리]
+            NC[NametagCommand<br/>칭호 명령어]
+        end
+    end
+    
+    subgraph External["🔗 외부 연동"]
+        Discord[Discord JDA<br/>채팅 동기화]
+        Scoreboard[Bukkit Scoreboard<br/>팀 접두사]
+    end
+    
+    subgraph Storage["💾 저장소"]
+        DB[(MySQL<br/>Player_NameTag)]
+        Meta[Player Metadata<br/>채팅 상태]
+    end
+    
+    ACM --> Meta
+    ACS --> Discord
+    ACS --> ACM
+    NM --> DB
+    NM --> Scoreboard
+    NC --> NM

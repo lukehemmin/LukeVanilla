@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant Player
+    participant ItemRestoreCommand
+    participant NexoAPI
+    participant Discord
+    
+    Player->>ItemRestoreCommand: 접속 또는 /아이템복구
+    ItemRestoreCommand->>ItemRestoreCommand: 인벤토리 스캔
+    
+    loop 각 아이템
+        ItemRestoreCommand->>ItemRestoreCommand: Oraxen 모델 확인
+        alt Oraxen 아이템 발견
+            ItemRestoreCommand->>NexoAPI: Nexo 아이템 생성
+            NexoAPI-->>ItemRestoreCommand: 새 아이템
+            ItemRestoreCommand->>ItemRestoreCommand: 인챈트/속성 복사
+            ItemRestoreCommand->>Player: 아이템 교체
+            ItemRestoreCommand->>Discord: 복구 로그 전송
+        end
+    end
+    
+    ItemRestoreCommand->>Player: 복구 완료 메시지

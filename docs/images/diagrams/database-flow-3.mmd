@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant C as Caller
+    participant ADM as AsyncDatabaseManager
+    participant Cache as 캐시
+    participant CB as Circuit Breaker
+    participant Pool as Thread Pool
+    participant DB as MySQL
+    participant Bukkit as Bukkit Scheduler
+    
+    C->>ADM: executeQueryAsync(query, params)
+    
+    alt 캐시 히트
+        ADM->>Cache: 캐시 확인
+        Cache-->>ADM: 캐시 데이터
+        ADM->>C: CompletableFuture 완료
+    else 캐시 미스
+        ADM->>CB: 상태 확인
+        
+        alt Circuit Breaker 열림
+            CB-->>ADM: 차단됨
+            ADM->>C: 예외 반환
+        else Circuit Breaker 정상
+            ADM->>Pool: 작업 제출
+            Pool->>DB: 쿼리 실행
+            DB-->>Pool: 결과
+            Pool->>Cache: 결과 캐싱
+            Pool->>Bukkit: runTask
+            Bukkit->>C: onSuccess 콜백
+        end
+    end

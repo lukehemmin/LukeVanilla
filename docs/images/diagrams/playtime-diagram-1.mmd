@@ -1,0 +1,30 @@
+graph TB
+    subgraph PlayTime["⏱️ PlayTime 시스템"]
+        PTS[PlayTimeSystem<br/>시스템 진입점]
+        PTM[PlayTimeManager<br/>비즈니스 로직]
+        PTC[PlayTimeCommand<br/>명령어 처리]
+        PTD[PlayTimeData<br/>DB 레포지토리]
+        PTL[PlayTimeListener<br/>이벤트 리스너]
+    end
+    
+    subgraph Storage["💾 저장소"]
+        DB[(MySQL<br/>playtime_data)]
+        Cache[ConcurrentHashMap<br/>세션 캐시]
+    end
+    
+    subgraph Events["📡 이벤트"]
+        Join[PlayerJoinEvent]
+        Quit[PlayerQuitEvent]
+        Auto[자동 저장<br/>5분 간격]
+    end
+    
+    PTS --> PTM
+    PTS --> PTC
+    PTS --> PTL
+    PTM --> PTD
+    PTM --> Cache
+    PTD --> DB
+    PTL --> PTM
+    Join --> PTL
+    Quit --> PTL
+    Auto --> PTM

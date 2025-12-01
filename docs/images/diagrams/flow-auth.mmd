@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant P as Player
+    participant MC as Minecraft Server
+    participant DB as Database
+    participant DC as Discord Bot
+    participant DS as Discord Server
+
+    P->>MC: /인증 명령어 입력
+    MC->>DB: 인증 코드 생성 및 저장
+    MC->>P: 인증 코드 표시
+    P->>DS: Discord에서 인증 코드 입력
+    DS->>DC: 인증 요청
+    DC->>DB: 인증 코드 확인
+    DB->>DC: 인증 완료
+    DC->>DS: 역할 부여
+    DC->>MC: 인증 완료 알림
+    MC->>P: 인증 완료 메시지

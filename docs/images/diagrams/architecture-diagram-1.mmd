@@ -1,0 +1,43 @@
+graph TB
+    subgraph "외부 서비스"
+        DISCORD[Discord Server]
+        OPENAI[OpenAI API]
+    end
+
+    subgraph "Velocity Proxy"
+        VELOCITY[Velocity Proxy Server]
+    end
+
+    subgraph "게임 서버"
+        LOBBY[Lobby Server]
+        SURVIVAL[Survival/Vanilla Server]
+    end
+
+    subgraph "데이터 저장소"
+        DB[(MySQL/MariaDB<br/>Database)]
+    end
+
+    subgraph "외부 플러그인"
+        COSMETICS[HMCCosmetics]
+        CROPS[CustomCrops]
+        NEXO[Nexo/Oraxen]
+        CITIZENS[Citizens]
+        LUCKPERMS[LuckPerms]
+    end
+
+    DISCORD <--> LOBBY
+    OPENAI <--> LOBBY
+    
+    VELOCITY --> LOBBY
+    VELOCITY --> SURVIVAL
+    
+    LOBBY --> DB
+    SURVIVAL --> DB
+    
+    SURVIVAL --> COSMETICS
+    SURVIVAL --> CROPS
+    SURVIVAL --> NEXO
+    SURVIVAL --> CITIZENS
+    SURVIVAL --> LUCKPERMS
+    
+    LOBBY <-->|Plugin Message| SURVIVAL

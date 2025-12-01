@@ -8,6 +8,11 @@
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/fleamarket-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph FleaMarket System
@@ -32,6 +37,8 @@ graph TB
         Citizens[Citizens Plugin] --> FMNL
     end
 ```
+
+</details>
 
 ---
 
@@ -178,6 +185,11 @@ val itemStack = ItemSerializer.deserialize(itemData) // Base64 String → ItemSt
 ## 📊 흐름도
 
 ### 아이템 등록 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/fleamarket-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant P as Player
@@ -199,7 +211,14 @@ sequenceDiagram
     FMS->>FMR: insertLog()
 ```
 
+</details>
+
 ### 아이템 구매 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/fleamarket-flow-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant B as 구매자
@@ -231,7 +250,14 @@ sequenceDiagram
     end
 ```
 
+</details>
+
 ### 오프라인 판매 알림 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/fleamarket-flow-4.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant S as 판매자
@@ -245,6 +271,8 @@ sequenceDiagram
     FMS->>S: 판매 알림 메시지 표시
     FMS->>FMR: markSalesAsNotified(uuid)
 ```
+
+</details>
 
 ---
 

@@ -1,0 +1,21 @@
+graph TB
+    subgraph FishMerchant System
+        FMM[FishMerchantManager] --> FMD[FishMerchantData]
+        FMM --> FMG[FishMerchantGUI]
+        FMD --> DB[(Database)]
+        
+        FMC[FishMerchantCommand] --> FMM
+        FML[FishMerchantListener] --> FMM
+        
+        FIR[FishIdentificationResult] -.-> FMM
+        FP[FishPrice] -.-> FMD
+        FSR[FishSellRecord] -.-> FMD
+    end
+    
+    subgraph External Dependencies
+        EM[EconomyManager] --> FMM
+        NPCRouter[NPCInteractionRouter] --> FMM
+        CF[CustomFishing Plugin] -.-> FMM
+        Nexo[Nexo Plugin] -.-> FMM
+        Citizens[Citizens Plugin] --> FMM
+    end

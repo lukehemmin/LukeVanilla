@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant P as Player
+    participant FMC as FleaMarketCommand
+    participant FMS as FleaMarketService
+    participant IS as ItemSerializer
+    participant FMR as FleaMarketRepository
+    participant DB as Database
+
+    P->>FMC: /market sell 1000
+    FMC->>FMS: registerItem(player, item, price)
+    FMS->>FMS: 가격/개수 검증
+    FMS->>IS: serialize(itemStack)
+    IS-->>FMS: Base64 String
+    FMS->>FMR: insertItem() (비동기)
+    FMR->>DB: INSERT
+    FMS->>FMS: 캐시에 추가
+    FMS->>P: 인벤토리에서 아이템 제거
+    FMS->>FMR: insertLog()

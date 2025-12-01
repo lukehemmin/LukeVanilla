@@ -1,0 +1,47 @@
+graph TB
+    subgraph "마인크래프트 서버"
+        BookSystem[BookSystem<br/>시스템 진입점]
+        BookCommand[BookCommand<br/>명령어 처리]
+        BookListener[BookListener<br/>이벤트 리스너]
+        BookItemManager[BookItemManager<br/>아이템 관리]
+    end
+    
+    subgraph "웹 서버 (Ktor)"
+        BookWebServer[BookWebServer<br/>Ktor 서버]
+        BookAPI[BookAPI<br/>REST API]
+        BookSessionManager[BookSessionManager<br/>세션 관리]
+    end
+    
+    subgraph "데이터 계층"
+        BookRepository[BookRepository<br/>DB 레포지토리]
+        BookData[BookData<br/>데이터 모델]
+        Database[(MySQL<br/>Database)]
+    end
+    
+    subgraph "외부 접근"
+        Player[플레이어]
+        WebBrowser[웹 브라우저]
+    end
+    
+    Player --> BookCommand
+    Player --> BookListener
+    BookListener --> BookItemManager
+    
+    BookSystem --> BookCommand
+    BookSystem --> BookListener
+    BookSystem --> BookWebServer
+    BookSystem --> BookRepository
+    
+    BookCommand --> BookRepository
+    BookCommand --> BookSessionManager
+    BookListener --> BookRepository
+    
+    BookWebServer --> BookAPI
+    BookWebServer --> BookSessionManager
+    BookAPI --> BookRepository
+    BookSessionManager --> BookRepository
+    
+    BookRepository --> Database
+    BookRepository --> BookData
+    
+    WebBrowser --> BookWebServer

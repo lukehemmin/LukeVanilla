@@ -134,6 +134,11 @@ PL 명령어 취소
 
 ## 🔗 의존성
 
+![시스템 구조도](../../../../../../docs/images/diagrams/command-class-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TD
     Command[Command System] --> Main[Main Plugin]
@@ -164,7 +169,14 @@ graph TD
     ItemRestore --> Nexo[Nexo API]
 ```
 
+</details>
+
 ## 🏗️ 시스템 아키텍처
+
+![클래스 다이어그램](../../../../../../docs/images/diagrams/command-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 classDiagram
@@ -215,7 +227,14 @@ classDiagram
     TabCompleter <|.. TitokerCommandCompleter
 ```
 
+</details>
+
 ## 📊 아이템 복구 흐름
+
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/command-flow-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 sequenceDiagram
@@ -240,6 +259,8 @@ sequenceDiagram
     
     ItemRestoreCommand->>Player: 복구 완료 메시지
 ```
+
+</details>
 
 ## 💡 사용 예시
 

@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant External as 외부 시스템
+    participant EM as EconomyManager
+    participant ES as EconomyService
+    participant Cache as 메모리 캐시
+    participant ER as EconomyRepository
+    participant DB as Database
+
+    External->>EM: deposit(player, amount, type, desc)
+    EM->>ES: deposit()
+    ES->>Cache: 캐시 업데이트
+    ES->>ER: updateBalance() (비동기)
+    ER->>DB: UPDATE
+    ES->>ER: insertLog() (비동기)
+    ER->>DB: INSERT

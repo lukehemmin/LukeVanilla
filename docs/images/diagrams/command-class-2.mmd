@@ -1,0 +1,46 @@
+classDiagram
+    class CommandExecutor {
+        <<interface>>
+        +onCommand(sender, command, label, args): Boolean
+    }
+    
+    class TabCompleter {
+        <<interface>>
+        +onTabComplete(sender, command, alias, args): List~String~
+    }
+    
+    class Listener {
+        <<interface>>
+    }
+    
+    class BlockLocationCommand {
+        -enabledPlayers: Set~UUID~
+        +onCommand()
+        +onPlayerInteract()
+    }
+    
+    class ItemRestoreCommand {
+        -itemRestoreLogger: ItemRestoreLogger
+        +restorePlayerItems(player)
+        +onPlayerJoin(event)
+    }
+    
+    class ServerTimeCommand {
+        +onCommand()
+    }
+    
+    class TitokerMessageCommand {
+        +onCommand()
+    }
+    
+    class TitokerCommandCompleter {
+        +onTabComplete()
+    }
+    
+    CommandExecutor <|.. BlockLocationCommand
+    Listener <|.. BlockLocationCommand
+    CommandExecutor <|.. ItemRestoreCommand
+    Listener <|.. ItemRestoreCommand
+    CommandExecutor <|.. ServerTimeCommand
+    CommandExecutor <|.. TitokerMessageCommand
+    TabCompleter <|.. TitokerCommandCompleter

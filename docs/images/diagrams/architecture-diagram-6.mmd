@@ -1,0 +1,16 @@
+graph TB
+    subgraph "아이템 시스템"
+        SEASON[ItemSeasonSystem] --> REGISTER[ItemRegisterSystem]
+        SEASON --> RECEIVE[ItemReceiveSystem]
+        SEASON --> VIEW[ItemViewSystem]
+        
+        CUSTOM[CustomItemSystem] --> SCROLL[Scroll]
+        CUSTOM --> LEVELSTICK[LevelStick]
+        CUSTOM --> FRAME[TransparentFrame]
+        
+        STATS[StatsSystem] --> MANAGER[ItemStatsManager]
+        STATS --> LISTENER[ItemStatsListener]
+    end
+    
+    SEASON --> NEXO[Nexo/Oraxen]
+    CUSTOM --> NEXO

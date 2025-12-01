@@ -1,0 +1,42 @@
+graph TB
+    subgraph Database["🗄️ Database 시스템"]
+        DB[Database<br/>메인 DB 클래스]
+        DBI[DatabaseInitializer<br/>테이블 자동 생성]
+        ASYNC[AsyncDatabaseManager<br/>비동기 처리]
+        AALD[AsyncAdvancedLandData<br/>토지 비동기 데이터]
+    end
+    
+    subgraph Connection["🔌 연결 관리"]
+        Hikari[HikariCP<br/>Connection Pool]
+        Pool[최대 10개 연결<br/>최소 5개 Idle]
+    end
+    
+    subgraph Systems["🎮 사용 시스템들"]
+        Book[BookSystem]
+        PlayTime[PlayTime]
+        Chat[ChatSystem]
+        Roulette[Roulette]
+        Economy[Economy]
+        Land[AdvancedLand]
+    end
+    
+    subgraph Patterns["🛡️ 안정성 패턴"]
+        CB[Circuit Breaker<br/>30초 타임아웃]
+        Cache[메모리 캐시<br/>5초 TTL]
+        Queue[대기 큐<br/>최대 50개]
+    end
+    
+    DB --> Hikari
+    DB --> DBI
+    DB --> ASYNC
+    ASYNC --> CB
+    ASYNC --> Cache
+    ASYNC --> Queue
+    AALD --> ASYNC
+    
+    Book --> DB
+    PlayTime --> DB
+    Chat --> DB
+    Roulette --> DB
+    Economy --> DB
+    Land --> AALD

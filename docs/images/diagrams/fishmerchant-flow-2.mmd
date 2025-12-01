@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant P as Player
+    participant GUI as FishMerchantGUI
+    participant FMM as FishMerchantManager
+    participant EM as EconomyManager
+    participant FMD as FishMerchantData
+
+    P->>GUI: NPC 클릭 → GUI 열기
+    P->>GUI: 물고기를 GUI에 배치
+    GUI->>FMM: identifyFish() 각 아이템
+    FMM-->>GUI: 물고기 정보
+    GUI->>FMM: calculateFishPrice()
+    FMM-->>GUI: 가격 정보
+    GUI->>GUI: 총 가격 표시 업데이트
+    
+    P->>GUI: "선택 판매" 클릭
+    GUI->>FMM: 각 물고기 가격 계산
+    GUI->>EM: deposit(player, totalPrice)
+    GUI->>FMM: saveSellHistory()
+    FMM->>FMD: INSERT 판매 기록
+    GUI->>P: 판매 완료 메시지

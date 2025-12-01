@@ -16,6 +16,11 @@ BookSystem은 마인크래프트에서 작성한 책을 웹에서 열람하고 �
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/booksystem-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph "마인크래프트 서버"
@@ -65,6 +70,8 @@ graph TB
     
     WebBrowser --> BookWebServer
 ```
+
+</details>
 
 ---
 
@@ -275,6 +282,11 @@ book_system:
 - **책 뷰어**: 마인크래프트 스타일의 책 열람 모달
 
 ### 인증 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/booksystem-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant Player as 플레이어
@@ -295,6 +307,8 @@ sequenceDiagram
     Web->>API: GET /api/user/books (Bearer token)
     API-->>Web: 내 책 목록
 ```
+
+</details>
 
 ---
 

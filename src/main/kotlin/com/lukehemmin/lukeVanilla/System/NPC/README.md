@@ -53,6 +53,11 @@ Citizens NPC에 대한 앉기 동작을 방지하는 리스너입니다.
 
 ## 🔗 의존성
 
+![시스템 구조도](../../../../../../docs/images/diagrams/npc-class-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TD
     NPCRouter[NPCInteractionRouter] --> Citizens[Citizens API]
@@ -73,7 +78,14 @@ graph TD
     NPCSitPreventer -.-> GSit
 ```
 
+</details>
+
 ## 🏗️ 시스템 아키텍처
+
+![클래스 다이어그램](../../../../../../docs/images/diagrams/npc-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 classDiagram
@@ -104,6 +116,8 @@ classDiagram
     NPCInteractionRouter --> CitizensAPI : use
     NPCSitPreventer --> CitizensAPI : use
 ```
+
+</details>
 
 ## 📊 이벤트 흐름
 

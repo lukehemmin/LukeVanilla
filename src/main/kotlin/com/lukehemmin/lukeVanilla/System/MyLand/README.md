@@ -19,6 +19,11 @@ MyLand는 서버의 **기본 토지 관리 시스템**입니다. 청크 단위�
 
 ## 🏗️ 아키텍처
 
+![시스템 구조도](../../../../../../docs/images/diagrams/myland-diagram.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TD
     A[PrivateLandSystem] --> B[LandManager]
@@ -40,6 +45,8 @@ graph TD
     M[AdvancedLandManager] -->|마을 기능| C
     N[VillageSettingsGUI] -->|GUI 연동| C
 ```
+
+</details>
 
 ---
 

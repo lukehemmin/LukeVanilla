@@ -1,0 +1,27 @@
+graph TD
+    Command[Command System] --> Main[Main Plugin]
+    Command --> Database[Database]
+    
+    subgraph "명령어 그룹"
+        AdminCmd[관리자 명령어]
+        InfoCmd[정보 명령어]
+        ItemCmd[아이템 명령어]
+        MsgCmd[메시지 명령어]
+    end
+    
+    AdminCmd --> BlockLocation
+    AdminCmd --> Reload
+    AdminCmd --> ItemRestore
+    
+    InfoCmd --> ServerTime
+    InfoCmd --> MapCommand
+    
+    ItemCmd --> TransparentFrame
+    ItemCmd --> NextSeasonItem
+    
+    MsgCmd --> Titoker
+    MsgCmd --> Yeonhong
+    MsgCmd --> VoiceChannel
+    
+    ItemRestore --> Discord[Discord ItemRestoreLogger]
+    ItemRestore --> Nexo[Nexo API]

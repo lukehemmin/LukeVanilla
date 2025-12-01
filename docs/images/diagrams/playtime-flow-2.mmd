@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant P as 플레이어
+    participant L as PlayTimeListener
+    participant M as PlayTimeManager
+    participant D as PlayTimeData
+    participant DB as MySQL
+    
+    P->>L: PlayerJoinEvent
+    L->>M: onPlayerJoin(player)
+    M->>M: 세션 시작 시간 캐시
+    M->>D: setSessionStartTime()
+    D->>DB: INSERT/UPDATE (비동기)
+    Note over M: 세션 시작!

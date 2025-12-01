@@ -15,6 +15,11 @@ AdvancedLandClaiming 시스템은 기본 MyLand 시스템을 확장하여 **마�
 
 ## 🏗️ 시스템 아키텍처
 
+![시스템 구조도](../../../../../../docs/images/diagrams/advancedland-diagram.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TD
     subgraph "외부 시스템"
@@ -55,6 +60,8 @@ graph TD
     I --> O
     I --> P
 ```
+
+</details>
 
 ## 📁 핵심 컴포넌트
 

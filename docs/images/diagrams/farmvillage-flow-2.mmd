@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant A as 관리자
+    participant C as FarmVillageCommand
+    participant M as FarmVillageManager
+    participant L as LandManager (MyLand)
+    participant D as FarmVillageData
+    
+    A->>C: /농사마을 땅주기 플레이어
+    C->>M: assignNextAvailablePlot()
+    M->>D: getAllPlotParts()
+    D-->>M: 모든 땅 정보
+    loop 순회
+        M->>L: isChunkClaimed(chunk1, chunk2)
+        L-->>M: 클레임 상태
+    end
+    M->>L: claimChunk(chunk1, player)
+    L-->>M: SUCCESS
+    M->>L: claimChunk(chunk2, player)
+    L-->>M: SUCCESS
+    M->>M: giveJoinPackage(player)
+    M-->>C: SUCCESS, plotNumber
+    C-->>A: 지급 완료 메시지

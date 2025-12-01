@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant Admin as 관리자
+    participant NC as NametagCommand
+    participant NM as NametagManager
+    participant DB as MySQL
+    participant Player as 플레이어
+    
+    Admin->>NC: /nametag Player 칭호
+    NC->>DB: INSERT/UPDATE
+    NC->>NM: updatePlayerNametag()
+    NM->>NM: Scoreboard 팀 업데이트
+    NM->>Player: 머리 위 칭호 표시
+    NM->>Player: TAB 목록 이름 변경
+    
+    Note over NM: 1분마다 자동 새로고침

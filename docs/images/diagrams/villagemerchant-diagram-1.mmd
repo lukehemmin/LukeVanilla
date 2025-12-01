@@ -1,0 +1,23 @@
+graph TB
+    subgraph VillageMerchant System
+        VMS[VillageMerchantSystem] --> VMM[VillageMerchantManager]
+        VMS --> VMD[VillageMerchantData]
+        VMM --> VMD
+        VMD --> DB[(Database)]
+        
+        VMC[VillageMerchantCommand] --> VMM
+        VML[VillageMerchantListener] --> VMM
+    end
+    
+    subgraph Data Models
+        MI[MerchantItem] -.-> VMD
+        SI[SeedItem] -.-> VMD
+        NM[NPCMerchant] -.-> VMD
+    end
+    
+    subgraph External Dependencies
+        NPCRouter[NPCInteractionRouter] --> VMM
+        FVS[FarmVillageSystem] --> VMS
+        SMG[SeedMerchantGUI] --> VMM
+        Citizens[Citizens Plugin] --> VMM
+    end

@@ -1,0 +1,17 @@
+graph TD
+    MultiServer[MultiServer System] --> Database[Database]
+    MultiServer --> Main[Main Plugin]
+    
+    subgraph "서버별 역할"
+        LobbyServer[로비 서버] --> MultiServerReader
+        VanillaServer[야생 서버] --> MultiServerUpdater
+    end
+    
+    subgraph "사용 시스템"
+        Discord[Discord System] --> MultiServerReader
+        AdminAssistant[AI Admin] --> MultiServerReader
+        WarningSystem[Warning System] --> MultiServerUpdater
+    end
+    
+    MultiServerReader --> Database
+    MultiServerUpdater --> Database

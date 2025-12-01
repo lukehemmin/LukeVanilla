@@ -135,6 +135,11 @@ Items/
 
 ## 🔗 의존성
 
+![시스템 구조도](../../../../../../docs/images/diagrams/items-class-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TD
     Items[Items System] --> Database[Database]
@@ -154,7 +159,14 @@ graph TD
     end
 ```
 
+</details>
+
 ## 🏗️ 시스템 아키텍처
+
+![클래스 다이어그램](../../../../../../docs/images/diagrams/items-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 classDiagram
@@ -196,6 +208,8 @@ classDiagram
     RandomScrollRoulette --> Database
     SeasonItemSystem --> Database
 ```
+
+</details>
 
 ## 📊 데이터 흐름
 

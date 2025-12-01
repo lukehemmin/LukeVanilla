@@ -1,0 +1,10 @@
+graph LR
+    subgraph "경제 시스템"
+        ECON[EconomyManager] --> REPO[EconomyRepository]
+        ECON --> SERVICE[EconomyService]
+        FLEA[FleaMarketManager] --> ECON
+        FLEA --> FLEA_REPO[FleaMarketRepository]
+    end
+    
+    REPO --> DB[(Database)]
+    FLEA_REPO --> DB

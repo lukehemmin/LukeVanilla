@@ -8,6 +8,11 @@
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/fishmerchant-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph FishMerchant System
@@ -31,6 +36,8 @@ graph TB
         Citizens[Citizens Plugin] --> FMM
     end
 ```
+
+</details>
 
 ---
 
@@ -176,6 +183,11 @@ private fun getTargetNPC(player: Player): NPC? {
 ## 📊 흐름도
 
 ### 물고기 판매 흐름 (GUI)
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/fishmerchant-diagram-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant P as Player
@@ -200,7 +212,14 @@ sequenceDiagram
     GUI->>P: 판매 완료 메시지
 ```
 
+</details>
+
 ### 물고기 식별 흐름
+![시스템 구조도](../../../../../../docs/images/diagrams/fishmerchant-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 flowchart TD
     A[ItemStack 입력] --> B{CustomFishing<br>플러그인 활성화?}
@@ -217,6 +236,8 @@ flowchart TD
     J -->|Yes| K[VANILLA 반환]
     J -->|No| L[null 반환]
 ```
+
+</details>
 
 ---
 

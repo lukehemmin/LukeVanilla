@@ -1,0 +1,36 @@
+classDiagram
+    class MultiServerReader {
+        -plugin: Main
+        -database: Database
+        +getIntegratedServerStatus(): String
+        +getVanillaServerHeartbeat(): ServerHeartbeat?
+        +getAllOnlinePlayers(): Map
+        +getPlayerStatusByName(name): PlayerStatus?
+        +getTotalOnlinePlayersCount(): PlayerCount
+    }
+    
+    class MultiServerUpdater {
+        -plugin: Main
+        -database: Database
+        -heartbeatTask: BukkitRunnable?
+        -commandProcessorTask: BukkitRunnable?
+        +start()
+        +stop()
+        -updateServerHeartbeat()
+        -processCrossServerCommands()
+        +onPlayerJoin(event)
+        +onPlayerQuit(event)
+    }
+    
+    class Database {
+        +updateServerHeartbeat()
+        +getServerHeartbeat()
+        +updateOnlinePlayer()
+        +removeOnlinePlayer()
+        +getPendingCrossServerCommands()
+        +markCrossServerCommandExecuted()
+    }
+    
+    MultiServerReader --> Database
+    MultiServerUpdater --> Database
+    MultiServerUpdater ..|> Listener

@@ -1,0 +1,14 @@
+flowchart TD
+    A[ItemStack 입력] --> B{CustomFishing<br>플러그인 활성화?}
+    B -->|Yes| C[CustomFishing API 호출]
+    C --> D{물고기 ID 있음?}
+    D -->|Yes| E[CUSTOMFISHING 반환]
+    D -->|No| F{Nexo 플러그인<br>활성화?}
+    B -->|No| F
+    F -->|Yes| G[Nexo API 호출]
+    G --> H{아이템 ID 있음?}
+    H -->|Yes| I[NEXO 반환]
+    H -->|No| J{바닐라 물고기?}
+    F -->|No| J
+    J -->|Yes| K[VANILLA 반환]
+    J -->|No| L[null 반환]

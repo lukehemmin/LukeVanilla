@@ -1,0 +1,9 @@
+graph TB
+    subgraph "토지 시스템"
+        MYLAND[MyLand<br/>개인 토지] --> PROTECT[LandProtectionListener]
+        ADVANCED[AdvancedLandClaiming<br/>고급 토지] --> PROTECT
+        FARM[FarmVillage<br/>농장 마을] --> ADVANCED
+    end
+    
+    PROTECT --> DB[(Database)]
+    CACHE[AdvancedLandCache] --> ADVANCED

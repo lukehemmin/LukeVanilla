@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant B as 구매자
+    participant FMG as FleaMarketGUI
+    participant FMS as FleaMarketService
+    participant EM as EconomyManager
+    participant FMR as FleaMarketRepository
+    participant S as 판매자
+
+    B->>FMG: 아이템 클릭
+    FMG->>FMS: purchaseItem(buyer, itemId)
+    FMS->>FMS: 검증 (자기 아이템, 잔액 등)
+    
+    Note over FMS: synchronized(itemCache)
+    FMS->>EM: withdraw(buyer, price)
+    alt 판매자 온라인
+        FMS->>EM: deposit(seller, price)
+    else 판매자 오프라인
+        FMS->>EM: depositOffline(sellerUuid, price)
+    end
+    
+    FMS->>FMR: deleteItem()
+    FMS->>FMS: 캐시에서 제거
+    FMS->>FMR: insertLog() (구매자/판매자 양쪽)
+    FMS->>B: 인벤토리에 아이템 추가
+    
+    alt 판매자 온라인
+        FMS->>S: 즉시 판매 알림
+    end

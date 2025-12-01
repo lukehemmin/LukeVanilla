@@ -1,0 +1,38 @@
+classDiagram
+    class UpgradeItem {
+        -statsSystem: StatsSystem
+        +onEntityDeath(event)
+        +upgradeItem(player, item, info)
+    }
+    
+    class StatsSystem {
+        -statsManager: ItemStatsManager
+        -statsListener: ItemStatsListener
+        +getStatsManager()
+        +isTrackableItem(item)
+    }
+    
+    class ItemStatsManager {
+        +incrementMobsKilled(item)
+        +getMobsKilled(item)
+    }
+    
+    class RandomScrollRoulette {
+        -scrollConfigs: Map
+        -scrollRewards: Map
+        +startRoulette(player, scrollId)
+        +loadScrollDataFromDB()
+    }
+    
+    class SeasonItemSystem {
+        -itemRegisterSystem
+        -itemReceiveSystem
+        -itemViewSystem
+        +registerItem(player)
+        +receiveItem(player, eventType)
+    }
+    
+    UpgradeItem --> StatsSystem
+    StatsSystem --> ItemStatsManager
+    RandomScrollRoulette --> Database
+    SeasonItemSystem --> Database

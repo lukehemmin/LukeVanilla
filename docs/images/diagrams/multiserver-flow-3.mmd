@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant VanillaServer as 야생 서버
+    participant Database as DB
+    participant LobbyServer as 로비 서버
+    participant Discord as Discord Bot
+    
+    loop 매 30초
+        VanillaServer->>VanillaServer: TPS, MSPT 측정
+        VanillaServer->>Database: updateServerHeartbeat()
+    end
+    
+    Discord->>LobbyServer: 서버 상태 요청
+    LobbyServer->>LobbyServer: 로컬 상태 조회
+    LobbyServer->>Database: getServerHeartbeat("vanilla")
+    Database-->>LobbyServer: ServerHeartbeat
+    LobbyServer-->>Discord: 통합 상태 정보

@@ -8,6 +8,11 @@ Economy 시스템은 서버의 **기본 경제 시스템**으로, 플레이어�
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/economy-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph Economy System
@@ -27,6 +32,8 @@ graph TB
         VM[VillageMerchant] --> EM
     end
 ```
+
+</details>
 
 ---
 
@@ -144,6 +151,11 @@ synchronized(senderUuid) {
 ## 📊 흐름도
 
 ### 입금 (Deposit) 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/economy-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant External as 외부 시스템
@@ -162,7 +174,14 @@ sequenceDiagram
     ER->>DB: INSERT
 ```
 
+</details>
+
 ### 송금 (Transfer) 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/economy-flow-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant Player as 송신자
@@ -178,6 +197,8 @@ sequenceDiagram
     ES->>ER: 양쪽 DB 업데이트
     ES->>ER: 양쪽 로그 기록
 ```
+
+</details>
 
 ---
 

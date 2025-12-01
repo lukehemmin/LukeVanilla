@@ -19,6 +19,11 @@ FarmVillage는 관리자가 운영하는 **특수 농업 구역 시스템**입�
 
 ## 🏗️ 아키텍처
 
+![시스템 구조도](../../../../../../docs/images/diagrams/farmvillage-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TD
     A[FarmVillageSystem] --> B[FarmVillageManager]
@@ -41,6 +46,8 @@ graph TD
     B --> P[MyLand LandManager]
     B --> Q[LuckPerms]
 ```
+
+</details>
 
 ---
 
@@ -282,6 +289,11 @@ CREATE TABLE farmvillage_weekly_scroll_config (
 
 ### 땅 지급 흐름
 
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/farmvillage-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant A as 관리자
@@ -306,6 +318,8 @@ sequenceDiagram
     M-->>C: SUCCESS, plotNumber
     C-->>A: 지급 완료 메시지
 ```
+
+</details>
 
 ### 땅 회수 흐름
 - 땅 번호로 회수: 해당 번호의 모든 청크 언클레임

@@ -1,0 +1,19 @@
+graph TD
+    A[PrivateLandSystem] --> B[LandManager]
+    A --> C[LandCommand]
+    A --> D[LandProtectionListener]
+    
+    B --> E[LandData]
+    B --> F[MyLandAtomicService]
+    
+    E --> G[(myland_claims)]
+    E --> H[(myland_claim_history)]
+    E --> I[(myland_members)]
+    
+    J[FarmVillage] -->|API 호출| B
+    K[AdvancedLandClaiming] -->|API 호출| B
+    
+    C --> L[VillageInviteCommand]
+    
+    M[AdvancedLandManager] -->|마을 기능| C
+    N[VillageSettingsGUI] -->|GUI 연동| C

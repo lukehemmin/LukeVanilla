@@ -1,0 +1,17 @@
+graph TD
+    NPCRouter[NPCInteractionRouter] --> Citizens[Citizens API]
+    NPCSitPreventer --> Citizens
+    
+    subgraph "NPC 라우터 사용 시스템"
+        FleaMarket[FleaMarket] --> NPCRouter
+        Roulette[Roulette] --> NPCRouter
+        FishMerchant[FishMerchant] --> NPCRouter
+        VillageMerchant[VillageMerchant] --> NPCRouter
+    end
+    
+    subgraph "외부 의존성"
+        Citizens
+        GSit[GSit API]
+    end
+    
+    NPCSitPreventer -.-> GSit

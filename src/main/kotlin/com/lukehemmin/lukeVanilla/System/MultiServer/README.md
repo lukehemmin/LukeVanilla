@@ -106,6 +106,11 @@ data class ServerStatusSummary(
 
 ## 🔗 의존성
 
+![시스템 구조도](../../../../../../docs/images/diagrams/multiserver-class-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TD
     MultiServer[MultiServer System] --> Database[Database]
@@ -126,7 +131,14 @@ graph TD
     MultiServerUpdater --> Database
 ```
 
+</details>
+
 ## 🏗️ 시스템 아키텍처
+
+![클래스 다이어그램](../../../../../../docs/images/diagrams/multiserver-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 classDiagram
@@ -167,9 +179,16 @@ classDiagram
     MultiServerUpdater ..|> Listener
 ```
 
+</details>
+
 ## 📊 데이터 흐름
 
 ### 서버 상태 동기화 흐름
+
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/multiserver-flow-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 sequenceDiagram
@@ -190,7 +209,14 @@ sequenceDiagram
     LobbyServer-->>Discord: 통합 상태 정보
 ```
 
+</details>
+
 ### 교차 서버 명령어 처리 흐름
+
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/multiserver-flow-4.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 sequenceDiagram
@@ -213,7 +239,14 @@ sequenceDiagram
     VanillaServer->>Database: markCrossServerCommandExecuted()
 ```
 
+</details>
+
 ### 플레이어 동기화 흐름
+
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/multiserver-flow-5.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 sequenceDiagram
@@ -231,6 +264,8 @@ sequenceDiagram
     Player->>VanillaServer: 로그아웃
     VanillaServer->>Database: removeOnlinePlayer()
 ```
+
+</details>
 
 ## 💡 사용 예시
 

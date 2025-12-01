@@ -1,0 +1,22 @@
+graph TB
+    subgraph FleaMarket System
+        FMM[FleaMarketManager] --> FMS[FleaMarketService]
+        FMM --> FMG[FleaMarketGUI]
+        FMS --> FMR[FleaMarketRepository]
+        FMR --> DB[(Database)]
+        
+        FMC[FleaMarketCommand] --> FMS
+        FMC --> FMG
+        FMNL[FleaMarketNPCListener] --> FMM
+        
+        IS[ItemSerializer] -.-> FMS
+        MI[MarketItem] -.-> FMS
+        ML[MarketLog] -.-> FMS
+        MTT[MarketTransactionType] -.-> FMS
+    end
+    
+    subgraph External Dependencies
+        EM[EconomyManager] --> FMS
+        NPCRouter[NPCInteractionRouter] --> FMM
+        Citizens[Citizens Plugin] --> FMNL
+    end

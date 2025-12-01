@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant S as 판매자
+    participant FMS as FleaMarketService
+    participant FMR as FleaMarketRepository
+
+    Note over S: 판매자 접속
+    S->>FMS: 접속 이벤트
+    FMS->>FMR: getUnnotifiedSales(uuid)
+    FMR-->>FMS: 미확인 판매 목록
+    FMS->>S: 판매 알림 메시지 표시
+    FMS->>FMR: markSalesAsNotified(uuid)

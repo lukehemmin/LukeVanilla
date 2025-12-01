@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant P as Player
+    participant Router as NPCInteractionRouter
+    participant VMM as VillageMerchantManager
+    participant SMG as SeedMerchantGUI
+    participant VMD as VillageMerchantData
+
+    P->>Router: NPC 우클릭
+    Router->>VMM: openShopGUI(player, shopId)
+    VMM->>SMG: open(player, shopType, title)
+    SMG->>VMD: getMerchantItems(shopType)
+    
+    alt 캐시 히트
+        VMD-->>SMG: 캐시된 아이템 목록
+    else 캐시 미스
+        VMD->>VMD: DB 조회 및 캐싱
+        VMD-->>SMG: 아이템 목록
+    end
+    
+    SMG-->>P: 상점 GUI 열기

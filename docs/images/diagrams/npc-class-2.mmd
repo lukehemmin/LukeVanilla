@@ -1,0 +1,27 @@
+classDiagram
+    class NPCInteractionRouter {
+        -actions: ConcurrentHashMap~Int, Function~
+        +register(npcId: Int, action: Function)
+        +unregister(npcId: Int)
+        +clear()
+        +hasRegistration(npcId: Int): Boolean
+        +onNPCRightClick(event: NPCRightClickEvent)
+    }
+    
+    class NPCSitPreventer {
+        -plugin: JavaPlugin
+        +onPlayerInteractEntity(event: PlayerInteractEntityEvent)
+    }
+    
+    class FleaMarketManager {
+        +registerNPC(npcId: Int)
+    }
+    
+    class RouletteManager {
+        +registerNPC(npcId: Int)
+    }
+    
+    NPCInteractionRouter <-- FleaMarketManager : register
+    NPCInteractionRouter <-- RouletteManager : register
+    NPCInteractionRouter --> CitizensAPI : use
+    NPCSitPreventer --> CitizensAPI : use

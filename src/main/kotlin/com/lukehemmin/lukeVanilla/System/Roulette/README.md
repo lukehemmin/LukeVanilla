@@ -17,6 +17,11 @@ Roulette System은 마인크래프트 서버에서 다양한 경품을 제공하
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/roulette-diagram.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph "메인 시스템"
@@ -71,6 +76,8 @@ graph TB
     RouletteManager --> Database
     RouletteManager --> RouletteData
 ```
+
+</details>
 
 ---
 

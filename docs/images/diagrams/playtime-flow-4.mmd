@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant S as Scheduler
+    participant M as PlayTimeManager
+    participant D as PlayTimeData
+    participant DB as MySQL
+    
+    loop 5분마다
+        S->>M: autoSavePlayTime()
+        M->>M: 모든 세션 복사본 생성
+        loop 각 플레이어
+            M->>D: getTotalPlayTime()
+            D->>DB: SELECT (비동기)
+            M->>D: updatePlayTimeInfo()
+            D->>DB: UPDATE
+            M->>M: 세션 시작 시간 리셋
+        end
+        Note over M: 자동 저장 완료!
+    end

@@ -6,6 +6,11 @@ PlayTime 시스템은 플레이어의 서버 접속 시간을 정확하게 추�
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/playtime-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph PlayTime["⏱️ PlayTime 시스템"]
@@ -38,6 +43,8 @@ graph TB
     Quit --> PTL
     Auto --> PTM
 ```
+
+</details>
 
 ## 📁 핵심 컴포넌트
 
@@ -161,6 +168,11 @@ data class PlayTimeInfo(
 
 ### 플레이어 접속 시
 
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/playtime-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant P as 플레이어
@@ -177,7 +189,14 @@ sequenceDiagram
     Note over M: 세션 시작!
 ```
 
+</details>
+
 ### 플레이어 퇴장 시
+
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/playtime-flow-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 sequenceDiagram
@@ -199,7 +218,14 @@ sequenceDiagram
     Note over M: 세션 종료 & 저장!
 ```
 
+</details>
+
 ### 자동 저장 (5분 간격)
+
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/playtime-flow-4.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 sequenceDiagram
@@ -221,6 +247,8 @@ sequenceDiagram
         Note over M: 자동 저장 완료!
     end
 ```
+
+</details>
 
 ## 🔗 의존성
 

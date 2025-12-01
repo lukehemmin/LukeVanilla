@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant A as 관리자 A
+    participant ACM as AdminChatManager
+    participant ACS as AdminChatSync
+    participant D as Discord
+    participant B as 관리자 B
+    
+    A->>ACM: /관리자채팅 활성화
+    ACM->>ACM: 메타데이터 설정
+    
+    A->>ACM: 일반 채팅 입력
+    ACM->>ACM: 이벤트 취소
+    ACM->>B: [관리자 채팅] 메시지
+    ACS->>D: 메시지 전송
+    
+    D->>ACS: 디스코드 메시지
+    ACS->>A: [디스코드] 메시지
+    ACS->>B: [디스코드] 메시지

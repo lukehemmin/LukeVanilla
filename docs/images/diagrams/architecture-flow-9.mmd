@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant P as Player
+    participant E as Event
+    participant L as LandProtectionListener
+    participant C as AdvancedLandCache
+    participant M as LandManager
+    participant DB as Database
+
+    P->>E: 블록 상호작용
+    E->>L: BlockBreakEvent
+    L->>C: 토지 정보 조회
+    alt 캐시에 존재
+        C->>L: 캐시된 토지 정보
+    else 캐시에 없음
+        C->>M: DB 조회 요청
+        M->>DB: SELECT land info
+        DB->>M: 토지 데이터
+        M->>C: 캐시 저장
+        C->>L: 토지 정보
+    end
+    L->>L: 권한 확인
+    alt 권한 있음
+        L->>E: 이벤트 허용
+    else 권한 없음
+        L->>E: 이벤트 취소
+        L->>P: 권한 없음 메시지
+    end

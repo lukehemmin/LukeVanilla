@@ -1,0 +1,17 @@
+graph TB
+    subgraph Economy System
+        EM[EconomyManager] --> ES[EconomyService]
+        ES --> ER[EconomyRepository]
+        ER --> DB[(Database)]
+        
+        EL[EconomyListener] --> ES
+        MC[MoneyCommand] --> EM
+        
+        TT[TransactionType] -.-> ES
+    end
+    
+    subgraph External Systems
+        FM[FleaMarket] --> EM
+        FiM[FishMerchant] --> EM
+        VM[VillageMerchant] --> EM
+    end

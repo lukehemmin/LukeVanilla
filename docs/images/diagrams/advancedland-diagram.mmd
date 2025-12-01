@@ -1,0 +1,38 @@
+graph TD
+    subgraph "외부 시스템"
+        A[MyLand LandCommand] --"AdvancedLandManager API"--> B(AdvancedLandManager)
+        C[PlayTimeManager] --"플레이타임 조회"--> B
+    end
+
+    subgraph "사용자"
+        D["/땅 클레임, 반환..."] --> A
+        E["마을 설정 GUI"] --> F(VillageSettingsGUI)
+    end
+    
+    subgraph "AdvancedLandClaiming System"
+        G(AdvancedLandSystem) --"초기화"--> B
+        G --"초기화"--> H(AdvancedLandProtectionListener)
+        G --"초기화"--> F
+
+        B --"DB 통신"--> I(AdvancedLandData)
+        B --"캐시 관리"--> J(AdvancedLandCache)
+        H --"권한 확인"--> B
+        F --"마을 관리"--> B
+    end
+
+    subgraph "Service Layer"
+        K[AtomicClaimService]
+        L[VillageManagementService]
+    end
+
+    subgraph "Database"
+        M[myland_claims]
+        N[advanced_land_villages]
+        O[advanced_land_village_members]
+        P[advanced_land_village_permissions]
+    end
+
+    I --> M
+    I --> N
+    I --> O
+    I --> P

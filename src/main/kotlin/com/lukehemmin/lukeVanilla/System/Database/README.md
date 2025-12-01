@@ -6,6 +6,11 @@ Database 시스템은 플러그인 전체에서 사용하는 핵심 데이터베
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/database-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph Database["🗄️ Database 시스템"]
@@ -50,6 +55,8 @@ graph TB
     Economy --> DB
     Land --> AALD
 ```
+
+</details>
 
 ## 📁 핵심 컴포넌트
 
@@ -191,6 +198,11 @@ private fun calculateOptimalBatchSize(totalItems: Int): Int = when {
 
 ### 플러그인 시작 시
 
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/database-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant M as Main
@@ -216,7 +228,14 @@ sequenceDiagram
     Note over M,H: 플러그인 준비 완료
 ```
 
+</details>
+
 ### 비동기 쿼리 실행
+
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/database-flow-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 sequenceDiagram
@@ -250,6 +269,8 @@ sequenceDiagram
         end
     end
 ```
+
+</details>
 
 ## 💾 주요 테이블 구조
 

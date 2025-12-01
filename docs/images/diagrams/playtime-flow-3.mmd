@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant P as 플레이어
+    participant L as PlayTimeListener
+    participant M as PlayTimeManager
+    participant D as PlayTimeData
+    participant DB as MySQL
+    
+    P->>L: PlayerQuitEvent
+    L->>M: onPlayerQuit(player)
+    M->>M: 세션 시간 계산
+    M->>D: getTotalPlayTime()
+    D->>DB: SELECT (비동기)
+    DB-->>D: 이전 플레이타임
+    M->>M: 새 총 플레이타임 계산
+    M->>D: updatePlayTimeInfo()
+    D->>DB: UPDATE (비동기)
+    Note over M: 세션 종료 & 저장!

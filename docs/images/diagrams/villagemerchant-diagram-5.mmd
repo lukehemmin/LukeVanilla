@@ -1,0 +1,21 @@
+graph LR
+    subgraph VillageMerchant
+        VMS[VillageMerchantSystem]
+        VMM[VillageMerchantManager]
+    end
+    
+    subgraph FarmVillage
+        FVM[FarmVillageManager]
+        SMG[SeedMerchantGUI]
+        EMG[ExchangeMerchantGUI]
+        EqMG[EquipmentMerchantGUI]
+        SRG[SoilReceiveGUI]
+    end
+    
+    VMS --> FVM
+    VMM --> SMG
+    
+    style VMS fill:#e1f5fe
+    style VMM fill:#e1f5fe
+    style FVM fill:#fff3e0
+    style SMG fill:#fff3e0

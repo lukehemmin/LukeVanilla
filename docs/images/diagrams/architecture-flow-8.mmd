@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant P1 as Player 1
+    participant P2 as Player 2
+    participant ES as EconomyService
+    participant ER as EconomyRepository
+    participant DB as Database
+
+    P1->>ES: /money pay P2 1000
+    ES->>ER: P1 잔액 확인
+    ER->>DB: SELECT balance
+    DB->>ER: 현재 잔액
+    ER->>ES: 잔액 정보
+    ES->>ES: 잔액 검증
+    ES->>ER: 트랜잭션 실행
+    ER->>DB: BEGIN TRANSACTION
+    ER->>DB: UPDATE P1 balance -1000
+    ER->>DB: UPDATE P2 balance +1000
+    ER->>DB: INSERT transaction log
+    ER->>DB: COMMIT
+    DB->>ER: 성공
+    ER->>ES: 거래 완료
+    ES->>P1: 송금 완료 메시지
+    ES->>P2: 수령 알림 메시지

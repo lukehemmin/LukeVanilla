@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant Player as 플레이어
+    participant MC as 마인크래프트
+    participant Web as 웹 브라우저
+    participant API as BookAPI
+    
+    Player->>MC: /책 토큰
+    MC->>MC: 6자리 인증 코드 생성
+    MC-->>Player: 인증 코드 표시
+    
+    Player->>Web: 웹사이트 접속
+    Web->>API: POST /api/auth {authCode}
+    API->>API: 인증 코드 검증
+    API-->>Web: {token, expiresIn}
+    
+    Web->>Web: 토큰 localStorage 저장
+    Web->>API: GET /api/user/books (Bearer token)
+    API-->>Web: 내 책 목록

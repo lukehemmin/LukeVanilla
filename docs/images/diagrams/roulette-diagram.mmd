@@ -1,0 +1,52 @@
+graph TB
+    subgraph "메인 시스템"
+        RouletteSystem[RouletteSystem<br/>시스템 진입점]
+        RouletteManager[RouletteManager<br/>룰렛 관리]
+        RouletteCommand[RouletteCommand<br/>명령어 처리]
+    end
+    
+    subgraph "트리거"
+        RouletteNPCListener[RouletteNPCListener<br/>NPC 트리거]
+        RouletteNexoListener[RouletteNexoListener<br/>Nexo 트리거]
+        NPCRouter[NPCInteractionRouter<br/>NPC 라우팅]
+    end
+    
+    subgraph "사용자 인터페이스"
+        RouletteGUI[RouletteGUI<br/>GUI 및 애니메이션]
+    end
+    
+    subgraph "데이터"
+        RouletteData[RouletteData<br/>데이터 모델]
+        Database[(MySQL<br/>Database)]
+    end
+    
+    subgraph "외부 시스템"
+        Player[플레이어]
+        Citizens[Citizens NPC]
+        Nexo[Nexo 가구]
+        Economy[EconomyManager]
+    end
+    
+    Player --> RouletteCommand
+    Player --> Citizens
+    Player --> Nexo
+    
+    Citizens --> NPCRouter
+    NPCRouter --> RouletteNPCListener
+    Nexo --> RouletteNexoListener
+    
+    RouletteSystem --> RouletteManager
+    RouletteSystem --> RouletteNPCListener
+    RouletteSystem --> RouletteNexoListener
+    RouletteSystem --> RouletteCommand
+    
+    RouletteNPCListener --> RouletteManager
+    RouletteNPCListener --> RouletteGUI
+    RouletteNPCListener --> Economy
+    
+    RouletteNexoListener --> RouletteManager
+    RouletteNexoListener --> RouletteGUI
+    RouletteNexoListener --> Economy
+    
+    RouletteManager --> Database
+    RouletteManager --> RouletteData

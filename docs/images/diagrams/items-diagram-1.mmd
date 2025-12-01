@@ -1,0 +1,16 @@
+graph TD
+    Items[Items System] --> Database[Database]
+    Items --> Nexo[Nexo API]
+    Items --> Main[Main Plugin]
+    
+    subgraph "서브시스템"
+        UpgradeItem --> StatsSystem
+        CustomItemSystem --> Database
+        SeasonItemSystem --> Database
+        StatsSystem --> Nexo
+    end
+    
+    subgraph "외부 의존성"
+        Nexo
+        Database
+    end

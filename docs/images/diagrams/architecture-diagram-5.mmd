@@ -1,0 +1,9 @@
+graph TB
+    subgraph "상인 시스템"
+        FISH[FishMerchant] --> NPC[NPCInteractionRouter]
+        VILLAGE[VillageMerchant] --> NPC
+        NPC --> CITIZENS[Citizens Plugin]
+    end
+    
+    FISH --> ECON[EconomyManager]
+    VILLAGE --> ECON

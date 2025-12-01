@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Player as 플레이어
+    participant VanillaServer as 야생 서버
+    participant Database as DB
+    participant LobbyServer as 로비 서버
+    
+    Player->>VanillaServer: 접속
+    VanillaServer->>Database: updateOnlinePlayer()
+    
+    LobbyServer->>Database: getAllOnlinePlayers()
+    Database-->>LobbyServer: 온라인 플레이어 목록
+    
+    Player->>VanillaServer: 로그아웃
+    VanillaServer->>Database: removeOnlinePlayer()

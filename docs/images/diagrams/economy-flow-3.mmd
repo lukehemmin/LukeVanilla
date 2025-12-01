@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant Player as 송신자
+    participant MC as MoneyCommand
+    participant ES as EconomyService
+    participant ER as EconomyRepository
+
+    Player->>MC: /돈 보내기 수신자 금액
+    MC->>ES: transfer()
+    Note over ES: synchronized 블록
+    ES->>ES: 잔액 확인
+    ES->>ES: 양쪽 캐시 업데이트
+    ES->>ER: 양쪽 DB 업데이트
+    ES->>ER: 양쪽 로그 기록

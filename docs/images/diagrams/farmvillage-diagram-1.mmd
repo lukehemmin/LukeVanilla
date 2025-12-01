@@ -1,0 +1,20 @@
+graph TD
+    A[FarmVillageSystem] --> B[FarmVillageManager]
+    A --> C[FarmVillageCommand]
+    A --> D[FarmVillageData]
+    
+    B --> E[SeedMerchantGUI]
+    B --> F[EquipmentMerchantGUI]
+    B --> G[ExchangeMerchantGUI]
+    B --> H[SoilReceiveGUI]
+    B --> I[WeeklyScrollExchangeGUI]
+    B --> J[WeeklyScrollRotationSystem]
+    B --> K[PackageEditGUI]
+    B --> L[TradeConfirmationGUI]
+    
+    A --> M[ChestProtectionListener]
+    A --> N[CustomCropProtectionListener]
+    A --> O[PackageOpenListener]
+    
+    B --> P[MyLand LandManager]
+    B --> Q[LuckPerms]

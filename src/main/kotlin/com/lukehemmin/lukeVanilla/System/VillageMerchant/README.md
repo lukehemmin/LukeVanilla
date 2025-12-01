@@ -8,6 +8,11 @@
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/villagemerchant-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph VillageMerchant System
@@ -33,6 +38,8 @@ graph TB
         Citizens[Citizens Plugin] --> VMM
     end
 ```
+
+</details>
 
 ---
 
@@ -172,6 +179,11 @@ private fun loadAndRegisterMerchants() {
 ## 📊 흐름도
 
 ### 상인 NPC 설정 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/villagemerchant-diagram-5.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant A as Admin
@@ -192,7 +204,14 @@ sequenceDiagram
     VMC-->>A: 설정 완료 메시지
 ```
 
+</details>
+
 ### 상점 이용 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/villagemerchant-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant P as Player
@@ -216,7 +235,14 @@ sequenceDiagram
     SMG-->>P: 상점 GUI 열기
 ```
 
+</details>
+
 ### 시스템 초기화 흐름
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/villagemerchant-flow-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant Main as Main.kt
@@ -234,6 +260,8 @@ sequenceDiagram
     VMM->>Router: 모든 상인 NPC 등록
     VMS->>Main: 명령어 등록
 ```
+
+</details>
 
 ---
 
@@ -306,6 +334,11 @@ data class NPCMerchant(
 
 ## 🔗 농사마을(FarmVillage) 시스템과의 관계
 
+![시스템 구조도](../../../../../../docs/images/diagrams/villagemerchant-flow-4.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph LR
     subgraph VillageMerchant
@@ -329,6 +362,8 @@ graph LR
     style FVM fill:#fff3e0
     style SMG fill:#fff3e0
 ```
+
+</details>
 
 - **독립적 운영**: VillageMerchant는 FarmVillage와 별개로 어디서든 사용 가능
 - **GUI 공유**: FarmVillage의 SeedMerchantGUI를 재사용하여 일관된 UX 제공

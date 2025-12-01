@@ -6,6 +6,11 @@ ChatSystem은 관리자 채팅과 플레이어 칭호(네임태그)를 관리하
 
 ## 🏗️ 시스템 구조
 
+![시스템 구조도](../../../../../../docs/images/diagrams/chatsystem-diagram-1.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 graph TB
     subgraph ChatSystem["💬 ChatSystem"]
@@ -37,6 +42,8 @@ graph TB
     NM --> Scoreboard
     NC --> NM
 ```
+
+</details>
 
 ## 📁 핵심 컴포넌트
 
@@ -147,6 +154,11 @@ CREATE TABLE Player_NameTag (
 
 ### 관리자 채팅 흐름
 
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/chatsystem-flow-2.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
+
 ```mermaid
 sequenceDiagram
     participant A as 관리자 A
@@ -168,7 +180,14 @@ sequenceDiagram
     ACS->>B: [디스코드] 메시지
 ```
 
+</details>
+
 ### 칭호 적용 흐름
+
+![시퀀스 다이어그램](../../../../../../docs/images/diagrams/chatsystem-flow-3.png)
+
+<details>
+<summary>📊 다이어그램 소스 코드 (AI 참조용)</summary>
 
 ```mermaid
 sequenceDiagram
@@ -187,6 +206,8 @@ sequenceDiagram
     
     Note over NM: 1분마다 자동 새로고침
 ```
+
+</details>
 
 ## 🎨 색상 코드
 

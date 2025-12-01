@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant Main as Main.kt
+    participant VMS as VillageMerchantSystem
+    participant VMD as VillageMerchantData
+    participant VMM as VillageMerchantManager
+    participant FVM as FarmVillageManager
+    participant Router as NPCInteractionRouter
+
+    Main->>VMS: enable()
+    VMS->>VMD: 초기화
+    VMS->>FVM: GUI 컴포넌트 획득
+    VMS->>VMM: 초기화 (data, gui, router)
+    VMM->>VMM: loadAndRegisterMerchants()
+    VMM->>Router: 모든 상인 NPC 등록
+    VMS->>Main: 명령어 등록
