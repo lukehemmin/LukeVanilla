@@ -1,89 +1,261 @@
 <div align="center">
 
 # <img src="https://i.ibb.co/5WRSpzjQ/2.png" alt="아이콘" width="150" height="150"/></br> LukeVanilla
-Paper 1.21.x + Velocity 통합 플러그인</br>
+
+**Paper 1.21.x + Velocity 통합 마인크래프트 서버 플러그인**
+
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.0-purple.svg)](https://kotlinlang.org)
+[![Paper](https://img.shields.io/badge/Paper-1.21.4+-blue.svg)](https://papermc.io)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ( 아이콘 제작자 Discord : whegrae )
 
+서버 홍보 글 : [카페 글](https://cafe.naver.com/minecraftgame/1933235?tc=shared_link)
+
 </div>
 
-## 소개
-LukeVanilla는 Kotlin(Gradle, ShadowJar)로 개발된 Paper/Velocity 통합 플러그인입니다. Discord(JDA) 연동, 마이랜드(청크 보호), 시즌 아이템/통계, 서버 간 통신(로비↔야생), HMCCosmetics/Custom-Crops/Nexo 등 다양한 플러그인과의 연동을 통해 서버 운영 전반을 지원합니다.
+---
 
-[![LukeVanilla Server Status](https://api.loohpjames.com/serverbanner.png?ip=mine.lukehemmin.com)](https://ko.namemc.com/server/mine.lukehemmin.com)
+## 📋 목차
 
-## 주요 기능
-- 디스코드 연동: 인증/역할 부여(DiscordAuth), 관리자 채팅 동기화, 티토커/음성채널 메시지 토글, 동적 음성채널, 고객지원 메시지/티켓, 아이템 복구 로그, 서버 상태 브로드캐스트, 관리자 어시스턴트(OpenAI 연동)
-- 서버 통합: 로비/야생 간 상태 요청/응답(PluginMessage), 종료 임박 알림 전송, Velocity 플러그인 동봉
-- 토지/보호: MyLand(청크 단위 보호/이력), FarmVillage(농사 특화 영역/상점/거래 GUI), 안전구역/폭발 차단, AntiVPN
-- 아이템 시스템: 시즌 아이템 등록/조회/수령, 아이템 킬 통계(바닐라+Nexo), 투명 액자, 커스텀 아이템 유틸(스크롤/레벨 스틱), Oraxen 가구 배치 차단, Nexo 아이템 복구
-- 경제/운영: 간단 송금 명령어(돈), 접속/퇴장 메시지 관리, 관리자 전용 브로드캐스트/도구
+- [📖 소개](#-소개)
+- [🛠️ 기술 스택](#️-기술-스택)
+- [🎮 서버 구조](#-서버-구조)
+- [⭐ 주요 시스템](#-주요-시스템)
+- [📦 의존 플러그인](#-의존-플러그인)
+- [📋 요구 사항](#-요구-사항)
+- [🚀 빠른 시작](#-빠른-시작)
+- [💡 주요 명령어](#-주요-명령어)
+- [📚 문서](#-문서)
+- [📄 라이선스](#-라이선스)
+- [🤝 기여와 문의](#-기여와-문의)
 
-## 지원/의존 플러그인
-- 필수(depend): HMCCosmetics, CustomCrops
-- 권장/소프트: Nexo, Citizens, LuckPerms, Oraxen, ItemsAdder, GSit
+---
 
-## 요구 사항
-- Java 21, Gradle(Wrapper 제공)
-- Paper 1.21.4+ (코드 기준 1.21.6 API 사용), Velocity(선택)
-- MySQL 8.x 권장
+## 📖 소개
 
-> 주의: 일부 SQL이 `lukevanilla` 스키마명을 하드코딩으로 참조합니다(예: AdminAssistant). `config.yml`의 `database.name`을 `lukevanilla`로 설정하거나, 필요 시 관련 쿼리를 환경에 맞게 수정하세요.
+LukeVanilla는 **Kotlin**으로 개발된 **Paper/Velocity 통합 플러그인**입니다. 
 
-## 빠른 시작
-1) 저장소 클론 후 설정 파일 편집
-- `src/main/resources/config.yml`
-  - `service.type`: `Vanilla` 또는 `Lobby` (서버 역할에 따라 기능 분기)
-  - `database`: MySQL 접속 정보
-  - `wardrobe`: HMCCosmetics 옷장 월드/위치/반경
-  - `debug`: 시스템별 디버그 플래그
+Discord 연동, 토지 보호 시스템, 경제 시스템, 시즌 아이템, 서버 간 통신 등 다양한 기능을 통해 마인크래프트 서버 운영 전반을 지원합니다. Velocity 프록시를 통한 멀티서버(Lobby + Vanilla) 구조를 지원하며, HMCCosmetics, CustomCrops, Nexo 등 다양한 플러그인과의 연동이 가능합니다.
 
-2) 데이터베이스 준비(최초 실행 시 테이블 자동 생성)
-- 스키마 생성: `CREATE DATABASE lukevanilla CHARACTER SET utf8mb4;` (권장)
-- Settings 테이블에 운영에 필요한 키를 저장하세요:
-  - Discord 관련: `DiscordToken`, `DiscordServerID`, `AuthChannel`, `AuthLogChannel`, `DiscordAuthRole`, `AdminChatChannel`, `SystemChannel`, `SupportCategoryId`, `SupportArchiveCategoryId`, `RestoreItemInfo`, `TTS_Channel`
-  - 음성채널 자동화: `TRIGGER_VOICE_CHANNEL_ID_1/2`, `VOICE_CATEGORY_ID_1/2`
-  - 관리자 어시스턴트(OpenAI): `OpenAI_API_Token`, (옵션) `OpenAI_API_Endpoint`, `OpenAI_API_Model`
-  - 기타: `Assistant_Channel`, `AssistantSecondaryChannel`, `SupportMessageId`(자동 저장)
+---
 
-3) 빌드 및 배포
-- 빌드: `./gradlew shadowJar`
-- 산출물: 기본적으로 ShadowJar를 생성합니다.
-  - 현재 `build.gradle.kts`의 `shadowJar`는 로컬 환경일 때 산출물을 `/home/lukehemmin/LukeVanilla/run/plugins`로 복사하도록 설정되어 있습니다. 공용 환경에서는 이 경로를 수정하거나 주석 처리해 `build/libs`에 출력되도록 사용하세요.
-- 배포: 생성된 JAR을 Paper 서버 `plugins/`에 배치합니다. Velocity를 사용하는 경우 동일 JAR을 Velocity `plugins/`에도 배치할 수 있습니다.
+## 🛠️ 기술 스택
 
-## 주요 명령어
-- /아이템 [등록|조회|수령] [할로윈|크리스마스|발렌타인|봄]: 시즌 아이템 시스템
-- /아이템정보: 손에 든 아이템의 킬 통계 조회(바닐라/Nexo 일부 아이템 지원)
-- /아이템복구: 커스텀/Nexo 아이템 복구(로그 기반)
-- /관리자채팅 <활성화|비활성화>: 관리자 채팅 토글(Discord와 동기화)
-- /티토커메시지 <보기|끄기>, /음성채널메시지 <보기|끄기>: 채널 메시지 표시 설정
-- /wleh, /지도: 지도 링크 출력, /블록위치: 블록 좌표 확인 모드
-- /서버시간: 현재 서버 시간 표시, /refreshmessages: 접속/퇴장 메시지 즉시 갱신
-- /경고 [주기|차감|확인|목록]: 경고 시스템(자동 차단 임계치 포함)
-- (로비 전용) /서버연결 <status|test|clear|reset>: 야생 서버 연결 점검/초기화
+| 기술 | 용도 |
+|------|------|
+| **Kotlin** | 주 프로그래밍 언어 |
+| **PaperMC** | Minecraft 서버 플랫폼 (1.21.4+) |
+| **Velocity** | 프록시 서버 |
+| **MySQL/MariaDB** | 데이터베이스 |
+| **JDA (Discord)** | Discord 봇 연동 |
+| **OpenAI API** | AI 관리자 어시스턴트 |
+| **Gradle (Kotlin DSL)** | 빌드 도구 |
 
-주요 권한 노드(발췌)
-- `lukevanilla.nametag`, `lukevanilla.item`, `lukevanilla.transparentframe`, `lukevanilla.reload`, `lukevanilla.admin`, `lukevanilla.adminchat`
-- `advancedwarnings.*`(경고), `itemstats.admin`
+---
 
-## 설정 상세
-- `service.type`에 따라 일부 기능이 분기됩니다.
-  - Lobby: 서버 연결 관리, 일부 Discord 음성채널 자동화 등 활성화
-  - Vanilla: 안전구역, 옷장 위치 시스템, MyLand/FarmVillage 등 활성화
-- HMCCosmetics 옷장 위치 시스템: `wardrobe.world` 및 좌표/반경 설정 필요
-- Nexo 연동: Nexo 플러그인이 서버에 설치되어 있어야 일부 기능(복구/아이템 인식 등)이 동작
-- 주의: Nexo 작업대 제한 시스템은 현재 코드 상 주석 처리되어 비활성화입니다. 필요 시 `Main.kt`에서 등록 코드 주석을 해제하고 `plugin.yml`에 명령어 추가 후 사용하세요.
+## 🎮 서버 구조
 
-## 문서/참고
-- 내부 문서: `src/main/kotlin/com/lukehemmin/lukeVanilla/System/MyLand/MyLand_System_Documentation.md`
-- API 참고: `Docs/API/` 폴더(HMCCosmetics, Custom-Crops, Citizens, LuckPerms, Nexo)
-- 주요 파일: `src/main/resources/plugin.yml`, `src/main/resources/velocity-plugin.json`, `src/main/resources/config.yml`, `build.gradle.kts`
+```
+┌─────────────┐     ┌──────────────────────────────────┐
+│   Players   │────▶│         Velocity Proxy           │
+└─────────────┘     └──────────────┬───────────────────┘
+                                   │
+                    ┌──────────────┴───────────────┐
+                    ▼                              ▼
+            ┌───────────────┐              ┌───────────────┐
+            │  Lobby Server │              │ Vanilla Server│
+            │  (service.type│              │  (service.type│
+            │   = "Lobby")  │              │  = "Vanilla") │
+            └───────────────┘              └───────────────┘
+```
 
-## 라이선스
-- 이 프로젝트는 MIT 라이선스로 배포됩니다. 자세한 내용은 `LICENSE`를 참조하세요.
-- 주의: 아이콘/이미지의 무단 사용은 저작권법에 의해 금지됩니다.
+| 서버 타입 | 주요 기능 |
+|----------|----------|
+| **Lobby** | Discord 봇 전체 기능, AI 어시스턴트, 고객지원 시스템, 서버 상태 관리 |
+| **Vanilla** | 토지 시스템, 상인 시스템, 농장 마을, 게임 콘텐츠, 경제 시스템 |
 
-## 기여와 문의
-- 버그/제안은 이슈로 등록: https://github.com/lukehemmin/LukeVanilla/issues
-- 풀 리퀘스트 환영: 기능 단위로 작게, 설명/테스트 포함 권장
+---
+
+## ⭐ 주요 시스템
+
+### 💬 Discord 연동
+- 인증/역할 부여 (DiscordAuth)
+- 관리자 채팅 동기화
+- 동적 음성채널 관리
+- 고객지원 티켓 시스템
+- 아이템 복구 로그
+- AI 관리자 어시스턴트 (OpenAI 연동)
+
+### 🏞️ 토지 시스템
+- **MyLand**: 청크 단위 개인 토지 보호
+- **AdvancedLandClaiming**: 고급 토지 청구 (플레이타임 기반)
+- **FarmVillage**: 농사 특화 영역/상점/거래
+
+### 💰 경제 시스템
+- 서버 내 화폐 시스템
+- 벼룩시장 (FleaMarket)
+- 룰렛 시스템
+
+### 🏪 상인 시스템
+- **FishMerchant**: 물고기 상인 (동적 가격)
+- **VillageMerchant**: 마을 상인
+- NPC 연동 (Citizens)
+
+### 🎁 아이템 시스템
+- 시즌 아이템 등록/조회/수령 (할로윈, 크리스마스, 발렌타인, 봄)
+- 아이템 킬 통계 (바닐라 + Nexo)
+- 커스텀 아이템 (스크롤, 레벨 스틱, 투명 액자)
+- Nexo/Oraxen 아이템 복구
+
+### 📚 기타 시스템
+- 플레이타임 추적
+- 경고 시스템 (자동 차단)
+- 안전구역/폭발 차단
+- AntiVPN
+- 책 시스템 (웹 뷰어)
+
+---
+
+## 📦 의존 플러그인
+
+| 타입 | 플러그인 |
+|------|----------|
+| **필수** | HMCCosmetics, CustomCrops |
+| **권장** | Nexo, Citizens, LuckPerms, Oraxen, ItemsAdder, GSit |
+
+---
+
+## 📋 요구 사항
+
+- **Java**: 21+
+- **서버**: Paper 1.21.4+ (Velocity 선택)
+- **데이터베이스**: MySQL 8.x 권장
+- **빌드**: Gradle (Wrapper 제공)
+
+> ⚠️ **주의**: 일부 SQL이 `lukevanilla` 스키마명을 하드코딩으로 참조합니다. `config.yml`의 `database.name`을 `lukevanilla`로 설정하거나 관련 쿼리를 수정하세요.
+
+---
+
+## 🚀 빠른 시작
+
+### 1️⃣ 저장소 클론 및 설정
+
+```bash
+git clone https://github.com/lukehemmin/LukeVanilla.git
+cd LukeVanilla
+```
+
+### 2️⃣ 설정 파일 편집
+
+`src/main/resources/config.yml` 편집:
+
+```yaml
+service:
+  type: "Vanilla"  # 또는 "Lobby"
+
+database:
+  host: "localhost"
+  port: 3306
+  name: "lukevanilla"
+  user: "username"
+  password: "password"
+```
+
+### 3️⃣ 데이터베이스 준비
+
+```sql
+CREATE DATABASE lukevanilla CHARACTER SET utf8mb4;
+```
+
+Settings 테이블에 필수 키 저장:
+- Discord: `DiscordToken`, `DiscordServerID`, `AuthChannel`, `AuthLogChannel`, `DiscordAuthRole`
+- AI: `OpenAI_API_Token`, `OpenAI_API_Endpoint` (선택), `OpenAI_API_Model` (선택)
+
+### 4️⃣ 빌드 및 배포
+
+```bash
+./gradlew shadowJar
+```
+
+생성된 JAR (`build/libs/LukeVanilla-*.jar`)을 서버 `plugins/` 폴더에 배치합니다.
+
+---
+
+## 💡 주요 명령어
+
+### 시즌 아이템
+| 명령어 | 설명 |
+|--------|------|
+| `/아이템 등록 [시즌]` | 시즌 아이템 등록 |
+| `/아이템 조회 [시즌]` | 시즌 아이템 조회 |
+| `/아이템 수령 [시즌]` | 시즌 아이템 수령 |
+| `/아이템정보` | 손에 든 아이템 킬 통계 |
+
+### 관리
+| 명령어 | 설명 |
+|--------|------|
+| `/관리자채팅 <on\|off>` | 관리자 채팅 토글 |
+| `/경고 [주기\|차감\|확인\|목록]` | 경고 시스템 |
+| `/아이템복구` | Nexo 아이템 복구 |
+| `/lukereload` | 설정 리로드 |
+
+### 유틸리티
+| 명령어 | 설명 |
+|--------|------|
+| `/돈`, `/ehs` | 잔액 확인 |
+| `/플레이타임`, `/pt` | 플레이타임 확인 |
+| `/지도`, `/wleh` | 지도 링크 출력 |
+| `/서버시간` | 서버 시간 표시 |
+
+---
+
+## 📚 문서
+
+프로젝트의 상세 문서는 다음을 참조하세요:
+
+| 문서 | 설명 |
+|------|------|
+| **[📐 ARCHITECTURE.md](ARCHITECTURE.md)** | 전체 프로젝트 아키텍처 및 시스템 구조 |
+| **[🤖 AGENTS.md](AGENTS.md)** | AI 에이전트용 가이드 (개발자 참조용) |
+
+### 시스템별 문서
+
+각 시스템의 상세 문서는 해당 폴더의 `README.md`를 참조하세요:
+
+- [Database](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Database/README.md)
+- [Discord](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Discord/README.md)
+- [Economy](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Economy/README.md)
+- [MyLand](src/main/kotlin/com/lukehemmin/lukeVanilla/System/MyLand/README.md)
+- [FishMerchant](src/main/kotlin/com/lukehemmin/lukeVanilla/System/FishMerchant/README.md)
+- [FleaMarket](src/main/kotlin/com/lukehemmin/lukeVanilla/System/FleaMarket/README.md)
+- [Roulette](src/main/kotlin/com/lukehemmin/lukeVanilla/System/Roulette/README.md)
+- [PlayTime](src/main/kotlin/com/lukehemmin/lukeVanilla/System/PlayTime/README.md)
+
+### 외부 API 참고
+- [JDA Documentation](https://ci.dv8tion.net/job/JDA5/javadoc/)
+- [Paper API](https://papermc.io/javadocs/)
+- [Docs/API/](Docs/API/) - 연동 플러그인 API 문서
+
+---
+
+## 📄 라이선스
+
+이 프로젝트는 **MIT 라이선스**로 배포됩니다. 자세한 내용은 [LICENSE](LICENSE)를 참조하세요.
+
+> ⚠️ **주의**: 아이콘/이미지의 무단 사용은 저작권법에 의해 금지됩니다.
+
+---
+
+## 🤝 기여와 문의
+
+- 🐛 **버그 리포트 / 기능 제안**: [GitHub Issues](https://github.com/lukehemmin/LukeVanilla/issues)
+- 🔀 **풀 리퀘스트**: 기능 단위로 작게, 설명 및 테스트 포함 권장
+
+---
+
+<div align="center">
+
+**Made with ❤️ using Kotlin**
+
+</div>
