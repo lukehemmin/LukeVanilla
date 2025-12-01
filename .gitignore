@@ -10,3 +10,4 @@ jars/
 .roo/mcp.json
 run/
 SERVER/
+.gemini/settings.json
