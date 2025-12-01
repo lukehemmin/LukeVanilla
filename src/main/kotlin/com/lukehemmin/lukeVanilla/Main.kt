@@ -45,7 +45,6 @@ import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.TimeUnit
 import java.sql.Connection 
-import java.sql.DriverManager 
 
 class Main : JavaPlugin() {
     lateinit var database: Database
@@ -77,23 +76,6 @@ class Main : JavaPlugin() {
     private var villageMerchantSystem: com.lukehemmin.lukeVanilla.System.VillageMerchant.VillageMerchantSystem? = null
     lateinit var npcInteractionRouter: com.lukehemmin.lukeVanilla.System.NPC.NPCInteractionRouter
 
-    // AdminAssistant에 데이터베이스 연결을 제공하는 함수
-    // 주의: 이 함수는 호출될 때마다 새로운 DB 연결을 생성합니다.
-    // 실제 운영 환경에서는 커넥션 풀 사용을 고려해야 합니다.
-    private fun provideDbConnection(): Connection {
-        val host = config.getString("database.host", "localhost")
-        val port = config.getInt("database.port", 3306)
-        val dbName = config.getString("database.name", "lukevanilla")
-        val user = config.getString("database.user", "root")
-        val password = config.getString("database.password", "")
-        // MySQL JDBC URL 예시입니다. 다른 DB 사용 시 수정 필요.
-        // JDBC 드라이버가 클래스패스에 있는지 확인하세요 (예: build.gradle에 mysql-connector-java 의존성 추가).
-        val jdbcUrl = "jdbc:mysql://$host:$port/$dbName?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
-
-        // 드라이버 로딩 (최초 한 번만 필요, Database 클래스에서 이미 처리했을 수 있음)
-        // try { Class.forName("com.mysql.cj.jdbc.Driver") } catch (e: ClassNotFoundException) { logger.severe("MySQL JDBC 드라이버를 찾을 수 없습니다!"); throw RuntimeException(e) }
-        return DriverManager.getConnection(jdbcUrl, user, password)
-    }
 
     /**
      * 현재 실행 중인 서버를 보다 쉬운 방법으로 식별하기 위한 함수
@@ -372,7 +354,6 @@ class Main : JavaPlugin() {
                     logger.info("[MultiServerUpdater] 로비 서버에서 멀티서버 동기화 시스템 초기화 완료.")
                     
                     val adminAssistant = AdminAssistant(
-                        dbConnectionProvider = ::provideDbConnection,
                         openAIApiKey = openAiApiKey, // API 키를 생성자에 전달
                         database = database,
                         warningService = warningService,

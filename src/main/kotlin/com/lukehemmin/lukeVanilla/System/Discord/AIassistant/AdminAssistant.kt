@@ -20,6 +20,8 @@ import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.awt.Color
 import java.sql.Connection
+import java.sql.PreparedStatement
+import java.sql.ResultSet
 import java.sql.SQLException
 import java.sql.Statement
 import java.text.SimpleDateFormat
@@ -31,9 +33,8 @@ import java.util.UUID
 
 
 class AdminAssistant(
-    val dbConnectionProvider: () -> Connection,
     private val openAIApiKey: String? = null, // 생성자로 API 키를 전달받음
-    private val database: Database,
+    val database: Database,
     private val warningService: WarningService,
     val multiServerReader: MultiServerReader,
     private val plugin: org.bukkit.plugin.Plugin
@@ -104,28 +105,32 @@ class AdminAssistant(
      * UUID 또는 닉네임으로 플레이어 정보를 조회
      */
     fun findPlayerInfo(identifier: String): PlayerInfo? {
-        // UUID 또는 닉네임으로 플레이어 정보를 조회하는 쿼리
-        val isUUID = identifier.length >= 32 // 간단히 UUID인지 확인 (정확한 검증은 아님)
+        val isUUID = identifier.length >= 32 // 간단히 UUID인지 확인
         val query = if (isUUID) {
-            val formattedUUID = if (identifier.contains("-")) identifier else
-                identifier.replaceFirst(Regex("(.{8})(.{4})(.{4})(.{4})(.{12})"), "$1-$2-$3-$4-$5")
             "SELECT pd.UUID, pd.NickName, pd.DiscordID, pd.Lastest_IP, pd.IsBanned, pa.IsAuth, pa.IsFirst, pt.Tag " +
             "FROM lukevanilla.Player_Data pd " +
             "LEFT JOIN lukevanilla.Player_Auth pa ON pd.UUID = pa.UUID " +
             "LEFT JOIN lukevanilla.Player_NameTag pt ON pd.UUID = pt.UUID " +
-            "WHERE pd.UUID = '$formattedUUID';"
+            "WHERE pd.UUID = ?"
         } else {
             "SELECT pd.UUID, pd.NickName, pd.DiscordID, pd.Lastest_IP, pd.IsBanned, pa.IsAuth, pa.IsFirst, pt.Tag " +
             "FROM lukevanilla.Player_Data pd " +
             "LEFT JOIN lukevanilla.Player_Auth pa ON pd.UUID = pa.UUID " +
             "LEFT JOIN lukevanilla.Player_NameTag pt ON pd.UUID = pt.UUID " +
-            "WHERE pd.NickName = '$identifier';"
+            "WHERE pd.NickName = ?"
+        }
+
+        val param = if (isUUID && !identifier.contains("-")) {
+            identifier.replaceFirst(Regex("(.{8})(.{4})(.{4})(.{4})(.{12})"), "$1-$2-$3-$4-$5")
+        } else {
+            identifier
         }
 
         try {
-            dbConnectionProvider().use { connection ->
-                connection.createStatement().use { statement ->
-                    statement.executeQuery(query).use { resultSet ->
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, param)
+                    statement.executeQuery().use { resultSet ->
                         if (resultSet.next()) {
                             return PlayerInfo(
                                 uuid = resultSet.getString("UUID") ?: "",
@@ -156,12 +161,13 @@ class AdminAssistant(
                    "FROM lukevanilla.Player_Data pd " +
                    "LEFT JOIN lukevanilla.Player_Auth pa ON pd.UUID = pa.UUID " +
                    "LEFT JOIN lukevanilla.Player_NameTag pt ON pd.UUID = pt.UUID " +
-                   "WHERE pd.DiscordID = '$discordId';"
+                   "WHERE pd.DiscordID = ?"
 
         try {
-            dbConnectionProvider().use { connection ->
-                connection.createStatement().use { statement ->
-                    statement.executeQuery(query).use { resultSet ->
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, discordId)
+                    statement.executeQuery().use { resultSet ->
                         if (resultSet.next()) {
                             return PlayerInfo(
                                 uuid = resultSet.getString("UUID") ?: "",
@@ -191,7 +197,7 @@ class AdminAssistant(
         val itemCategories = mutableMapOf<String, List<String>>()
 
         try {
-            dbConnectionProvider().use { connection ->
+            database.getConnection().use { connection ->
                 // 할로윈 아이템
                 val halloweenItems = getSeasonalItems(connection, uuid, "Halloween_Item_Owner")
                 if (halloweenItems.isNotEmpty()) {
@@ -224,7 +230,8 @@ class AdminAssistant(
     private fun getSeasonalItems(connection: Connection, uuid: String, tableName: String): List<String> {
         val items = mutableListOf<String>()
         try {
-            val columnQuery = "SHOW COLUMNS FROM lukevanilla.$tableName WHERE Field != 'UUID' AND Field != 'registered_at' AND Field != 'last_received_at';"
+            // tableName은 하드코딩된 값이므로 안전하다고 가정
+            val columnQuery = "SHOW COLUMNS FROM lukevanilla.$tableName WHERE Field != 'UUID' AND Field != 'registered_at' AND Field != 'last_received_at'"
             val columns = mutableListOf<String>()
 
             connection.createStatement().use { stmt ->
@@ -236,9 +243,10 @@ class AdminAssistant(
             }
 
             if (columns.isNotEmpty()) {
-                val itemQuery = "SELECT * FROM lukevanilla.$tableName WHERE UUID = '$uuid';"
-                connection.createStatement().use { stmt ->
-                    stmt.executeQuery(itemQuery).use { rs ->
+                val itemQuery = "SELECT * FROM lukevanilla.$tableName WHERE UUID = ?"
+                connection.prepareStatement(itemQuery).use { stmt ->
+                    stmt.setString(1, uuid)
+                    stmt.executeQuery().use { rs ->
                         if (rs.next()) {
                             for (column in columns) {
                                 if (rs.getBoolean(column)) {
@@ -271,11 +279,12 @@ class AdminAssistant(
      * 지정된 setting_type의 값을 lukevanilla.Settings에서 조회
      */
     private fun fetchSettingValue(type: String): String? {
-        val query = "SELECT setting_value FROM lukevanilla.Settings WHERE setting_type='${type}';"
+        val query = "SELECT setting_value FROM lukevanilla.Settings WHERE setting_type = ?"
         try {
-            dbConnectionProvider().use { connection ->
-                connection.createStatement().use { statement ->
-                    statement.executeQuery(query).use { resultSet ->
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, type)
+                    statement.executeQuery().use { resultSet ->
                         if (resultSet.next()) {
                             return resultSet.getString("setting_value")
                         }
@@ -293,11 +302,12 @@ class AdminAssistant(
      * 지정된 setting_type의 채널 ID를 lukevanilla.Settings에서 조회
      */
     private fun fetchAssistantChannelId(settingType: String): String? {
-        val query = "SELECT setting_value FROM lukevanilla.Settings WHERE setting_type='$settingType';"
+        val query = "SELECT setting_value FROM lukevanilla.Settings WHERE setting_type = ?"
         try {
-            dbConnectionProvider().use { connection ->
-                connection.createStatement().use { statement ->
-                    statement.executeQuery(query).use { resultSet ->
+            database.getConnection().use { connection ->
+                connection.prepareStatement(query).use { statement ->
+                    statement.setString(1, settingType)
+                    statement.executeQuery().use { resultSet ->
                         if (resultSet.next()) {
                             return resultSet.getString("setting_value")
                         }
@@ -704,7 +714,7 @@ class AdminAssistant(
                 }
             } else {
                 // 오프라인 플레이어의 UUID 조회 후 처리
-                dbConnectionProvider().use { connection ->
+                database.getConnection().use { connection ->
                     val selectUuidQuery = "SELECT UUID FROM Player_Data WHERE NickName = ?"
                     var playerUuid: String? = null
 
@@ -771,7 +781,7 @@ class AdminAssistant(
     private fun processOfflinePlayerWarning(event: MessageReceivedEvent, playerName: String, playerUuid: UUID, reason: String, adminDiscordId: String) {
         // 경고 정보를 DB에 직접 추가 (오프라인 플레이어에게는 WarningService.addWarning 사용 불가)
         try {
-            dbConnectionProvider().use { connection ->
+            database.getConnection().use { connection ->
                 // 관리자 정보 생성
                 val adminName = event.author.name
 
@@ -1102,7 +1112,7 @@ class AdminAssistant(
      */
     private fun getMinecraftUuidByDiscordId(discordId: String): UUID? {
         return try {
-            dbConnectionProvider().use { connection ->
+            database.getConnection().use { connection ->
                 val query = "SELECT UUID FROM Player_Data WHERE DiscordID = ?"
                 connection.prepareStatement(query).use { statement ->
                     statement.setString(1, discordId)
@@ -1183,7 +1193,7 @@ class AdminAssistant(
             val playerUuid = UUID.fromString(playerStatus.playerUuid)
             
             // 경고 정보를 DB에 직접 추가 (다른 서버에 있는 플레이어는 WarningService.addWarning 사용 불가)
-            dbConnectionProvider().use { connection ->
+            database.getConnection().use { connection ->
                 // 관리자 정보 생성
                 val adminName = event.author.name
 

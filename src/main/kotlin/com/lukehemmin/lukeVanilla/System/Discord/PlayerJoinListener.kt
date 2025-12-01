@@ -15,36 +15,35 @@ class PlayerJoinListener(private val plugin: JavaPlugin, private val database: D
         val uuid = player.uniqueId.toString()
         val nickname = player.name
 
-        // Runnable을 명시적으로 사용
-        Bukkit.getScheduler().runTaskLater(plugin, Runnable {
-            discordRoleManager.checkAndGrantAuthRole(player)
-        }, 20L)
+        // 비동기 작업으로 변경하여 메인 스레드 블로킹 방지
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+            // Discord 권한 확인 및 부여
+            try {
+                discordRoleManager.checkAndGrantAuthRole(java.util.UUID.fromString(uuid), nickname)
+            } catch (e: Exception) {
+                plugin.logger.warning("Discord 권한 부여 중 오류 발생: ${e.message}")
+            }
 
-        database.getConnection().use { connection ->
-            // Player_Data 테이블에서 UUID로 행을 찾음
-            connection.prepareStatement("SELECT * FROM Player_Data WHERE UUID = ?").use { checkPlayerData ->
-                checkPlayerData.setString(1, uuid)
-                checkPlayerData.executeQuery().use { playerDataResult ->
-                    if (playerDataResult.next()) {
-                        // 기존 행이 있으면 NickName을 업데이트
-                        connection.prepareStatement("UPDATE Player_Data SET NickName = ? WHERE UUID = ?").use { updateNickName ->
-                            updateNickName.setString(1, nickname)
-                            updateNickName.setString(2, uuid)
-                            updateNickName.executeUpdate()
-                        }
-                    } else {
-                        // 행이 없으면 새로운 행을 추가
-                        connection.prepareStatement(
-                            "INSERT INTO Player_Data (UUID, NickName, DiscordID) VALUES (?, ?, ?)"
-                        ).use { insertPlayerData ->
-                            insertPlayerData.setString(1, uuid)
-                            insertPlayerData.setString(2, nickname)
-                            insertPlayerData.setString(3, "") // DiscordID 빈칸
-                            insertPlayerData.executeUpdate()
-                        }
+            // DB 작업
+            try {
+                database.getConnection().use { connection ->
+                    // Upsert (Insert or Update)를 사용하여 원자적 처리
+                    val upsertQuery = """
+                        INSERT INTO Player_Data (UUID, NickName, DiscordID)
+                        VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE NickName = ?
+                    """
+                    connection.prepareStatement(upsertQuery).use { stmt ->
+                        stmt.setString(1, uuid)
+                        stmt.setString(2, nickname)
+                        stmt.setString(3, "") // 신규 생성 시 기본값
+                        stmt.setString(4, nickname) // 존재 시 업데이트할 닉네임
+                        stmt.executeUpdate()
                     }
                 }
+            } catch (e: Exception) {
+                plugin.logger.warning("플레이어 접속 DB 처리 중 오류 발생: ${e.message}")
             }
-        }
+        })
     }
 }

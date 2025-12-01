@@ -74,7 +74,7 @@ class ResetPlayerAuthTool : ToolHandler {
      */
     private fun resetPlayerDiscordAuth(playerUuid: String, context: ToolExecutionContext): Boolean {
         return try {
-            context.adminAssistant.dbConnectionProvider().use { connection ->
+            context.adminAssistant.database.getConnection().use { connection ->
                 // 트랜잭션 시작
                 connection.autoCommit = false
                 
