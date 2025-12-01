@@ -5,20 +5,21 @@ import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Role
 import org.bukkit.entity.Player
+import java.util.UUID
 
 class DiscordRoleManager(private val database: Database, private val jda: JDA) {
     
     private val logger = java.util.logging.Logger.getLogger("DiscordRoleManager")
 
-    fun checkAndGrantAuthRole(player: Player) {
-        val uuid = player.uniqueId.toString()
+    fun checkAndGrantAuthRole(uuid: UUID, name: String) {
+        val uuidString = uuid.toString()
 
         // Check if player is authenticated
         database.getConnection().use { conn ->
             val authStmt = conn.prepareStatement(
                 "SELECT IsAuth FROM Player_Auth WHERE UUID = ?"
             )
-            authStmt.setString(1, uuid)
+            authStmt.setString(1, uuidString)
             val authResult = authStmt.executeQuery()
 
             if (!authResult.next() || !authResult.getBoolean("IsAuth")) {
@@ -39,9 +40,9 @@ class DiscordRoleManager(private val database: Database, private val jda: JDA) {
         }
 
         // Get Discord ID for the player
-        val playerData = database.getPlayerDataByUuid(uuid)
+        val playerData = database.getPlayerDataByUuid(uuidString)
         val discordId = playerData?.discordId ?: run {
-            println("Discord ID not found for player ${player.name}")
+            println("Discord ID not found for player $name")
             return
         }
 
@@ -67,7 +68,7 @@ class DiscordRoleManager(private val database: Database, private val jda: JDA) {
             // Check if user already has the role
             if (!member.roles.contains(role)) {
                 guild.addRoleToMember(member, role).queue(
-                    { println("Successfully added auth role to ${player.name}") },
+                    { println("Successfully added auth role to $name") },
                     { error -> println("Failed to add auth role: ${error.message}") }
                 )
             }
