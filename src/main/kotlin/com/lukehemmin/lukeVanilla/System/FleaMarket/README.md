@@ -75,6 +75,27 @@ graph TB
 
 > 💡 **참고**: 일반 유저는 명령어로 마켓을 열 수 없고, NPC를 통해서만 접근 가능합니다.
 
+### NPC 명령어 상세
+
+NPC 관리 명령어는 두 가지 방식으로 사용할 수 있습니다:
+
+1. **NPC ID 직접 지정**
+   ```
+   /market npc add 123
+   /market npc remove 123
+   ```
+
+2. **바라보는 NPC 자동 감지** (ID 생략 시)
+   ```
+   /market npc add
+   /market npc remove
+   ```
+   - NPC를 바라보고 있는 상태에서 명령어 실행
+   - Citizens NPC가 아닌 엔티티를 바라보면 오류 메시지 표시
+   - 5블록 이내의 NPC만 감지 가능
+
+한글 옵션도 지원됩니다: `add`=`추가`, `remove`=`제거`
+
 ---
 
 ## 💾 데이터 저장

@@ -32,7 +32,7 @@ class FleaMarketManager(
         repository = FleaMarketRepository(database)
         
         // Service 초기화
-        service = FleaMarketService(repository, economyManager)
+        service = FleaMarketService(plugin, repository, economyManager)
         
         // GUI 초기화
         gui = FleaMarketGUI(service)
@@ -70,6 +70,8 @@ class FleaMarketManager(
         plugin.getCommand("market")?.tabCompleter = command
         plugin.getCommand("플마")?.setExecutor(command)
         plugin.getCommand("플마")?.tabCompleter = command
+        plugin.getCommand("플리마켓")?.setExecutor(command)
+        plugin.getCommand("플리마켓")?.tabCompleter = command
         
         // 캐시 로드 (비동기, 5초 후)
         Bukkit.getScheduler().runTaskLater(plugin, Runnable {
@@ -139,8 +141,7 @@ class FleaMarketManager(
      */
     @EventHandler
     fun onInventoryClose(event: InventoryCloseEvent) {
-        val player = event.player as? org.bukkit.entity.Player ?: return
-        gui.onInventoryClose(player)
+        gui.onInventoryClose(event)
     }
     
     /**

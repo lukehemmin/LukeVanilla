@@ -17,6 +17,11 @@ class FleaMarketCommand(
     private val manager: FleaMarketManager
 ) : CommandExecutor, TabCompleter {
     
+    init {
+        // Service에 GUI 참조 주입
+        service.gui = gui
+    }
+    
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (sender !is Player) {
             sender.sendMessage("§c이 명령어는 플레이어만 사용할 수 있습니다.")

@@ -12,10 +12,14 @@ import java.util.concurrent.ConcurrentHashMap
  * 플리마켓 비즈니스 로직 Service
  */
 class FleaMarketService(
+    val plugin: org.bukkit.plugin.Plugin,
     private val repository: FleaMarketRepository,
     private val economyManager: EconomyManager
 ) {
     
+    // GUI 참조를 위한 프로퍼티 (순환 참조 주의 - late init 또는 setter 주입)
+    var gui: FleaMarketGUI? = null
+
     // 메모리 캐시 (아이템 ID -> MarketItem)
     private val itemCache = ConcurrentHashMap<Int, MarketItem>()
     
@@ -65,11 +69,7 @@ class FleaMarketService(
         }
         
         // 4. 아이템 이름 추출
-        val itemName = if (itemStack.hasItemMeta() && itemStack.itemMeta?.hasDisplayName() == true) {
-            itemStack.itemMeta?.displayName ?: itemStack.type.name
-        } else {
-            itemStack.type.name
-        }
+        val itemName = ItemSerializer.getDisplayName(itemStack)
         
         // 5. DB에 저장
         val marketItem = MarketItem(
@@ -108,6 +108,11 @@ class FleaMarketService(
                 
                 // 9. 성공 메시지
                 seller.sendMessage("§a§l[플리마켓] §f$itemName §a을(를) §f${price.toLong()}원§a에 등록했습니다!")
+                
+                // 10. 모든 GUI 갱신
+                Bukkit.getScheduler().runTask(plugin, Runnable {
+                    gui?.refreshAllViewers()
+                })
             } else {
                 seller.sendMessage("§c아이템 등록에 실패했습니다.")
             }
@@ -155,11 +160,7 @@ class FleaMarketService(
             return false
         }
         
-        val itemName = if (itemStack.hasItemMeta() && itemStack.itemMeta?.hasDisplayName() == true) {
-            itemStack.itemMeta?.displayName ?: itemStack.type.name
-        } else {
-            itemStack.type.name
-        }
+        val itemName = ItemSerializer.getDisplayName(itemStack)
         
         // 6. 트랜잭션 시작 (itemCache 전체를 lock)
         synchronized(itemCache) {
@@ -260,6 +261,11 @@ class FleaMarketService(
             if (seller != null && seller.isOnline) {
                 seller.sendMessage("§a§l[플리마켓] §f$itemName §a이(가) §f${buyer.name}§a님에게 §f${item.price.toLong()}원§a에 판매되었습니다!")
             }
+            
+            // 모든 GUI 갱신
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                gui?.refreshAllViewers()
+            })
         }
         
         return true
@@ -297,11 +303,7 @@ class FleaMarketService(
             return false
         }
         
-        val itemName = if (itemStack.hasItemMeta() && itemStack.itemMeta?.hasDisplayName() == true) {
-            itemStack.itemMeta?.displayName ?: itemStack.type.name
-        } else {
-            itemStack.type.name
-        }
+        val itemName = ItemSerializer.getDisplayName(itemStack)
         
         // 5. DB에서 아이템 삭제
         repository.deleteItem(itemId)
@@ -330,6 +332,11 @@ class FleaMarketService(
         
         // 9. 성공 메시지
         seller.sendMessage("§a§l[플리마켓] §f$itemName §a을(를) 회수했습니다!")
+        
+        // 10. 모든 GUI 갱신
+        Bukkit.getScheduler().runTask(plugin, Runnable {
+            gui?.refreshAllViewers()
+        })
         
         return true
     }
