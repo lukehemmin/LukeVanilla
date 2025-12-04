@@ -99,6 +99,7 @@ graph TB
 | `sell_price` | DOUBLE | 판매 가격 |
 | `can_buy` | BOOLEAN | 구매 가능 여부 |
 | `can_sell` | BOOLEAN | 판매 가능 여부 |
+| `item_type` | VARCHAR(20) | 아이템 타입 ('VANILLA' 또는 'NEXO') |
 
 ---
 

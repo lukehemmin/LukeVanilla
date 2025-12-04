@@ -177,6 +177,74 @@ class VillageMerchantData(
     }
 
     /**
+     * 초기화: 테이블 생성 및 마이그레이션 (동기)
+     */
+    fun initialize() {
+        database.getConnection().use { connection ->
+            // 통합 아이템 테이블 생성 (없으면)
+            connection.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS villagemerchant_items (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    shop_type VARCHAR(50) NOT NULL,
+                    item_id VARCHAR(255) NOT NULL,
+                    buy_price DOUBLE NOT NULL DEFAULT 0,
+                    sell_price DOUBLE NOT NULL DEFAULT 0,
+                    can_buy BOOLEAN NOT NULL DEFAULT true,
+                    can_sell BOOLEAN NOT NULL DEFAULT false,
+                    item_type VARCHAR(20) NOT NULL DEFAULT 'VANILLA',
+                    INDEX idx_shop_type (shop_type)
+                )
+            """)
+
+            // 테이블 마이그레이션
+            try {
+                val metaData = connection.metaData
+                
+                // 1. 기존 price 컬럼 마이그레이션
+                val priceColumn = metaData.getColumns(null, null, "villagemerchant_items", "price")
+                if (priceColumn.next()) {
+                    connection.createStatement().execute("""
+                        ALTER TABLE villagemerchant_items 
+                        ADD COLUMN IF NOT EXISTS buy_price DOUBLE NOT NULL DEFAULT 0,
+                        ADD COLUMN IF NOT EXISTS sell_price DOUBLE NOT NULL DEFAULT 0,
+                        ADD COLUMN IF NOT EXISTS can_buy BOOLEAN NOT NULL DEFAULT true,
+                        ADD COLUMN IF NOT EXISTS can_sell BOOLEAN NOT NULL DEFAULT false
+                    """)
+                    
+                    connection.createStatement().execute("""
+                        UPDATE villagemerchant_items 
+                        SET buy_price = price, can_buy = true, can_sell = false 
+                        WHERE buy_price = 0
+                    """)
+                    
+                    connection.createStatement().execute("""
+                        ALTER TABLE villagemerchant_items DROP COLUMN price
+                    """)
+                }
+
+                // 2. item_type 컬럼 추가 및 데이터 보정
+                val itemTypeColumn = metaData.getColumns(null, null, "villagemerchant_items", "item_type")
+                if (!itemTypeColumn.next()) {
+                    connection.createStatement().execute("""
+                        ALTER TABLE villagemerchant_items 
+                        ADD COLUMN item_type VARCHAR(20) NOT NULL DEFAULT 'VANILLA'
+                    """)
+                    
+                    // customcrops_ 로 시작하는 아이템은 NEXO 타입으로 업데이트
+                    connection.createStatement().execute("""
+                        UPDATE villagemerchant_items 
+                        SET item_type = 'NEXO' 
+                        WHERE item_id LIKE 'customcrops_%'
+                    """)
+                }
+            } catch (e: Exception) {
+                // 마이그레이션 실패는 무시
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
      * 상점 아이템 목록 조회 (동기)
      * shopType에 따라 다른 아이템을 불러옵니다.
      * 모든 상점 아이템은 'villagemerchant_items' 통합 테이블에서 관리됩니다.
@@ -189,50 +257,6 @@ class VillageMerchantData(
         }
 
         return database.getConnection().use { connection ->
-            // 통합 아이템 테이블 생성 (없으면)
-            connection.createStatement().execute("""
-                CREATE TABLE IF NOT EXISTS villagemerchant_items (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    shop_type VARCHAR(50) NOT NULL,
-                    item_id VARCHAR(255) NOT NULL,
-                    buy_price DOUBLE NOT NULL DEFAULT 0,
-                    sell_price DOUBLE NOT NULL DEFAULT 0,
-                    can_buy BOOLEAN NOT NULL DEFAULT true,
-                    can_sell BOOLEAN NOT NULL DEFAULT false,
-                    INDEX idx_shop_type (shop_type)
-                )
-            """)
-
-            // 테이블 마이그레이션: 기존 price 컬럼이 있으면 새 컬럼으로 변환
-            try {
-                val metaData = connection.metaData
-                val columns = metaData.getColumns(null, null, "villagemerchant_items", "price")
-                if (columns.next()) {
-                    // 기존 price 컬럼이 있으면 마이그레이션
-                    connection.createStatement().execute("""
-                        ALTER TABLE villagemerchant_items 
-                        ADD COLUMN IF NOT EXISTS buy_price DOUBLE NOT NULL DEFAULT 0,
-                        ADD COLUMN IF NOT EXISTS sell_price DOUBLE NOT NULL DEFAULT 0,
-                        ADD COLUMN IF NOT EXISTS can_buy BOOLEAN NOT NULL DEFAULT true,
-                        ADD COLUMN IF NOT EXISTS can_sell BOOLEAN NOT NULL DEFAULT false
-                    """)
-                    
-                    // price 값을 buy_price로 복사
-                    connection.createStatement().execute("""
-                        UPDATE villagemerchant_items 
-                        SET buy_price = price, can_buy = true, can_sell = false 
-                        WHERE buy_price = 0
-                    """)
-                    
-                    // 기존 price 컬럼 삭제
-                    connection.createStatement().execute("""
-                        ALTER TABLE villagemerchant_items DROP COLUMN price
-                    """)
-                }
-            } catch (e: Exception) {
-                // 마이그레이션 실패는 무시 (이미 마이그레이션 되었거나 새 테이블)
-            }
-
             val statement = connection.prepareStatement(
                 "SELECT * FROM villagemerchant_items WHERE shop_type = ? ORDER BY id ASC"
             )
@@ -241,6 +265,13 @@ class VillageMerchantData(
             
             val items = mutableListOf<MerchantItem>()
             while (resultSet.next()) {
+                // item_type 컬럼이 없을 경우(매우 드문 경우) 대비
+                val itemType = try {
+                    resultSet.getString("item_type") ?: "VANILLA"
+                } catch (e: Exception) {
+                    "VANILLA"
+                }
+
                 items.add(
                     MerchantItem(
                         id = resultSet.getInt("id"),
@@ -248,7 +279,8 @@ class VillageMerchantData(
                         buyPrice = resultSet.getDouble("buy_price"),
                         sellPrice = resultSet.getDouble("sell_price"),
                         canBuy = resultSet.getBoolean("can_buy"),
-                        canSell = resultSet.getBoolean("can_sell")
+                        canSell = resultSet.getBoolean("can_sell"),
+                        itemType = itemType
                     )
                 )
             }
@@ -279,7 +311,8 @@ data class MerchantItem(
     val buyPrice: Double,
     val sellPrice: Double,
     val canBuy: Boolean,
-    val canSell: Boolean
+    val canSell: Boolean,
+    val itemType: String = "VANILLA" // VANILLA, NEXO
 )
 
 /**

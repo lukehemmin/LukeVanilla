@@ -123,21 +123,17 @@ class SeedMerchantGUI(
     }
 
     private fun createDisplayItem(itemData: MerchantItem): ItemStack {
-        // 1. Nexo 아이템 확인
-        val nexoBuilder = NexoItems.itemFromId(itemData.itemId)
-        val item = if (nexoBuilder != null) {
-            nexoBuilder.build()
+        val item = if (itemData.itemType == "NEXO") {
+            val nexoBuilder = NexoItems.itemFromId(itemData.itemId)
+            nexoBuilder?.build()
         } else {
-            // 2. 바닐라 아이템 확인
             val material = Material.getMaterial(itemData.itemId)
-            if (material != null) {
-                ItemStack(material)
-            } else {
-                // 3. 아이템을 찾을 수 없는 경우
-                plugin.logger.warning("[VillageShop] 알 수 없는 아이템 ID: ${itemData.itemId}")
-                ItemStack(Material.BARRIER).apply {
-                    editMeta { it.displayName(Component.text("알 수 없는 아이템: ${itemData.itemId}", NamedTextColor.RED)) }
-                }
+            material?.let { ItemStack(it) }
+        } ?: run {
+            // 아이템을 찾을 수 없는 경우
+            plugin.logger.warning("[VillageShop] 알 수 없는 아이템 ID (${itemData.itemType}): ${itemData.itemId}")
+            ItemStack(Material.BARRIER).apply {
+                editMeta { it.displayName(Component.text("알 수 없는 아이템: ${itemData.itemId}", NamedTextColor.RED)) }
             }
         }
         
@@ -289,16 +285,14 @@ class SeedMerchantGUI(
             try {
                 val items = villageMerchantData!!.getMerchantItems(shopType)
                 
-                // 클릭한 아이템이 Nexo 아이템인지 확인
-                val nexoId = NexoItems.idFromItem(displayItem)
-                
                 val matchedItem = items.find { dbItem ->
-                    if (nexoId != null) {
+                    if (dbItem.itemType == "NEXO") {
                         // Nexo 아이템인 경우 ID로 비교
+                        val nexoId = NexoItems.idFromItem(displayItem)
                         dbItem.itemId == nexoId
                     } else {
                         // 바닐라 아이템인 경우 Type 이름으로 비교
-                        dbItem.itemId == displayItem.type.name
+                        displayItem.type.name == dbItem.itemId
                     }
                 }
                 
@@ -322,7 +316,8 @@ class SeedMerchantGUI(
                     })
                 } else {
                     // 아이템을 찾지 못했을 경우
-                    plugin.logger.warning("[VillageShop] 거래 시도 중 아이템 매칭 실패. Display: ${nexoId ?: displayItem.type.name}")
+                    val itemId = if (displayItem.type == Material.BARRIER) "UNKNOWN" else displayItem.type.name
+                    plugin.logger.warning("[VillageShop] 거래 시도 중 아이템 매칭 실패. Display: $itemId")
                     plugin.server.scheduler.runTask(plugin, Runnable {
                         player.sendMessage(Component.text("상점 데이터와 일치하는 아이템을 찾을 수 없습니다.", NamedTextColor.RED))
                     })
@@ -367,8 +362,11 @@ class SeedMerchantGUI(
         }
 
         // 아이템 미리 확인 (결제 전)
-        val itemToGive = NexoItems.itemFromId(itemData.itemId)?.build() 
-            ?: Material.getMaterial(itemData.itemId)?.let { ItemStack(it) }
+        val itemToGive = if (itemData.itemType == "NEXO") {
+            NexoItems.itemFromId(itemData.itemId)?.build()
+        } else {
+            Material.getMaterial(itemData.itemId)?.let { ItemStack(it) }
+        }
 
         if (itemToGive == null) {
             player.sendMessage(Component.text("아이템 데이터를 찾을 수 없어 구매를 취소했습니다.", NamedTextColor.RED))
@@ -406,8 +404,7 @@ class SeedMerchantGUI(
         val inventory = player.inventory
         
         // Nexo 아이템인지 확인
-        val nexoBuilder = NexoItems.itemFromId(itemData.itemId)
-        val isNexoItem = nexoBuilder != null
+        val isNexoItem = itemData.itemType == "NEXO"
         
         // 먼저 플레이어가 가진 아이템 개수 확인
         var availableCount = 0

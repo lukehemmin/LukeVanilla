@@ -27,6 +27,7 @@ class VillageMerchantSystem(
 
         // 데이터 레이어 초기화 (plugin 전달)
         data = VillageMerchantData(plugin, database)
+        data.initialize() // DB 테이블 생성 및 마이그레이션
 
         // GUI 인스턴스 가져오기 (FarmVillage에서 공유)
         val seedMerchantGUI = farmVillageManager.seedMerchantGUI
