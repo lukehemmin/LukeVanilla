@@ -4,6 +4,13 @@ import com.lukehemmin.lukeVanilla.System.Database.Database
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 /**
  * 마을 상인 NPC 데이터 관리 클래스
@@ -182,6 +189,34 @@ class VillageMerchantData(
     fun initialize() {
         database.getConnection().use { connection ->
             // 통합 아이템 테이블 생성 (없으면)
+            // NPC 상인 테이블 생성
+            connection.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS villagemerchant_npcs (
+                    shop_id VARCHAR(50) PRIMARY KEY,
+                    npc_id INT NOT NULL
+                )
+            """)
+
+            // 거래 기록 테이블 생성
+            connection.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS villagemerchant_history (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    uuid VARCHAR(36) NOT NULL,
+                    player_name VARCHAR(16) NOT NULL,
+                    shop_type VARCHAR(50) NOT NULL,
+                    transaction_type ENUM('BUY', 'SELL') NOT NULL,
+                    item_code VARCHAR(100) NOT NULL,
+                    amount INT NOT NULL,
+                    unit_price DOUBLE NOT NULL,
+                    total_price DOUBLE NOT NULL,
+                    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_uuid (uuid),
+                    INDEX idx_timestamp (timestamp),
+                    INDEX idx_shop_item (shop_type, item_code)
+                )
+            """)
+
+            // 아이템 테이블 생성
             connection.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS villagemerchant_items (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -331,3 +366,149 @@ data class NPCMerchant(
     val shopId: String,
     val npcId: Int
 )
+
+/**
+ * 거래 기록 데이터 클래스
+ */
+data class HistoryRecord(
+    val uuid: UUID,
+    val playerName: String,
+    val shopType: String,
+    val transactionType: String,  // "BUY" or "SELL"
+    val itemCode: String,         // "VANILLA:WHEAT_SEEDS" or "NEXO:tomato_seeds"
+    val amount: Int,
+    val unitPrice: Double,
+    val totalPrice: Double,
+    val timestamp: LocalDateTime = LocalDateTime.now()
+)
+
+/**
+ * 거래 기록 배치 처리 클래스
+ * 성능 최적화를 위해 거래 기록을 모아서 일괄 저장
+ * - 5초마다 또는 50건 이상 쌓이면 DB에 저장
+ * - 서버 종료 시 남은 기록 플러시
+ */
+class TransactionHistoryBatcher(
+    private val plugin: JavaPlugin,
+    private val database: Database
+) {
+    private val queue = ConcurrentLinkedQueue<HistoryRecord>()
+    private val scheduler = Executors.newSingleThreadScheduledExecutor()
+    private val isRunning = AtomicBoolean(true)
+    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    
+    companion object {
+        private const val BATCH_SIZE = 50
+        private const val FLUSH_INTERVAL_SECONDS = 5L
+    }
+
+    init {
+        // 5초마다 배치 저장 스케줄러 시작
+        scheduler.scheduleAtFixedRate(
+            { flushIfNeeded() },
+            FLUSH_INTERVAL_SECONDS,
+            FLUSH_INTERVAL_SECONDS,
+            TimeUnit.SECONDS
+        )
+    }
+
+    /**
+     * 거래 기록 추가
+     * 메인 스레드에서 호출해도 안전 (논블로킹)
+     */
+    fun addRecord(record: HistoryRecord) {
+        queue.add(record)
+        
+        // 50건 이상이면 즉시 플러시 트리거
+        if (queue.size >= BATCH_SIZE) {
+            CompletableFuture.runAsync { flush() }
+        }
+    }
+
+    /**
+     * 조건부 플러시 (스케줄러에서 호출)
+     */
+    private fun flushIfNeeded() {
+        if (queue.isNotEmpty() && isRunning.get()) {
+            flush()
+        }
+    }
+
+    /**
+     * 큐의 모든 기록을 DB에 저장
+     */
+    fun flush() {
+        if (queue.isEmpty()) return
+        
+        val records = mutableListOf<HistoryRecord>()
+        
+        // 큐에서 모든 기록 꺼내기
+        while (queue.isNotEmpty()) {
+            queue.poll()?.let { records.add(it) }
+        }
+        
+        if (records.isEmpty()) return
+        
+        try {
+            database.getConnection().use { connection ->
+                val sql = """
+                    INSERT INTO villagemerchant_history 
+                    (uuid, player_name, shop_type, transaction_type, item_code, amount, unit_price, total_price, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """
+                
+                connection.prepareStatement(sql).use { stmt ->
+                    for (record in records) {
+                        stmt.setString(1, record.uuid.toString())
+                        stmt.setString(2, record.playerName)
+                        stmt.setString(3, record.shopType)
+                        stmt.setString(4, record.transactionType)
+                        stmt.setString(5, record.itemCode)
+                        stmt.setInt(6, record.amount)
+                        stmt.setDouble(7, record.unitPrice)
+                        stmt.setDouble(8, record.totalPrice)
+                        stmt.setString(9, record.timestamp.format(dateFormatter))
+                        stmt.addBatch()
+                    }
+                    stmt.executeBatch()
+                }
+            }
+            
+            if (records.size > 0) {
+                plugin.logger.info("[VillageMerchant] 거래 기록 ${records.size}건 저장 완료")
+            }
+        } catch (e: Exception) {
+            plugin.logger.severe("[VillageMerchant] 거래 기록 저장 실패: ${e.message}")
+            e.printStackTrace()
+            
+            // 실패한 기록은 다시 큐에 넣기 (재시도)
+            records.forEach { queue.add(it) }
+        }
+    }
+
+    /**
+     * 시스템 종료 시 호출
+     * 남은 모든 기록을 저장하고 스케줄러 종료
+     */
+    fun shutdown() {
+        isRunning.set(false)
+        scheduler.shutdown()
+        
+        // 남은 기록 저장
+        if (queue.isNotEmpty()) {
+            plugin.logger.info("[VillageMerchant] 종료 전 거래 기록 ${queue.size}건 저장 중...")
+            flush()
+        }
+        
+        try {
+            scheduler.awaitTermination(5, TimeUnit.SECONDS)
+        } catch (e: InterruptedException) {
+            scheduler.shutdownNow()
+        }
+    }
+
+    /**
+     * 현재 대기 중인 기록 수
+     */
+    fun pendingCount(): Int = queue.size
+}

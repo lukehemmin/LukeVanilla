@@ -31,21 +31,28 @@ class VillageMerchantCommand(
             return true
         }
 
-        if (sender !is Player) {
-            sender.sendMessage(Component.text("이 명령어는 플레이어만 사용할 수 있습니다.", NamedTextColor.RED))
-            return true
-        }
-
         if (args.isEmpty()) {
             sendUsage(sender)
             return true
         }
 
         when (args[0].lowercase()) {
-            "씨앗상인지정" -> handleSetNPCMerchant(sender, "seed_merchant", "씨앗 상인")
-            "농산물판매상인지정" -> handleSetNPCMerchant(sender, "crop_sell_merchant", "농산물 판매 상인")
-            "비료상인지정" -> handleSetNPCMerchant(sender, "fertilizer_merchant", "비료 상인")
-            "토양및물품상인지정" -> handleSetNPCMerchant(sender, "soil_goods_merchant", "토양 및 물품 상인")
+            "씨앗상인지정" -> {
+                if (sender is Player) handleSetNPCMerchant(sender, "seed_merchant", "씨앗 상인")
+                else sender.sendMessage(Component.text("이 명령어는 플레이어만 사용할 수 있습니다.", NamedTextColor.RED))
+            }
+            "농산물판매상인지정" -> {
+                if (sender is Player) handleSetNPCMerchant(sender, "crop_sell_merchant", "농산물 판매 상인")
+                else sender.sendMessage(Component.text("이 명령어는 플레이어만 사용할 수 있습니다.", NamedTextColor.RED))
+            }
+            "비료상인지정" -> {
+                if (sender is Player) handleSetNPCMerchant(sender, "fertilizer_merchant", "비료 상인")
+                else sender.sendMessage(Component.text("이 명령어는 플레이어만 사용할 수 있습니다.", NamedTextColor.RED))
+            }
+            "토양및물품상인지정" -> {
+                if (sender is Player) handleSetNPCMerchant(sender, "soil_goods_merchant", "토양 및 물품 상인")
+                else sender.sendMessage(Component.text("이 명령어는 플레이어만 사용할 수 있습니다.", NamedTextColor.RED))
+            }
             "상인삭제" -> handleRemoveNPCMerchant(sender, args)
             "목록" -> handleListMerchants(sender)
             "리로드", "reload" -> {
@@ -98,10 +105,10 @@ class VillageMerchantCommand(
         }
     }
 
-    private fun handleRemoveNPCMerchant(player: Player, args: Array<out String>) {
+    private fun handleRemoveNPCMerchant(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
-            player.sendMessage(Component.text("사용법: /농사상점 상인삭제 <상인타입>", NamedTextColor.YELLOW))
-            player.sendMessage(Component.text("상인타입: seed, crop, fertilizer, soil", NamedTextColor.GRAY))
+            sender.sendMessage(Component.text("사용법: /농사상점 상인삭제 <상인타입>", NamedTextColor.YELLOW))
+            sender.sendMessage(Component.text("상인타입: seed, crop, fertilizer, soil", NamedTextColor.GRAY))
             return
         }
 
@@ -111,7 +118,7 @@ class VillageMerchantCommand(
             "fertilizer", "비료" -> "fertilizer_merchant"
             "soil", "토양", "물품" -> "soil_goods_merchant"
             else -> {
-                player.sendMessage(Component.text("알 수 없는 상인 타입입니다.", NamedTextColor.RED))
+                sender.sendMessage(Component.text("알 수 없는 상인 타입입니다.", NamedTextColor.RED))
                 return
             }
         }
@@ -120,30 +127,30 @@ class VillageMerchantCommand(
         manager.removeNPCMerchantAsync(shopId).thenAccept { success ->
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (success) {
-                    player.sendMessage(Component.text("'$shopId' 상인이 삭제되었습니다.", NamedTextColor.GREEN))
+                    sender.sendMessage(Component.text("'$shopId' 상인이 삭제되었습니다.", NamedTextColor.GREEN))
                 } else {
-                    player.sendMessage(Component.text("해당 상인을 찾을 수 없습니다.", NamedTextColor.YELLOW))
+                    sender.sendMessage(Component.text("해당 상인을 찾을 수 없습니다.", NamedTextColor.YELLOW))
                 }
             })
         }.exceptionally { throwable ->
             plugin.server.scheduler.runTask(plugin, Runnable {
-                player.sendMessage(Component.text("상인 삭제 중 오류가 발생했습니다: ${throwable.message}", NamedTextColor.RED))
+                sender.sendMessage(Component.text("상인 삭제 중 오류가 발생했습니다: ${throwable.message}", NamedTextColor.RED))
                 throwable.printStackTrace()
             })
             null
         }
     }
 
-    private fun handleListMerchants(player: Player) {
+    private fun handleListMerchants(sender: CommandSender) {
         // 비동기로 상인 목록 조회
         manager.getAllNPCMerchantsAsync().thenAccept { merchants ->
             plugin.server.scheduler.runTask(plugin, Runnable {
                 if (merchants.isEmpty()) {
-                    player.sendMessage(Component.text("등록된 상인이 없습니다.", NamedTextColor.YELLOW))
+                    sender.sendMessage(Component.text("등록된 상인이 없습니다.", NamedTextColor.YELLOW))
                     return@Runnable
                 }
 
-                player.sendMessage(Component.text("=== 농사 상점 목록 ===", NamedTextColor.GOLD))
+                sender.sendMessage(Component.text("=== 농사 상점 목록 ===", NamedTextColor.GOLD))
                 for (merchant in merchants) {
                     val shopName = when (merchant.shopId) {
                         "seed_merchant" -> "씨앗 상인"
@@ -152,7 +159,7 @@ class VillageMerchantCommand(
                         "soil_goods_merchant" -> "토양 및 물품 상인"
                         else -> merchant.shopId
                     }
-                    player.sendMessage(
+                    sender.sendMessage(
                         Component.text("- ", NamedTextColor.GRAY)
                             .append(Component.text(shopName, NamedTextColor.AQUA))
                             .append(Component.text(" (NPC ID: ${merchant.npcId})", NamedTextColor.GRAY))
@@ -161,7 +168,7 @@ class VillageMerchantCommand(
             })
         }.exceptionally { throwable ->
             plugin.server.scheduler.runTask(plugin, Runnable {
-                player.sendMessage(Component.text("상인 목록 조회 중 오류가 발생했습니다: ${throwable.message}", NamedTextColor.RED))
+                sender.sendMessage(Component.text("상인 목록 조회 중 오류가 발생했습니다: ${throwable.message}", NamedTextColor.RED))
                 throwable.printStackTrace()
             })
             null

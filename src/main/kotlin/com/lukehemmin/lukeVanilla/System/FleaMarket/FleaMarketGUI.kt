@@ -6,7 +6,10 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryClickEvent
+import org.bukkit.event.inventory.InventoryDragEvent
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.event.player.AsyncPlayerChatEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import com.nexomc.nexo.api.NexoItems
 import org.bukkit.inventory.ItemStack
 import java.text.SimpleDateFormat
@@ -34,7 +37,12 @@ class FleaMarketGUI(
     fun getGuiStates(): Map<UUID, GuiState> = guiStates.toMap()
     
     // 검색 대기 중인 플레이어 (UUID -> 이전 GUI 상태)
-    private val searchWaiters = mutableMapOf<UUID, GuiState>()
+    private val searchWaiters = mutableMapOf<UUID, SearchWaitState>()
+    data class SearchWaitState(
+        val prevState: GuiState,
+        val startedAt: Long,
+        val timeoutTask: org.bukkit.scheduler.BukkitTask
+    )
     
     data class GuiState(
         val type: GuiType,
@@ -95,7 +103,7 @@ class FleaMarketGUI(
                 try {
                     val itemStack = ItemSerializer.deserialize(item.itemData)
                     val itemName = ItemSerializer.getDisplayName(itemStack)
-                    itemName.contains(searchQuery, ignoreCase = true)
+                    matchesSearch(itemName, searchQuery)
                 } catch (e: Exception) {
                     false
                 }
@@ -404,6 +412,13 @@ class FleaMarketGUI(
         }
     }
     
+    @EventHandler
+    fun onInventoryDrag(event: InventoryDragEvent) {
+        val player = event.whoClicked as? Player ?: return
+        if (!guiStates.containsKey(player.uniqueId)) return
+        event.isCancelled = true
+    }
+    
     /**
      * 마켓 GUI 클릭 처리
      */
@@ -435,13 +450,24 @@ class FleaMarketGUI(
             }
             52 -> { // 검색
                 if (isRightClick) {
-                    // 검색 초기화
                     openMarket(player, 1, state.sortType, null)
                 } else {
-                    // 검색어 입력 대기
                     player.closeInventory()
-                    searchWaiters[player.uniqueId] = state
-                    player.sendMessage("§a검색어를 채팅창에 입력해주세요. (취소하려면 '취소' 입력)")
+                    val uuid = player.uniqueId
+                    val startedAt = System.currentTimeMillis()
+                    player.sendMessage("§a검색어를 채팅창에 입력해주세요. (60초 내 입력, 취소하려면 '취소')")
+                    val task = Bukkit.getScheduler().runTaskLater(service.plugin, Runnable {
+                        val waiter = searchWaiters[uuid]
+                        if (waiter != null && waiter.startedAt == startedAt) {
+                            val p = Bukkit.getPlayer(uuid)
+                            searchWaiters.remove(uuid)
+                            if (p != null && p.isOnline) {
+                                p.sendMessage("§c검색 시간이 초과되었습니다.")
+                                openMarket(p, waiter.prevState.page, waiter.prevState.sortType, waiter.prevState.searchQuery)
+                            }
+                        }
+                    }, 20L * 60)
+                    searchWaiters[uuid] = SearchWaitState(state, startedAt, task)
                 }
             }
             53 -> { // 닫기
@@ -457,7 +483,7 @@ class FleaMarketGUI(
                         try {
                             val itemStack = ItemSerializer.deserialize(item.itemData)
                             val itemName = ItemSerializer.getDisplayName(itemStack)
-                            itemName.contains(state.searchQuery, ignoreCase = true)
+                            matchesSearch(itemName, state.searchQuery)
                         } catch (e: Exception) {
                             false
                         }
@@ -573,7 +599,9 @@ class FleaMarketGUI(
         
         event.isCancelled = true
         val message = event.message
-        val previousState = searchWaiters.remove(player.uniqueId)!!
+        val waiter = searchWaiters.remove(player.uniqueId) ?: return
+        val previousState = waiter.prevState
+        waiter.timeoutTask.cancel()
         
         Bukkit.getScheduler().runTask(service.plugin, Runnable {
             if (message.equals("취소", ignoreCase = true)) {
@@ -614,6 +642,22 @@ class FleaMarketGUI(
         return sdf.format(Date(timestamp))
     }
     
+    @EventHandler
+    fun onPlayerQuit(event: PlayerQuitEvent) {
+        val uuid = event.player.uniqueId
+        val waiter = searchWaiters.remove(uuid)
+        if (waiter != null) {
+            waiter.timeoutTask.cancel()
+        }
+    }
+    
+    private fun matchesSearch(itemName: String, query: String): Boolean {
+        val baseTokens = query.split(Regex("\\s+")).map { it.trim() }.filter { it.isNotEmpty() }
+        val extraTokens = baseTokens.flatMap { it.split("의") }.map { it.trim() }.filter { it.isNotEmpty() }
+        val tokens = (baseTokens + extraTokens).distinct()
+        return tokens.any { token -> itemName.contains(token, ignoreCase = true) }
+    }
+    
     /**
      * 거래 유형 한글명
      */
@@ -632,10 +676,14 @@ class FleaMarketGUI(
     @EventHandler
     fun onInventoryClose(event: org.bukkit.event.inventory.InventoryCloseEvent) {
         val player = event.player as? Player ?: return
+        val uuid = player.uniqueId
         
-        // 검색 대기 중이 아닐 때만 상태 제거 (검색을 위해 인벤토리를 닫은 경우 유지)
-        if (!searchWaiters.containsKey(player.uniqueId)) {
-            guiStates.remove(player.uniqueId)
-        }
+        Bukkit.getScheduler().runTask(service.plugin, Runnable {
+            val currentTitle = PlainTextComponentSerializer.plainText().serialize(player.openInventory.title())
+            val isFleaOpen = currentTitle.contains("플리마켓") || currentTitle.contains("거래 내역") || currentTitle.contains("내 상품")
+            if (!isFleaOpen && !searchWaiters.containsKey(uuid)) {
+                guiStates.remove(uuid)
+            }
+        })
     }
 }

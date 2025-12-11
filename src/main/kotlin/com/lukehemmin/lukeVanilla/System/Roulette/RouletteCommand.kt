@@ -357,21 +357,45 @@ class RouletteCommand(
     }
 
     private fun handleNPCRemove(sender: CommandSender, args: Array<out String>) {
-        if (args.size < 2) {
-            sender.sendMessage("§c사용법: /룰렛 npc제거 <NPC_ID>")
+        if (sender !is Player) {
+            sender.sendMessage("§c플레이어만 사용할 수 있습니다.")
             return
         }
 
-        val npcId = args[1].toIntOrNull()
-        if (npcId == null) {
-            sender.sendMessage("§cNPC ID는 숫자여야 합니다.")
-            return
+        var npcId: Int? = null
+
+        if (args.size >= 2) {
+            npcId = args[1].toIntOrNull()
+            if (npcId == null) {
+                sender.sendMessage("§cNPC ID는 숫자여야 합니다.")
+                return
+            }
+        } else {
+            // NPC ID가 입력되지 않은 경우, 바라보고 있는 NPC 감지
+            try {
+                val targetEntity = sender.getTargetEntity(5)
+                if (targetEntity == null) {
+                    sender.sendMessage("§c5블록 이내의 NPC를 바라보거나 NPC ID를 입력하세요.")
+                    return
+                }
+
+                val npcRegistry = CitizensAPI.getNPCRegistry()
+                val npc = npcRegistry.getNPC(targetEntity)
+                if (npc == null) {
+                    sender.sendMessage("§c대상이 Citizens NPC가 아닙니다.")
+                    return
+                }
+                npcId = npc.id
+            } catch (e: Exception) {
+                sender.sendMessage("§cNPC 감지 실패: ${e.message}")
+                return
+            }
         }
 
-        if (manager.removeNPCMapping(npcId)) {
+        if (manager.removeNPCMapping(npcId!!)) {
             sender.sendMessage("§aNPC ID ${npcId}의 룰렛 연결을 제거했습니다.")
         } else {
-            sender.sendMessage("§cNPC 연결 제거에 실패했습니다.")
+            sender.sendMessage("§cNPC 연결 제거에 실패했습니다. (등록되지 않은 NPC일 수 있습니다)")
         }
     }
 

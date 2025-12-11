@@ -4,6 +4,8 @@ import com.lukehemmin.lukeVanilla.Main
 import com.lukehemmin.lukeVanilla.System.VillageMerchant.VillageMerchantData
 import com.lukehemmin.lukeVanilla.System.VillageMerchant.MerchantItem
 import com.lukehemmin.lukeVanilla.System.VillageMerchant.SeedItem
+import com.lukehemmin.lukeVanilla.System.VillageMerchant.HistoryRecord
+import com.lukehemmin.lukeVanilla.System.VillageMerchant.TransactionHistoryBatcher
 import com.lukehemmin.lukeVanilla.System.Economy.TransactionType
 import com.nexomc.nexo.api.NexoItems
 import net.kyori.adventure.text.Component
@@ -26,6 +28,7 @@ class SeedMerchantGUI(
 ) : Listener {
 
     private var villageMerchantData: VillageMerchantData? = null
+    private var historyBatcher: TransactionHistoryBatcher? = null
     private val itemSlots = listOf(10, 12, 14, 16, 28, 30, 32, 34)
     private val itemsPerPage = itemSlots.size
     private val playerPages = mutableMapOf<UUID, Int>()
@@ -35,6 +38,10 @@ class SeedMerchantGUI(
 
     fun setVillageMerchantData(data: VillageMerchantData) {
         this.villageMerchantData = data
+    }
+
+    fun setHistoryBatcher(batcher: TransactionHistoryBatcher) {
+        this.historyBatcher = batcher
     }
 
     fun open(player: Player, shopType: String, shopTitle: String, page: Int = 1) {
@@ -98,28 +105,36 @@ class SeedMerchantGUI(
 
         // 페이지 네비게이션
         if (currentPage > 1) {
-            val prevBtn = ItemStack(Material.ARROW)
-            val prevMeta = prevBtn.itemMeta
-            prevMeta.displayName(Component.text("이전 페이지", NamedTextColor.YELLOW))
-            prevBtn.itemMeta = prevMeta
+            val prevBtn = createButton(Material.PAPER, "이전 페이지", listOf("§7이전 페이지로 이동합니다"), "arrow_left")
             inv.setItem(48, prevBtn)
         }
 
-        val pageInfo = ItemStack(Material.PAPER)
-        val pageMeta = pageInfo.itemMeta
-        pageMeta.displayName(Component.text("페이지 $currentPage / $totalPages", NamedTextColor.WHITE))
-        pageInfo.itemMeta = pageMeta
+        val pageInfo = createButton(Material.PAPER, "페이지 $currentPage / $totalPages", listOf("§7현재 페이지 정보입니다"), "info")
         inv.setItem(49, pageInfo)
 
         if (currentPage < totalPages) {
-            val nextBtn = ItemStack(Material.ARROW)
-            val nextMeta = nextBtn.itemMeta
-            nextMeta.displayName(Component.text("다음 페이지", NamedTextColor.YELLOW))
-            nextBtn.itemMeta = nextMeta
+            val nextBtn = createButton(Material.PAPER, "다음 페이지", listOf("§7다음 페이지로 이동합니다"), "arrow_right")
             inv.setItem(50, nextBtn)
         }
 
         player.openInventory(inv)
+    }
+
+    private fun createButton(material: Material, name: String, lore: List<String>, nexoItemId: String? = null): ItemStack {
+        val item = if (nexoItemId != null) {
+            NexoItems.itemFromId(nexoItemId)?.build() ?: ItemStack(material)
+        } else {
+            ItemStack(material)
+        }
+        
+        val meta = item.itemMeta
+        if (meta != null) {
+            meta.setDisplayName("§e$name")
+            meta.lore = lore
+            item.itemMeta = meta
+        }
+        
+        return item
     }
 
     private fun createDisplayItem(itemData: MerchantItem): ItemStack {
@@ -220,9 +235,22 @@ class SeedMerchantGUI(
 
     @EventHandler
     fun onInventoryClose(event: org.bukkit.event.inventory.InventoryCloseEvent) {
-        playerPages.remove(event.player.uniqueId)
-        playerShopTypes.remove(event.player.uniqueId)
-        playerShopTitles.remove(event.player.uniqueId)
+        val player = event.player as? org.bukkit.entity.Player ?: return
+        val uuid = player.uniqueId
+        
+        // 페이지 이동 시 새 인벤토리가 열리면서 기존 인벤토리가 닫히는데,
+        // 이때 바로 데이터를 제거하면 새 인벤토리에서 클릭 이벤트가 제대로 처리되지 않음
+        // 1틱 후에 확인하여 상점 GUI가 여전히 열려있으면 데이터 유지
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            val currentTitle = PlainTextComponentSerializer.plainText().serialize(player.openInventory.title())
+            
+            // 현재 열린 인벤토리가 상점 GUI가 아니면 데이터 제거
+            if (!currentTitle.contains("페이지")) {
+                playerPages.remove(uuid)
+                playerShopTypes.remove(uuid)
+                playerShopTitles.remove(uuid)
+            }
+        })
     }
 
     @EventHandler
@@ -242,6 +270,10 @@ class SeedMerchantGUI(
 
         event.isCancelled = true
         val clickedItem = event.currentItem ?: return
+        
+        // 유리판, 빈 공간, 네비게이션 버튼 등은 클릭 시 아무 동작도 하지 않아야 함 (이미 isCancelled = true 상태)
+        // 아이템 이동을 막기 위해 여기서 추가적인 체크는 필요 없음 (isCancelled = true가 핵심)
+        
         if (clickedItem.type == Material.AIR || clickedItem.type == Material.GRAY_STAINED_GLASS_PANE) return
 
         val slot = event.slot
@@ -251,10 +283,18 @@ class SeedMerchantGUI(
 
         // 페이지 이동
         if (slot == 48) { // 이전
-             open(player, currentShopType, currentTitle, currentPage - 1)
+             // 이전 페이지 버튼이 있을 때만 동작
+             if (currentPage > 1) {
+                 open(player, currentShopType, currentTitle, currentPage - 1)
+             }
              return
         }
         if (slot == 50) { // 다음
+             // 다음 페이지 버튼이 있을 때만 동작 (다음 페이지 존재 여부 확인 로직 필요하지만, 여기서는 간단히 버튼이 있는지로 판단 가능)
+             // 하지만 버튼이 없으면 유리판일 것이고 위에서 걸러짐. 
+             // 문제는 버튼이 Nexo 아이템이라 Material 체크만으로는 부족할 수 있음.
+             
+             // 단순히 open 호출 (open 함수 내부에서 범위 체크 함)
              open(player, currentShopType, currentTitle, currentPage + 1)
              return
         }
@@ -384,6 +424,9 @@ class SeedMerchantGUI(
                 }
                 
                 player.sendMessage(Component.text("${String.format("%,.0f", totalPrice)}원을 지불하고 아이템을 구매했습니다.", NamedTextColor.GREEN))
+                
+                // 거래 기록 추가
+                recordTransaction(player, shopType, "BUY", itemData, amount, totalPrice)
             } else {
                 player.sendMessage(Component.text("오류가 발생했습니다.", NamedTextColor.RED))
             }
@@ -468,5 +511,38 @@ class SeedMerchantGUI(
         // 돈 지급
         economy.deposit(player, totalPrice, TransactionType.SHOP_SELL, "$shopType 판매: ${itemData.itemId} x$amountToSell")
         player.sendMessage(Component.text("${String.format("%,.0f", totalPrice)}원을 받고 아이템 ${amountToSell}개를 판매했습니다.", NamedTextColor.GREEN))
+        
+        // 거래 기록 추가
+        recordTransaction(player, shopType, "SELL", itemData, amountToSell, totalPrice)
+    }
+
+    /**
+     * 거래 기록을 배치 큐에 추가
+     */
+    private fun recordTransaction(
+        player: Player,
+        shopType: String,
+        transactionType: String,
+        itemData: MerchantItem,
+        amount: Int,
+        totalPrice: Double
+    ) {
+        val batcher = historyBatcher ?: return
+        
+        val itemCode = "${itemData.itemType}:${itemData.itemId}"
+        val unitPrice = if (transactionType == "BUY") itemData.buyPrice else itemData.sellPrice
+        
+        val record = HistoryRecord(
+            uuid = player.uniqueId,
+            playerName = player.name,
+            shopType = shopType,
+            transactionType = transactionType,
+            itemCode = itemCode,
+            amount = amount,
+            unitPrice = unitPrice,
+            totalPrice = totalPrice
+        )
+        
+        batcher.addRecord(record)
     }
 }

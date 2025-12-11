@@ -21,6 +21,7 @@ class VillageMerchantSystem(
     private lateinit var manager: VillageMerchantManager
     private lateinit var listener: VillageMerchantListener
     private lateinit var command: VillageMerchantCommand
+    private lateinit var historyBatcher: TransactionHistoryBatcher
 
     fun enable() {
         plugin.logger.info("[VillageMerchant] 마을 상인 시스템 초기화 중...")
@@ -29,9 +30,13 @@ class VillageMerchantSystem(
         data = VillageMerchantData(plugin, database)
         data.initialize() // DB 테이블 생성 및 마이그레이션
 
+        // 거래 기록 배치 처리기 초기화
+        historyBatcher = TransactionHistoryBatcher(plugin, database)
+
         // GUI 인스턴스 가져오기 (FarmVillage에서 공유)
         val seedMerchantGUI = farmVillageManager.seedMerchantGUI
         seedMerchantGUI.setVillageMerchantData(data)
+        seedMerchantGUI.setHistoryBatcher(historyBatcher)
         
         val exchangeMerchantGUI = farmVillageManager.exchangeMerchantGUI
         val equipmentMerchantGUI = farmVillageManager.equipmentMerchantGUI
@@ -60,7 +65,12 @@ class VillageMerchantSystem(
 
     fun disable() {
         plugin.logger.info("[VillageMerchant] 마을 상인 시스템 종료 중...")
-        // 추가 정리 작업이 필요하면 여기에 작성
+        
+        // 거래 기록 배치 처리기 종료 (남은 기록 저장)
+        if (::historyBatcher.isInitialized) {
+            historyBatcher.shutdown()
+        }
+        
         plugin.logger.info("[VillageMerchant] 마을 상인 시스템 종료 완료!")
     }
 
