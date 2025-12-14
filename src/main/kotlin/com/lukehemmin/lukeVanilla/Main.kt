@@ -40,6 +40,7 @@ import com.lukehemmin.lukeVanilla.System.MultiServer.MultiServerUpdater
 import com.lukehemmin.lukeVanilla.System.PlayTime.PlayTimeSystem
 import com.lukehemmin.lukeVanilla.System.AdvancedLandClaiming.AdvancedLandSystem
 import com.lukehemmin.lukeVanilla.System.Roulette.RouletteSystem
+import com.lukehemmin.lukeVanilla.System.ScrollRoulette.ScrollRouletteSystem
 import com.lukehemmin.lukeVanilla.System.FleaMarket.FleaMarketManager
 import net.luckperms.api.LuckPerms
 import org.bukkit.plugin.java.JavaPlugin
@@ -71,6 +72,7 @@ class Main : JavaPlugin() {
     private var multiServerUpdater: MultiServerUpdater? = null
     private var bookSystem: com.lukehemmin.lukeVanilla.System.BookSystem.BookSystem? = null
     private var rouletteSystem: RouletteSystem? = null
+    private var scrollRouletteSystem: ScrollRouletteSystem? = null
     private var peperoEvent: com.lukehemmin.lukeVanilla.System.PeperoEvent.PeperoEvent? = null
     private var peperoGifticonListener: com.lukehemmin.lukeVanilla.System.PeperoGifticon.PeperoGifticonDiscordListener? = null
     var fleaMarketManager: FleaMarketManager? = null
@@ -793,6 +795,16 @@ class Main : JavaPlugin() {
             e.printStackTrace()
         }
 
+        // ScrollRouletteSystem 초기화 (모든 서버에서 실행)
+        try {
+            scrollRouletteSystem = ScrollRouletteSystem(this, database)
+            scrollRouletteSystem?.initialize()
+            logger.info("[ScrollRoulette] 스크롤 룰렛 시스템이 성공적으로 초기화되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[ScrollRoulette] 스크롤 룰렛 시스템 초기화 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
+
         // PeperoEvent 시스템 초기화 (야생 서버에서만 실행)
         // 2025-11-11 이벤트 종료로 인해 비활성화
         /*
@@ -886,6 +898,15 @@ class Main : JavaPlugin() {
             logger.info("[Roulette] 룰렛 시스템이 정상적으로 종료되었습니다.")
         } catch (e: Exception) {
             logger.severe("[Roulette] 룰렛 시스템 종료 중 오류가 발생했습니다: ${e.message}")
+            e.printStackTrace()
+        }
+
+        // ScrollRouletteSystem 종료
+        try {
+            scrollRouletteSystem?.shutdown()
+            logger.info("[ScrollRoulette] 스크롤 룰렛 시스템이 정상적으로 종료되었습니다.")
+        } catch (e: Exception) {
+            logger.severe("[ScrollRoulette] 스크롤 룰렛 시스템 종료 중 오류가 발생했습니다: ${e.message}")
             e.printStackTrace()
         }
 

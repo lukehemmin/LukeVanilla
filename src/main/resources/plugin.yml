@@ -203,6 +203,18 @@ commands:
     permission: "villagemerchant.admin"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
     aliases: [마을상인]
+  스크롤룰렛:
+    description: "스크롤 룰렛 시스템을 관리합니다."
+    usage: "/스크롤룰렛 [생성|목록|아이템추가|아이템목록|아이템삭제|삭제|리로드]"
+    permission: "lukevanilla.scrollroulette.admin"
+    permission-message: "이 명령어를 사용할 권한이 없습니다."
+    aliases: [scrollroulette]
+  scrollroulette:
+    description: "Manage scroll roulette system."
+    usage: "/scrollroulette [create|list|additem|items|removeitem|delete|reload]"
+    permission: "lukevanilla.scrollroulette.admin"
+    permission-message: "You do not have permission to use this command."
+    aliases: [스크롤룰렛]
 
 permissions:
   lukevanilla.nametag:
@@ -330,4 +342,7 @@ permissions:
     default: op
   villagemerchant.admin:
     description: "마을 상인 시스템 관리 권한"
+    default: op
+  lukevanilla.scrollroulette.admin:
+    description: "스크롤 룰렛 시스템 관리 권한"
     default: op
