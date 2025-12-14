@@ -111,10 +111,24 @@ class RouletteNPCListener(
     }
 
     /**
-     * 룰렛 GUI 열기
+     * 룰렛 GUI 열기 (건너뛰기 시 새 GUI 열기 지원)
      */
     private fun openRoulette(player: Player, rouletteId: Int) {
-        val gui = RouletteGUI(plugin, manager, player, rouletteId)
+        // 건너뛰기 완료 시 새 GUI를 열어주는 콜백
+        val onSkipComplete: () -> Unit = {
+            // 현재 세션 종료
+            manager.endSession(player)
+            
+            // 플레이어가 여전히 온라인인지 확인
+            if (player.isOnline) {
+                // 새로운 GUI 생성 및 열기 (재귀 호출)
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    openRoulette(player, rouletteId)
+                })
+            }
+        }
+        
+        val gui = RouletteGUI(plugin, manager, player, rouletteId, false, onSkipComplete)
         
         // 중앙 세션 관리에 등록
         if (!manager.startSession(player, gui)) {
@@ -154,15 +168,24 @@ class RouletteNPCListener(
                     return
                 }
 
+                // 원자적으로 시작 플래그 설정 (비용 차감 전에!)
+                // 이렇게 하면 빠른 클릭 스패밍으로 인한 중복 비용 차감 방지
+                if (!gui.tryStart()) {
+                    player.sendMessage("§c이미 룰렛이 시작되었습니다!")
+                    return
+                }
+
                 // 열쇠로 이미 비용을 지불했는지 확인 (Nexo 등으로 열었을 경우)
                 if (!gui.isPaidWithKey()) {
                     // 비용 확인 및 차감
                     if (!checkAndPayCost(player, gui.getRouletteId())) {
+                        // 비용 지불 실패 시 시작 플래그 리셋
+                        gui.resetStart()
                         return
                     }
                 }
 
-                // 네더별 클릭 시 룰렛 시작
+                // 네더별 클릭 시 룰렛 시작 (비용 차감 완료 후)
                 gui.startAnimation()
             }
         }

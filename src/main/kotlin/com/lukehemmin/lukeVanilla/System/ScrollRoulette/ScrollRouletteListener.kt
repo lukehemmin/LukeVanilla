@@ -10,6 +10,7 @@ import org.bukkit.event.block.Action
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
@@ -96,15 +97,11 @@ class ScrollRouletteListener(
 
     /**
      * 아이템에서 룰렛 ID를 가져오기
+     * Vanilla 아이템의 경우 Material만으로는 구분이 어려우므로,
+     * 룰렛에 등록된 아이템의 ItemMeta를 비교하여 정확히 매칭
      */
     private fun getRouletteIdFromItem(item: ItemStack): Int? {
-        // Vanilla 아이템 확인
-        val vanillaRouletteId = manager.getRouletteIdByScrollItem(ItemProvider.VANILLA, item.type.name)
-        if (vanillaRouletteId != null) {
-            return vanillaRouletteId
-        }
-
-        // Nexo 아이템 확인
+        // Nexo 아이템 확인 (우선순위 높음 - 더 정확함)
         val nexoItemId = getNexoItemId(item)
         if (nexoItemId != null) {
             val nexoRouletteId = manager.getRouletteIdByScrollItem(ItemProvider.NEXO, nexoItemId)
@@ -113,7 +110,46 @@ class ScrollRouletteListener(
             }
         }
 
+        // Vanilla 아이템 확인
+        // Material만으로 매칭하면 오탐지 가능성이 있으므로,
+        // DB에 등록된 아이템과 정확히 일치하는지 확인
+        val vanillaRouletteId = manager.getRouletteIdByScrollItem(ItemProvider.VANILLA, item.type.name)
+        if (vanillaRouletteId != null) {
+            // 추가 검증: 해당 룰렛의 스크롤 아이템과 ItemMeta 비교
+            val config = manager.getRouletteById(vanillaRouletteId)
+            if (config != null && isVanillaItemMatch(item, config.itemCode)) {
+                return vanillaRouletteId
+            }
+        }
+
         return null
+    }
+    
+    /**
+     * Vanilla 아이템 매칭 확인
+     * - Material 이름이 일치하고
+     * - CustomModelData가 없는 일반 아이템인 경우에만 true 반환
+     * - 또는 특정 DisplayName을 가진 경우만 true 반환 (추후 확장 가능)
+     */
+    private fun isVanillaItemMatch(item: ItemStack, expectedMaterial: String): Boolean {
+        // Material 확인
+        if (item.type.name != expectedMaterial) {
+            return false
+        }
+        
+        // ItemMeta가 없거나 기본 상태인 경우 true
+        // CustomModelData가 있으면 이건 비바닐라 커스텀 아이템일 수 있음
+        val meta = item.itemMeta
+        if (meta == null) {
+            return true
+        }
+        
+        // CustomModelData가 있으면 Nexo/Oraxen 등의 아이템일 수 있으므로 거부
+        if (meta.hasCustomModelData()) {
+            return false
+        }
+        
+        return true
     }
 
     /**
@@ -185,6 +221,24 @@ class ScrollRouletteListener(
 
         // GUI 닫기 처리 (애니메이션 중이면 즉시 결과 처리)
         gui.onClose()
+    }
+
+    /**
+     * 플레이어 퇴장 이벤트 처리
+     * - 활성 세션이 있으면 정리
+     */
+    @EventHandler
+    fun onPlayerQuit(event: PlayerQuitEvent) {
+        val player = event.player
+        
+        // 활성 세션 확인
+        val gui = manager.getSession(player) ?: return
+        
+        plugin.logger.info("[ScrollRoulette] 플레이어 ${player.name}가 룰렛 진행 중 퇴장했습니다. 세션을 정리합니다.")
+        
+        // 강제 종료 (아이템 지급 및 세션 정리)
+        gui.forceStop()
+        manager.endSession(player)
     }
 
     /**

@@ -234,18 +234,6 @@ class ScrollRouletteGUI(
         currentTick = 0
         currentOffset = 0
 
-        // 히스토리 저장 (비동기)
-        val probability = manager.calculateWinProbability(rouletteId, winningItem!!)
-        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
-            manager.saveHistory(
-                rouletteId = rouletteId,
-                playerUuid = player.uniqueId.toString(),
-                playerName = player.name,
-                item = winningItem!!,
-                winProbability = probability
-            )
-        })
-
         animationTask = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
             if (currentTick >= ANIMATION_DURATION) {
                 // 애니메이션 종료
@@ -287,8 +275,8 @@ class ScrollRouletteGUI(
         // 최종 당첨 아이템 표시
         showWinningItem()
 
-        // 파티클 효과
-        player.spawnParticle(Particle.END_ROD, player.location.add(0.0, 2.0, 0.0), 50, 0.5, 0.5, 0.5, 0.1)
+        // 파티클 효과 (clone()으로 원본 Location 보호)
+        player.spawnParticle(Particle.END_ROD, player.location.clone().add(0.0, 2.0, 0.0), 50, 0.5, 0.5, 0.5, 0.1)
 
         // 당첨 사운드
         player.playSound(player.location, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
@@ -297,6 +285,7 @@ class ScrollRouletteGUI(
         plugin.server.scheduler.runTaskLater(plugin, Runnable {
             if (!player.isOnline) {
                 plugin.logger.warning("[ScrollRoulette] 플레이어가 로그아웃하여 아이템 지급을 건너뜁니다. (플레이어: ${player.name})")
+                manager.endSession(player)
                 return@Runnable
             }
 
@@ -372,6 +361,10 @@ class ScrollRouletteGUI(
             player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
             player.playSound(player.location, Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f)
             awarded = true
+            
+            // 히스토리 저장 (아이템 지급 완료 후)
+            saveHistoryAsync(winning)
+            
             winningItem = null
             return
         }
@@ -382,14 +375,35 @@ class ScrollRouletteGUI(
         val emptySlot = player.inventory.firstEmpty()
         if (emptySlot == -1) {
             player.sendMessage("§c인벤토리에 공간이 없어 아이템이 바닥에 떨어졌습니다!")
-            player.world.dropItem(player.location, winItem)
+            // 위치 복사하여 드롭 (플레이어 이동 시 문제 방지)
+            player.world.dropItem(player.location.clone(), winItem)
         } else {
             player.inventory.addItem(winItem)
         }
 
         // 지급 완료 플래그 설정
         awarded = true
+        
+        // 히스토리 저장 (아이템 지급 완료 후)
+        saveHistoryAsync(winning)
+        
         winningItem = null
+    }
+    
+    /**
+     * 히스토리 저장 (비동기)
+     */
+    private fun saveHistoryAsync(item: ScrollRouletteItem) {
+        val probability = manager.calculateWinProbability(rouletteId, item)
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            manager.saveHistory(
+                rouletteId = rouletteId,
+                playerUuid = player.uniqueId.toString(),
+                playerName = player.name,
+                item = item,
+                winProbability = probability
+            )
+        })
     }
 
     /**
@@ -398,8 +412,12 @@ class ScrollRouletteGUI(
     fun onClose() {
         if (isAnimating) {
             // 애니메이션 중이면 즉시 결과 처리
+            // skipAnimation 내부에서 아이템 지급 및 세션 종료까지 처리
             skipAnimation()
         }
+        // awarded == true인 경우: 정상 종료
+        // awarded == false && !isAnimating: stopAnimation의 runTaskLater가 아직 실행 중
+        // 이 경우 runTaskLater에서 세션 종료 처리됨
     }
 
     /**
@@ -418,8 +436,8 @@ class ScrollRouletteGUI(
         // 최종 당첨 아이템 표시
         showWinningItem()
 
-        // 파티클 효과
-        player.spawnParticle(Particle.END_ROD, player.location.add(0.0, 2.0, 0.0), 50, 0.5, 0.5, 0.5, 0.1)
+        // 파티클 효과 (clone()으로 원본 Location 보호)
+        player.spawnParticle(Particle.END_ROD, player.location.clone().add(0.0, 2.0, 0.0), 50, 0.5, 0.5, 0.5, 0.1)
 
         // 당첨 사운드
         player.playSound(player.location, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
@@ -452,30 +470,36 @@ class ScrollRouletteGUI(
             if (winning != null && player.isOnline) {
                 player.sendMessage("§e[스크롤 룰렛] 서버 리로드로 인해 룰렛이 중단되었습니다.")
 
-                // 당첨 아이템 즉시 지급
-                
+                // 지급 완료 플래그 먼저 설정 (중복 방지)
+                awarded = true
+
                 // 꽝 체크 (VANILLA + BARRIER)
                 if (winning.itemProvider == ItemProvider.VANILLA && winning.itemCode == "BARRIER") {
                     player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
-                    awarded = true
+                    // 히스토리 저장 (꽝도 기록)
+                    saveHistoryAsync(winning)
                     winningItem = null
                     return
                 }
 
+                // 당첨 아이템 즉시 지급
                 val winItem = winning.toItemStack()
                 if (winItem != null) {
                     val emptySlot = player.inventory.firstEmpty()
                     if (emptySlot == -1) {
                         player.sendMessage("§c인벤토리에 공간이 없어 아이템이 바닥에 떨어졌습니다!")
-                        player.world.dropItem(player.location, winItem)
+                        // 위치 복사하여 드롭 (플레이어 이동 시 문제 방지)
+                        player.world.dropItem(player.location.clone(), winItem)
                     } else {
                         player.inventory.addItem(winItem)
                         val itemName = winning.itemDisplayName ?: winItem.type.name
                         player.sendMessage("§a당첨 아이템이 지급되었습니다! §f$itemName §ax${winItem.amount}")
                     }
+
+                    // 히스토리 저장 (아이템 지급 완료 후)
+                    saveHistoryAsync(winning)
                 }
 
-                awarded = true
                 winningItem = null
             }
         }

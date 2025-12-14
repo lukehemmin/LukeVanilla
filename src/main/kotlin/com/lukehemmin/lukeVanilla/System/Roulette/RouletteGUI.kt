@@ -23,7 +23,8 @@ class RouletteGUI(
     private val manager: RouletteManager,
     private val player: Player,
     private val rouletteId: Int,
-    private val paidWithKey: Boolean = false
+    private val paidWithKey: Boolean = false,
+    private val onSkipComplete: (() -> Unit)? = null  // 건너뛰기 완료 시 콜백 (새 GUI 열기용)
 ) {
     private lateinit var inventory: Inventory
     private var animationTask: BukkitTask? = null
@@ -31,11 +32,16 @@ class RouletteGUI(
     private var winningItem: RouletteItem? = null
     private var isAnimating = false
     private var awarded = false
+    private var isSkipping = false  // 건너뛰기 중복 방지 플래그
     private var hasStartedOnce = false  // 세션당 한 번만 시작 가능
+    private val startLock = Any()  // 시작 동기화 락
 
     // 아이템 순환 리스트
     private val itemCycle = mutableListOf<ItemStack>()
     private var currentRotation = 0
+
+    // 히스토리 저장용 데이터 (아이템 지급 후 저장)
+    private var historyProbability: Double = 0.0
 
     companion object {
         // 애니메이션 설정 상수
@@ -244,17 +250,36 @@ class RouletteGUI(
     }
 
     /**
-     * 애니메이션 시작 (네더별 클릭 시 호출됨)
+     * 애니메이션 시작 시도 (원자적 - 비용 차감 전에 호출)
+     * @return true: 시작 가능, false: 이미 시작됨
+     */
+    fun tryStart(): Boolean {
+        synchronized(startLock) {
+            if (hasStartedOnce) return false
+            hasStartedOnce = true
+            return true
+        }
+    }
+
+    /**
+     * 시작 상태 리셋 (비용 지불 실패 시 호출)
+     */
+    fun resetStart() {
+        synchronized(startLock) {
+            hasStartedOnce = false
+        }
+    }
+
+    /**
+     * 애니메이션 시작 (네더별 클릭 후 비용 차감 완료 시 호출됨)
+     * tryStart()가 true를 반환한 후에만 호출되어야 함
      */
     fun startAnimation() {
-        // 이미 룰렛을 시작한 적이 있으면 무시 (세션당 한 번만 가능)
-        if (hasStartedOnce) {
-            player.sendMessage("§c이미 룰렛이 시작되었습니다!")
+        // 이미 시작된 상태 체크 (방어 코드)
+        if (!hasStartedOnce) {
+            plugin.logger.warning("[Roulette] startAnimation called without tryStart!")
             return
         }
-        
-        // 시작 플래그 즉시 설정 (중복 호출 차단)
-        hasStartedOnce = true
 
         // 당첨 아이템 결정
         winningItem = manager.selectRandomItem(rouletteId)
@@ -263,31 +288,13 @@ class RouletteGUI(
             return
         }
 
-        // 확률 계산
+        // 확률 계산 (히스토리 저장용으로 저장)
         val totalWeight = manager.getItems(rouletteId).sumOf { it.weight }
-        val probability = if (totalWeight > 0.0) {
+        historyProbability = if (totalWeight > 0.0) {
             (winningItem!!.weight / totalWeight) * 100.0
         } else {
             0.0
         }
-
-        // 비용 기록 (열쇠 사용 시 0원)
-        val config = manager.getRouletteById(rouletteId)
-        val actualCost = if (paidWithKey) 0.0 else (config?.costAmount ?: 0.0)
-
-        // DB에 히스토리 기록 (비동기)
-        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
-            manager.saveHistory(
-                rouletteId = rouletteId,
-                playerUuid = player.uniqueId.toString(),
-                playerName = player.name,
-                itemId = winningItem!!.id,
-                itemProvider = winningItem!!.itemProvider.name,
-                itemIdentifier = winningItem!!.itemIdentifier,
-                costPaid = actualCost,
-                probability = probability
-            )
-        })
 
         // 아이템 순환 리스트 생성
         createItemCycle()
@@ -407,6 +414,30 @@ class RouletteGUI(
             val itemName = winning.itemDisplayName ?: winItem.type.name
             player.sendMessage("§e§l[ 룰렛 ] §a당첨! §f$itemName §ax${winItem.amount}")
         }
+
+        // 중앙 버튼을 결과 표시로 업데이트 (스크린샷 문제 수정)
+        val centerItem = ItemStack(CENTER_INFO_MATERIAL)
+        val centerMeta = centerItem.itemMeta
+        if (isLose) {
+            centerMeta?.setDisplayName("§c§l꽝!")
+            centerMeta?.lore = listOf(
+                "",
+                "§7아쉽지만 다음 기회에!",
+                "",
+                "§8§l[ 곧 닫힙니다... ]"
+            )
+        } else {
+            val itemName = winning.itemDisplayName ?: winItem.type.name
+            centerMeta?.setDisplayName("§a§l당첨!")
+            centerMeta?.lore = listOf(
+                "",
+                "§f$itemName §ax${winItem.amount}",
+                "",
+                "§8§l[ 곧 닫힙니다... ]"
+            )
+        }
+        centerItem.itemMeta = centerMeta
+        inventory.setItem(SLOT_CENTER_BUTTON, centerItem)
     }
 
     /**
@@ -421,11 +452,15 @@ class RouletteGUI(
 
         val winning = winningItem ?: return
 
+        // 지급 완료 플래그 먼저 설정 (중복 방지)
+        awarded = true
+
         // 꽝 체크 (VANILLA + BARRIER)
         if (winning.itemProvider == ItemProvider.VANILLA && winning.itemIdentifier == "BARRIER") {
             player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
             player.playSound(player.location, Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f)
-            awarded = true
+            // 히스토리 저장 (꽝도 기록)
+            saveHistoryAsync(winning)
             winningItem = null
             return
         }
@@ -436,14 +471,36 @@ class RouletteGUI(
         val emptySlot = player.inventory.firstEmpty()
         if (emptySlot == -1) {
             player.sendMessage("§c인벤토리에 공간이 없어 아이템이 바닥에 떨어졌습니다!")
-            player.world.dropItem(player.location, winItem)
+            // 위치 복사하여 드롭 (플레이어 이동 시 문제 방지)
+            player.world.dropItem(player.location.clone(), winItem)
         } else {
             player.inventory.addItem(winItem)
         }
 
-        // 지급 완료 플래그 설정
-        awarded = true
+        // 히스토리 저장 (아이템 지급 완료 후)
+        saveHistoryAsync(winning)
         winningItem = null
+    }
+
+    /**
+     * 히스토리 저장 (비동기)
+     */
+    private fun saveHistoryAsync(winning: RouletteItem) {
+        val config = manager.getRouletteById(rouletteId)
+        val actualCost = if (paidWithKey) 0.0 else (config?.costAmount ?: 0.0)
+
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            manager.saveHistory(
+                rouletteId = rouletteId,
+                playerUuid = player.uniqueId.toString(),
+                playerName = player.name,
+                itemId = winning.id,
+                itemProvider = winning.itemProvider.name,
+                itemIdentifier = winning.itemIdentifier,
+                costPaid = actualCost,
+                probability = historyProbability
+            )
+        })
     }
 
     /**
@@ -475,10 +532,14 @@ class RouletteGUI(
             if (winning != null && player.isOnline) {
                 player.sendMessage("§e[룰렛] 서버 리로드로 인해 룰렛이 중단되었습니다.")
 
+                // 지급 완료 플래그 먼저 설정
+                awarded = true
+
                 // 꽝 체크 (VANILLA + BARRIER)
                 if (winning.itemProvider == ItemProvider.VANILLA && winning.itemIdentifier == "BARRIER") {
                     player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
-                    awarded = true
+                    // 히스토리 저장
+                    saveHistoryAsync(winning)
                     winningItem = null
                     return
                 }
@@ -490,16 +551,17 @@ class RouletteGUI(
                     val emptySlot = player.inventory.firstEmpty()
                     if (emptySlot == -1) {
                         player.sendMessage("§c인벤토리에 공간이 없어 아이템이 바닥에 떨어졌습니다!")
-                        player.world.dropItem(player.location, winItem)
+                        player.world.dropItem(player.location.clone(), winItem)
                     } else {
                         player.inventory.addItem(winItem)
                         val itemName = winning.itemDisplayName ?: winItem.type.name
                         player.sendMessage("§a당첨 아이템이 지급되었습니다! §f$itemName §ax${winItem.amount}")
                     }
+
+                    // 히스토리 저장
+                    saveHistoryAsync(winning)
                 }
 
-                // 지급 완료 플래그 설정
-                awarded = true
                 winningItem = null
             }
         }
@@ -509,20 +571,19 @@ class RouletteGUI(
      * 애니메이션 건너뛰기 (플레이어가 중앙 버튼 클릭 시 호출)
      */
     fun skipAnimation() {
-        // 애니메이션 중이 아니면 무시
-        if (!isAnimating) {
+        // 애니메이션 중이 아니거나 이미 건너뛰기 중이면 무시
+        if (!isAnimating || isSkipping) {
             return
         }
+
+        // 건너뛰기 상태 즉시 설정 (중복 호출 방지)
+        isSkipping = true
 
         // 애니메이션 작업 취소
         animationTask?.cancel()
         animationTask = null
-        // isAnimating은 아이템 지급 후에 false로 변경 (레이스 컨디션 방지)
 
         player.sendMessage("§e룰렛을 건너뛰었습니다!")
-
-        // 최종 당첨 아이템 표시
-        showWinningItem()
 
         // 파티클 효과
         player.spawnParticle(Particle.END_ROD, player.location.add(0.0, 2.0, 0.0), 50, 0.5, 0.5, 0.5, 0.1)
@@ -530,19 +591,33 @@ class RouletteGUI(
         // 당첨 사운드
         player.playSound(player.location, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
 
-        // 1초 후 아이템 지급 및 GUI 닫기 (건너뛰었으므로 더 빨리)
-        plugin.server.scheduler.runTaskLater(plugin, Runnable {
-            // 플레이어가 여전히 온라인인지 확인
-            if (!player.isOnline) {
-                plugin.logger.warning("[Roulette] 플레이어가 로그아웃하여 아이템 지급을 건너뜁니다. (플레이어: ${player.name})")
-                isAnimating = false  // 상태 정리
-                return@Runnable
+        // 즉시 아이템 지급 (메시지는 showWinningItem 대신 여기서 처리)
+        val winning = winningItem
+        if (winning != null) {
+            val isLose = winning.itemProvider == ItemProvider.VANILLA && winning.itemIdentifier == "BARRIER"
+            val winItem = winning.toItemStack()
+            
+            if (isLose) {
+                player.sendMessage("§e§l[ 룰렛 ] §c꽝! §7아쉽지만 다음 기회에!")
+            } else if (winItem != null) {
+                val itemName = winning.itemDisplayName ?: winItem.type.name
+                player.sendMessage("§e§l[ 룰렛 ] §a당첨! §f$itemName §ax${winItem.amount}")
             }
+        }
+        
+        giveWinningItem()
 
-            giveWinningItem()
-            isAnimating = false  // 아이템 지급 후에 상태 변경
+        // 상태 정리
+        isAnimating = false
+        isSkipping = false
+
+        // 콜백이 있으면 호출 (새 GUI 열기), 없으면 그냥 닫기
+        if (onSkipComplete != null) {
+            // 세션 종료는 콜백에서 새 GUI 열기 전에 처리됨
+            onSkipComplete.invoke()
+        } else {
             player.closeInventory()
-        }, 20L) // 2초가 아닌 1초로 단축
+        }
     }
 
 
