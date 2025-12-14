@@ -208,13 +208,7 @@ commands:
     usage: "/스크롤룰렛 [생성|목록|아이템추가|아이템목록|아이템삭제|삭제|리로드]"
     permission: "lukevanilla.scrollroulette.admin"
     permission-message: "이 명령어를 사용할 권한이 없습니다."
-    aliases: [scrollroulette]
-  scrollroulette:
-    description: "Manage scroll roulette system."
-    usage: "/scrollroulette [create|list|additem|items|removeitem|delete|reload]"
-    permission: "lukevanilla.scrollroulette.admin"
-    permission-message: "You do not have permission to use this command."
-    aliases: [스크롤룰렛]
+
 
 permissions:
   lukevanilla.nametag:

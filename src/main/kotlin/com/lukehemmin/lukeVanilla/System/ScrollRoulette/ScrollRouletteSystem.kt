@@ -36,9 +36,7 @@ class ScrollRouletteSystem(
         plugin.getCommand("스크롤룰렛")?.setExecutor(command)
         plugin.getCommand("스크롤룰렛")?.tabCompleter = command
         
-        // 영어 별칭도 등록
-        plugin.getCommand("scrollroulette")?.setExecutor(command)
-        plugin.getCommand("scrollroulette")?.tabCompleter = command
+
 
         plugin.logger.info("[ScrollRoulette] 스크롤 룰렛 시스템 초기화 완료!")
     }
