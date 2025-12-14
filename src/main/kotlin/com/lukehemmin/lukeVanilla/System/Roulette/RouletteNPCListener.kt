@@ -144,10 +144,13 @@ class RouletteNPCListener(
         if (event.slot == 22) {
             val clickedItem = event.currentItem
             if (clickedItem?.type == org.bukkit.Material.NETHER_STAR) {
-                // 이미 룰렛이 돌아가고 있는지 확인
-                if (gui.isAnimating()) {
-                    // 애니메이션 건너뛰기
-                    gui.skipAnimation()
+                // 이미 룰렛이 시작된 적이 있으면 건너뛰기 또는 무시
+                if (gui.hasStartedOnce()) {
+                    // 애니메이션이 돌아가고 있으면 건너뛰기
+                    if (gui.isAnimating()) {
+                        gui.skipAnimation()
+                    }
+                    // 이미 시작된 룰렛은 다시 시작할 수 없음
                     return
                 }
 

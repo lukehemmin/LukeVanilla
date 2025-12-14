@@ -31,6 +31,7 @@ class RouletteGUI(
     private var winningItem: RouletteItem? = null
     private var isAnimating = false
     private var awarded = false
+    private var hasStartedOnce = false  // 세션당 한 번만 시작 가능
 
     // 아이템 순환 리스트
     private val itemCycle = mutableListOf<ItemStack>()
@@ -246,11 +247,14 @@ class RouletteGUI(
      * 애니메이션 시작 (네더별 클릭 시 호출됨)
      */
     fun startAnimation() {
-        // 이미 애니메이션 중이면 무시
-        if (isAnimating) {
-            player.sendMessage("§c이미 룰렛이 돌아가고 있습니다!")
+        // 이미 룰렛을 시작한 적이 있으면 무시 (세션당 한 번만 가능)
+        if (hasStartedOnce) {
+            player.sendMessage("§c이미 룰렛이 시작되었습니다!")
             return
         }
+        
+        // 시작 플래그 즉시 설정 (중복 호출 차단)
+        hasStartedOnce = true
 
         // 당첨 아이템 결정
         winningItem = manager.selectRandomItem(rouletteId)
@@ -513,7 +517,7 @@ class RouletteGUI(
         // 애니메이션 작업 취소
         animationTask?.cancel()
         animationTask = null
-        isAnimating = false
+        // isAnimating은 아이템 지급 후에 false로 변경 (레이스 컨디션 방지)
 
         player.sendMessage("§e룰렛을 건너뛰었습니다!")
 
@@ -531,10 +535,12 @@ class RouletteGUI(
             // 플레이어가 여전히 온라인인지 확인
             if (!player.isOnline) {
                 plugin.logger.warning("[Roulette] 플레이어가 로그아웃하여 아이템 지급을 건너뜁니다. (플레이어: ${player.name})")
+                isAnimating = false  // 상태 정리
                 return@Runnable
             }
 
             giveWinningItem()
+            isAnimating = false  // 아이템 지급 후에 상태 변경
             player.closeInventory()
         }, 20L) // 2초가 아닌 1초로 단축
     }
@@ -544,6 +550,11 @@ class RouletteGUI(
      * 현재 애니메이션 중인지 확인
      */
     fun isAnimating(): Boolean = isAnimating
+
+    /**
+     * 이미 룰렛을 시작한 적이 있는지 확인 (세션당 한 번만 가능)
+     */
+    fun hasStartedOnce(): Boolean = hasStartedOnce
 
     /**
      * 인벤토리 가져오기 (GUI를 다시 열기 위해)

@@ -1,6 +1,6 @@
 package com.lukehemmin.lukeVanilla.System.ScrollRoulette
 
-import org.bukkit.Bukkit
+import com.lukehemmin.lukeVanilla.System.Roulette.ItemProvider
 import org.bukkit.Material
 import org.bukkit.Particle
 import org.bukkit.Sound
@@ -313,10 +313,21 @@ class ScrollRouletteGUI(
         val winItem = winning.toItemStack() ?: return
 
         // 당첨 아이템에 효과 추가
+        // 꽝 체크 (VANILLA + BARRIER)
+        val isLose = winning.itemProvider == ItemProvider.VANILLA && winning.itemCode == "BARRIER"
+
         val meta = winItem.itemMeta
         val lore = meta?.lore?.toMutableList() ?: mutableListOf()
+        val totalProb = manager.getItems(rouletteId).sumOf { it.probability }
+        val actualProb = if (totalProb > 0) (winningItem!!.probability / totalProb) * 100 else 0.0
+        
         lore.add("")
-        lore.add("§e§l★ 당첨! ★")
+        if (isLose) {
+            lore.add("§c§l✕ 꽝! ✕")
+        } else {
+            lore.add("§e§l★ 당첨! ★")
+        }
+        lore.add("§7확률: §e${String.format("%.2f", actualProb)}%")
         lore.add("")
         meta?.lore = lore
         winItem.itemMeta = meta
@@ -335,7 +346,12 @@ class ScrollRouletteGUI(
         // 플레이어에게 메시지 전송
         val itemName = winning.itemDisplayName ?: winItem.type.name
         val probability = manager.calculateWinProbability(rouletteId, winning)
-        player.sendMessage("§e§l[ 스크롤 룰렛 ] §a당첨! §f$itemName §ax${winning.itemAmount} §7(${String.format("%.2f", probability)}%)")
+        
+        if (isLose) {
+            player.sendMessage("§e§l[ 스크롤 룰렛 ] §c꽝! §7아쉽지만 다음 기회에! §7(${String.format("%.2f", probability)}%)")
+        } else {
+            player.sendMessage("§e§l[ 스크롤 룰렛 ] §a당첨! §f$itemName §ax${winning.itemAmount} §7(${String.format("%.2f", probability)}%)")
+        }
     }
 
     /**
@@ -349,6 +365,16 @@ class ScrollRouletteGUI(
         }
 
         val winning = winningItem ?: return
+        
+        // 꽝 체크 (VANILLA + BARRIER)
+        if (winning.itemProvider == ItemProvider.VANILLA && winning.itemCode == "BARRIER") {
+            player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
+            player.playSound(player.location, Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f)
+            awarded = true
+            winningItem = null
+            return
+        }
+        
         val winItem = winning.toItemStack() ?: return
 
         // 인벤토리에 공간이 있는지 확인
@@ -426,6 +452,15 @@ class ScrollRouletteGUI(
                 player.sendMessage("§e[스크롤 룰렛] 서버 리로드로 인해 룰렛이 중단되었습니다.")
 
                 // 당첨 아이템 즉시 지급
+                
+                // 꽝 체크 (VANILLA + BARRIER)
+                if (winning.itemProvider == ItemProvider.VANILLA && winning.itemCode == "BARRIER") {
+                    player.sendMessage("§c§l[ 꽝 ] §7아쉽지만 다음 기회에!")
+                    awarded = true
+                    winningItem = null
+                    return
+                }
+
                 val winItem = winning.toItemStack()
                 if (winItem != null) {
                     val emptySlot = player.inventory.firstEmpty()
