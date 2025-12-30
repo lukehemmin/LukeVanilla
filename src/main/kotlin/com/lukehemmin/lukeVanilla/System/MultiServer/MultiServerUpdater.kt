@@ -172,26 +172,61 @@ class MultiServerUpdater(
     }
 
     /**
-     * 현재 온라인 플레이어들을 DB에 등록
+     * 현재 온라인 플레이어들을 DB에 등록 (비동기)
      */
     private fun registerCurrentOnlinePlayers() {
-        Bukkit.getOnlinePlayers().forEach { player ->
+        val players = Bukkit.getOnlinePlayers().toList()
+        if (players.isEmpty()) return
+        
+        // 각 플레이어를 비동기로 등록 (addOnlinePlayer가 이미 비동기 처리)
+        players.forEach { player ->
             addOnlinePlayer(player)
         }
+        
+        plugin.logger.info("[MultiServerUpdater] ${players.size}명의 플레이어를 DB에 등록 요청")
     }
 
     /**
-     * 모든 온라인 플레이어를 DB에서 제거
+     * 모든 온라인 플레이어를 DB에서 제거 (비동기)
      */
     private fun clearAllOnlinePlayers() {
-        onlinePlayersCache.keys.forEach { playerUuid ->
-            try {
-                database.removeOnlinePlayer(SERVER_NAME, playerUuid)
-            } catch (e: Exception) {
-                plugin.logger.warning("[MultiServerUpdater] 플레이어 제거 실패: $playerUuid")
-            }
-        }
+        val playerCount = onlinePlayersCache.size
         onlinePlayersCache.clear()
+        
+        if (playerCount == 0) return
+        
+        // 서버 종료 시에는 가능한 빨리 완료해야 하므로 동기 처리하되 별도 스레드에서 실행
+        // 단일 쿼리로 해당 서버의 모든 플레이어를 한 번에 제거
+        val asyncManager = database.getAsyncManager()
+        if (asyncManager != null) {
+            val query = "DELETE FROM server_online_players WHERE server_name = ?"
+            asyncManager.executeUpdateAsync(
+                query = query,
+                params = listOf(SERVER_NAME),
+                onSuccess = {
+                    plugin.logger.info("[MultiServerUpdater] 서버 종료: ${playerCount}명의 플레이어 정보 DB에서 제거 완료")
+                },
+                onFailure = { e ->
+                    plugin.logger.warning("[MultiServerUpdater] 전체 플레이어 제거 실패: ${e.message}")
+                }
+            )
+        } else {
+            // AsyncManager가 없으면 직접 비동기로 실행
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+                try {
+                    val query = "DELETE FROM server_online_players WHERE server_name = ?"
+                    database.getConnection().use { connection ->
+                        connection.prepareStatement(query).use { statement ->
+                            statement.setString(1, SERVER_NAME)
+                            statement.executeUpdate()
+                        }
+                    }
+                    plugin.logger.info("[MultiServerUpdater] 서버 종료: ${playerCount}명의 플레이어 정보 DB에서 제거 완료")
+                } catch (e: Exception) {
+                    plugin.logger.warning("[MultiServerUpdater] 전체 플레이어 제거 실패: ${e.message}")
+                }
+            })
+        }
     }
 
     /**
@@ -215,40 +250,98 @@ class MultiServerUpdater(
     }
 
     /**
-     * 온라인 플레이어를 DB에 추가
+     * 온라인 플레이어를 DB에 추가 (비동기)
      */
     private fun addOnlinePlayer(player: Player) {
-        try {
-            val uuid = player.uniqueId.toString()
-            val location = player.location
+        val uuid = player.uniqueId.toString()
+        val name = player.name
+        val displayName = player.displayName
+        val location = player.location
+        val world = location.world?.name
+        val x = location.x
+        val y = location.y
+        val z = location.z
+        
+        // 캐시는 즉시 업데이트 (동기)
+        onlinePlayersCache[uuid] = System.currentTimeMillis()
+        
+        // DB 작업은 비동기로 실행
+        val asyncManager = database.getAsyncManager()
+        if (asyncManager != null) {
+            val query = """
+                INSERT INTO server_online_players 
+                (server_name, player_uuid, player_name, player_displayname, 
+                 location_world, location_x, location_y, location_z, join_time, last_update)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    player_name = VALUES(player_name),
+                    player_displayname = VALUES(player_displayname),
+                    location_world = VALUES(location_world),
+                    location_x = VALUES(location_x),
+                    location_y = VALUES(location_y),
+                    location_z = VALUES(location_z),
+                    last_update = NOW()
+            """.trimIndent()
             
-            database.updateOnlinePlayer(
-                serverName = SERVER_NAME,
-                playerUuid = uuid,
-                playerName = player.name,
-                playerDisplayName = player.displayName,
-                locationWorld = location.world?.name,
-                locationX = location.x,
-                locationY = location.y,
-                locationZ = location.z
+            asyncManager.executeUpdateAsync(
+                query = query,
+                params = listOf(SERVER_NAME, uuid, name, displayName, world, x, y, z),
+                onFailure = { e ->
+                    plugin.logger.warning("[MultiServerUpdater] 플레이어 추가 실패: $name - ${e.message}")
+                }
             )
-            
-            onlinePlayersCache[uuid] = System.currentTimeMillis()
-        } catch (e: Exception) {
-            plugin.logger.warning("[MultiServerUpdater] 플레이어 추가 실패: ${player.name} - ${e.message}")
+        } else {
+            // AsyncManager가 없으면 Bukkit 스케줄러로 비동기 실행
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+                try {
+                    database.updateOnlinePlayer(
+                        serverName = SERVER_NAME,
+                        playerUuid = uuid,
+                        playerName = name,
+                        playerDisplayName = displayName,
+                        locationWorld = world,
+                        locationX = x,
+                        locationY = y,
+                        locationZ = z
+                    )
+                } catch (e: Exception) {
+                    plugin.logger.warning("[MultiServerUpdater] 플레이어 추가 실패: $name - ${e.message}")
+                }
+            })
         }
     }
 
     /**
-     * 온라인 플레이어를 DB에서 제거
+     * 온라인 플레이어를 DB에서 제거 (비동기)
+     * 메인 스레드 블로킹을 방지하기 위해 AsyncDatabaseManager를 활용
      */
     private fun removeOnlinePlayer(player: Player) {
-        try {
-            val uuid = player.uniqueId.toString()
-            database.removeOnlinePlayer(SERVER_NAME, uuid)
-            onlinePlayersCache.remove(uuid)
-        } catch (e: Exception) {
-            plugin.logger.warning("[MultiServerUpdater] 플레이어 제거 실패: ${player.name} - ${e.message}")
+        val uuid = player.uniqueId.toString()
+        val name = player.name
+        
+        // 캐시는 즉시 업데이트 (동기)
+        onlinePlayersCache.remove(uuid)
+        
+        // DB 작업은 비동기로 실행
+        val asyncManager = database.getAsyncManager()
+        if (asyncManager != null) {
+            val query = "DELETE FROM server_online_players WHERE server_name = ? AND player_uuid = ?"
+            asyncManager.executeUpdateAsync(
+                query = query,
+                params = listOf(SERVER_NAME, uuid),
+                onFailure = { e ->
+                    plugin.logger.warning("[MultiServerUpdater] 플레이어 제거 실패: $name - ${e.message}")
+                }
+            )
+        } else {
+            // AsyncManager가 없으면 Bukkit 스케줄러로 비동기 실행
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+                try {
+                    database.removeOnlinePlayer(SERVER_NAME, uuid)
+                } catch (e: Exception) {
+                    plugin.logger.warning("[MultiServerUpdater] 플레이어 제거 실패: $name - ${e.message}")
+                }
+            })
         }
     }
 
